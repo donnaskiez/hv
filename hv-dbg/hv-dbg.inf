@@ -1,0 +1,77 @@
+;
+; hv-dbg.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System ; TODO: specify appropriate Class
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Provider=%ManufacturerName%
+CatalogFile=hv-dbg.cat
+DriverVer= ; TODO: set DriverVer in stampinf property pages
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+hv-dbg_Device_CoInstaller_CopyFiles = 11
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+hv-dbg.sys  = 1,,
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%hv-dbg.DeviceDesc%=hv-dbg_Device, Root\hv-dbg ; TODO: edit hw-id
+
+[hv-dbg_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+hv-dbg.sys
+
+;-------------- Service installation
+[hv-dbg_Device.NT.Services]
+AddService = hv-dbg,%SPSVCINST_ASSOCSERVICE%, hv-dbg_Service_Inst
+
+; -------------- hv-dbg driver install sections
+[hv-dbg_Service_Inst]
+DisplayName    = %hv-dbg.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\hv-dbg.sys
+
+;
+;--- hv-dbg_Device Coinstaller installation ------
+;
+
+[hv-dbg_Device.NT.CoInstallers]
+AddReg=hv-dbg_Device_CoInstaller_AddReg
+CopyFiles=hv-dbg_Device_CoInstaller_CopyFiles
+
+[hv-dbg_Device_CoInstaller_AddReg]
+HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+
+[hv-dbg_Device_CoInstaller_CopyFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+
+[hv-dbg_Device.NT.Wdf]
+KmdfService =  hv-dbg, hv-dbg_wdfsect
+[hv-dbg_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+DiskName = "hv-dbg Installation Disk"
+hv-dbg.DeviceDesc = "hv-dbg Device"
+hv-dbg.SVCDESC = "hv-dbg Service"
