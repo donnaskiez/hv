@@ -14,12 +14,12 @@ hvdbgIsVmxSupported()
 //source: 3c 23.6
 
     CPUID cpuid = { 0 };
-	IA32_FEATURE_CONTROL_MSR control_msr = { 0 };
+    IA32_FEATURE_CONTROL_MSR control_msr = { 0 };
 
     __cpuid((INT*)&cpuid, 1);
 
-	if ((cpuid.ecx & (1 << 5)) == FALSE)
-		return FALSE;
+    if ((cpuid.ecx & (1 << 5)) == FALSE)
+        return FALSE;
 
     //Here we enable the use of VMXON inside and outside of SMX
     //Bit 0 is the lockbit, if its set to 0 VMXON will cause an exception
@@ -40,45 +40,45 @@ hvdbgIsVmxSupported()
         DEBUG_LOG("VMX locked off in BIOS");
         return FALSE;
     }
-
+    
     return TRUE;
 }
 
 NTSTATUS 
 DriverEntry(
-	PDRIVER_OBJECT DriverObject,
-	PUNICODE_STRING RegistryPath
+    PDRIVER_OBJECT DriverObject,
+    PUNICODE_STRING RegistryPath
 )
 {
-	UNREFERENCED_PARAMETER(RegistryPath);
+    UNREFERENCED_PARAMETER(RegistryPath);
 
-	NTSTATUS status = STATUS_SUCCESS;
+    NTSTATUS status = STATUS_SUCCESS;
 
-	status = IoCreateDevice(
-		DriverObject,
-		0,
-		&device_name,
-		FILE_DEVICE_UNKNOWN,
-		FILE_DEVICE_SECURE_OPEN,
-		FALSE,
-		&DriverObject->DeviceObject
-	);
+    status = IoCreateDevice(
+        DriverObject,
+        0,
+        &device_name,
+        FILE_DEVICE_UNKNOWN,
+        FILE_DEVICE_SECURE_OPEN,
+        FALSE,
+        &DriverObject->DeviceObject
+    );
 
-	if (!NT_SUCCESS(status))
-		return STATUS_FAILED_DRIVER_ENTRY;
+    if (!NT_SUCCESS(status))
+        return STATUS_FAILED_DRIVER_ENTRY;
 
-	status = IoCreateSymbolicLink(
-		&device_link,
-		&device_name
-	);
+    status = IoCreateSymbolicLink(
+        &device_link,
+        &device_name
+    );
 
-	if (!NT_SUCCESS(status))
-	{
-		IoDeleteDevice(&DriverObject->DeviceObject);
-		return STATUS_FAILED_DRIVER_ENTRY;
-	}
+    if (!NT_SUCCESS(status))
+    {
+        IoDeleteDevice(&DriverObject->DeviceObject);
+        return STATUS_FAILED_DRIVER_ENTRY;
+    }
 
-	DEBUG_LOG("Driver entry complete");
+    DEBUG_LOG("Driver entry complete");
 
-	return status;
+    return status;
 }
