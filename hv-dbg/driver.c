@@ -5,15 +5,6 @@
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"hv-dbg");
 UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"hv-dbg-link");
 
-typedef struct _VMM_STATE
-{
-        UINT64 vmxon_region_va;
-        UINT64 vmcs_region_va;
-        UINT64 vmxon_region_pa;
-        UINT64 vmcs_region_pa;
-
-}VMM_STATE, *PVMM_STATE;
-
 PVMM_STATE vmm_state = NULL;
 
 /*
@@ -213,6 +204,34 @@ hvdbgInitiateVmxOperation()
         }
 
         return TRUE;
+}
+
+STATIC
+NTSTATUS
+hvdgInitiateGuestStateArea()
+{
+        NTSTATUS status = STATUS_SUCCESS;
+
+
+}
+
+STATIC
+VOID
+hvdbgTerminateVmx()
+{
+        for (ULONG index = 0; index < KeQueryActiveProcessorCount(0); index++)
+        {
+                KeSetSystemAffinityThread(1ull << index);
+                __vmx_off();
+
+                if (vmm_state[index].vmcs_region_va)
+                        MmFreeContiguousMemory(vmm_state[index].vmcs_region_va);
+
+                if (vmm_state[index].vmxon_region_va)
+                        MmFreeContiguousMemory(vmm_state[index].vmxon_region_va);
+        }
+
+        DEBUG_LOG("Vmx operation terminated");
 }
 
 NTSTATUS

@@ -10,6 +10,10 @@
 
 #define POOL_TAG_VMM 'vmmm'
 
+#define VMX_OK                  0 /* all ok */
+#define VMX_UNSUPPORTED 1 /* VT unsupported or disabled on 1+ cores */
+#define VMX_INUSE 
+
 typedef struct _CPUID
 {
         INT eax;
@@ -18,6 +22,15 @@ typedef struct _CPUID
         INT edx;
 
 } CPUID, * PCPUID;
+
+typedef struct _VMM_STATE
+{
+	UINT64 vmxon_region_va;
+	UINT64 vmcs_region_va;
+	UINT64 vmxon_region_pa;
+	UINT64 vmcs_region_pa;
+
+}VMM_STATE, * PVMM_STATE;
 
 #define MSR_APIC_BASE            0x01B
 #define MSR_IA32_FEATURE_CONTROL 0x03A

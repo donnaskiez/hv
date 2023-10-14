@@ -62,6 +62,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -108,11 +109,18 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="driver.c" />
+    <ClCompile Include="vmcs.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
+    <ClInclude Include="segment.h" />
+    <ClInclude Include="vmcs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="segment.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

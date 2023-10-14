@@ -27,10 +27,24 @@
     <ClCompile Include="driver.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="vmcs.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="vmcs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="segment.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="segment.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
