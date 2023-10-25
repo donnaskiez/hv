@@ -1,5 +1,16 @@
 ; https://revers.engineering/day-4-vmcs-segmentation-ops/
 
+PUBLIC __read_ldtr
+PUBLIC __read_tr
+PUBLIC __read_cs
+PUBLIC __read_ss
+PUBLIC __read_ds
+PUBLIC __read_es
+PUBLIC __read_fs
+PUBLIC __read_gs
+
+.code _text
+
 __read_ldtr proc
         sldt    ax
         ret
@@ -39,3 +50,5 @@ __read_gs proc
         mov     ax, gs
         ret
 __read_gs endp
+
+END

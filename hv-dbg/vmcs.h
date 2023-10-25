@@ -216,4 +216,48 @@ typedef struct _VMCS_CONTROL_STATE_FIELDS
 
 }VMCS_CONTROL_STATE_FIELDS, *PVMCS_CONTROL_STATE_FIELDS;
 
+/*
+* 24.11.2
+*/
+typedef union _VMCS_ENCODING
+{
+	struct
+	{
+		UINT32 access_type : 1;
+		UINT32 index : 9;
+		UINT32 type : 2;
+		UINT32 reserved1 : 1;
+		UINT32 width : 2;
+		UINT32 reserved2 : 17;
+	}bits;
+
+	UINT32 address;
+
+}VMCS_ENCODING, * PVMCS_ENCODING;
+
+typedef enum _VMCS_ACCESS_TYPE
+{
+	VMCS_ACCESS_FULL = 0,
+	VMCS_ACCESS_HIGH = 1
+
+}VMCS_ACCESS_TYPE;
+
+typedef enum _VMCS_TYPE
+{
+	VMCS_TYPE_CONTROL = 0,
+	VMCS_TYPE_EXIT_INFORMATION = 1,
+	VMCS_TYPE_GUEST_STATE = 2,
+	VMCS_TYPE_HOST_STATE = 3
+
+}VMCS_TYPE;
+
+typedef enum _VMCS_WIDTH
+{
+	VMCS_WIDTH_16 = 0,
+	VMCS_WIDTH_64 = 1,
+	VMCS_WIDTH_32 = 2,
+	VMCS_WIDTH_NATURAL = 3
+
+}VMCS_WIDTH;
+
 #endif

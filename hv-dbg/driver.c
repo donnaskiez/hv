@@ -2,8 +2,8 @@
 
 #include <intrin.h>
 
-UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"hv-dbg");
-UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"hv-dbg-link");
+UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
+UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
 
 PVMM_STATE vmm_state = NULL;
 
@@ -22,6 +22,7 @@ hvdbgAllocateVmcsRegion(
         _In_ ULONG CoreNumber
 )
 {
+        INT status = 0;
         PVOID virtual_allocation = NULL;
         PVOID physical_allocation = NULL;
         PHYSICAL_ADDRESS physical_max = { 0 };
@@ -55,10 +56,16 @@ hvdbgAllocateVmcsRegion(
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
-        *(UINT32*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
+        *(UINT64*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
 
-        if (__vmx_vmptrld(&physical_allocation))
+        status = __vmx_vmptrld(&physical_allocation);
+
+        if (status)
+        {
+                DEBUG_LOG("VmxVmPtrLd failed with status: %i", status);
+                MmFreeContiguousMemory(virtual_allocation);
                 return FALSE;
+        }
 
         vmm_state[CoreNumber].vmxon_region_pa = (UINT64)physical_allocation;
         vmm_state[CoreNumber].vmxon_region_va = (UINT64)virtual_allocation;
@@ -72,6 +79,7 @@ hvdbgAllocateVmxonRegion(
         _In_ CoreNumber
 )
 {
+        INT status = 0;
         PVOID virtual_allocation = NULL;
         PVOID physical_allocation = NULL;
         PHYSICAL_ADDRESS physical_max = { 0 };
@@ -105,10 +113,21 @@ hvdbgAllocateVmxonRegion(
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
-        *(UINT32*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
+        *(UINT64*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
 
-        if (__vmx_on(&physical_allocation))
+        status = __vmx_on(&physical_allocation);
+
+        /*
+        * 0 : The operation succeeded
+        * 1 : The operation failed with extended status available in the VM-instruction error field of the current VMCS.
+        * 2 : The operation failed without status available.
+        */
+        if (status)
+        {
+                DEBUG_ERROR("VmxOn failed with status: %i", status);
+                MmFreeContiguousMemory(virtual_allocation);
                 return FALSE;
+        }
 
         vmm_state[CoreNumber].vmcs_region_pa = (UINT64)physical_allocation;
         vmm_state[CoreNumber].vmcs_region_va = (UINT64)virtual_allocation;
@@ -181,13 +200,12 @@ hvdbgInitiateVmxOperation()
 
         processor_count = KeQueryActiveProcessorCount(0);
 
+        DEBUG_LOG("proc count: %lx", processor_count);
+
         if (!processor_count)
                 return FALSE;
 
-        vmm_state = ExAllocatePoolWithTag(
-                POOL_FLAG_NON_PAGED, 
-                processor_count * sizeof(VMM_STATE), 
-                POOL_TAG_VMM);
+        vmm_state = ExAllocatePoolWithTag(POOL_FLAG_NON_PAGED, processor_count * sizeof(VMM_STATE), POOL_TAG_VMM);
 
         if (!vmm_state)
                 return FALSE;
@@ -196,11 +214,10 @@ hvdbgInitiateVmxOperation()
         {
                 KeSetSystemAffinityThread(1ull << index);
                 hvdbgEnableVmxOperationOnCore();
-
-                DEBUG_LOG("VMX Operation enable on core: %lx", index);
-
                 hvdbgAllocateVmcsRegion(index);
                 hvdbgAllocateVmxonRegion(index);
+
+                DEBUG_LOG("VMX Operation enable on core: %lx", index);
         }
 
         return TRUE;
@@ -222,7 +239,10 @@ hvdbgTerminateVmx()
         for (ULONG index = 0; index < KeQueryActiveProcessorCount(0); index++)
         {
                 KeSetSystemAffinityThread(1ull << index);
+
                 __vmx_off();
+
+                DEBUG_LOG("Vmx operation terminated on thread: %lx", index);
 
                 if (vmm_state[index].vmcs_region_va)
                         MmFreeContiguousMemory(vmm_state[index].vmcs_region_va);
@@ -230,14 +250,36 @@ hvdbgTerminateVmx()
                 if (vmm_state[index].vmxon_region_va)
                         MmFreeContiguousMemory(vmm_state[index].vmxon_region_va);
         }
+}
 
-        DEBUG_LOG("Vmx operation terminated");
+NTSTATUS
+DeviceClose(
+        _In_ PDEVICE_OBJECT DeviceObject,
+        _Inout_ PIRP Irp
+)
+{
+        UNREFERENCED_PARAMETER(DeviceObject);
+        hvdbgTerminateVmx();
+        IoCompleteRequest(Irp, IO_NO_INCREMENT);
+        return Irp->IoStatus.Status;
+}
+
+NTSTATUS
+DeviceCreate(
+        _In_ PDEVICE_OBJECT DeviceObject,
+        _Inout_ PIRP Irp
+)
+{
+        UNREFERENCED_PARAMETER(DeviceObject);
+        hvdbgInitiateVmxOperation();
+        IoCompleteRequest(Irp, IO_NO_INCREMENT);
+        return Irp->IoStatus.Status;
 }
 
 NTSTATUS
 DriverEntry(
-        PDRIVER_OBJECT DriverObject,
-        PUNICODE_STRING RegistryPath
+        _In_ PDRIVER_OBJECT DriverObject,
+        _In_ PUNICODE_STRING RegistryPath
 )
 {
         UNREFERENCED_PARAMETER(RegistryPath);
@@ -267,6 +309,9 @@ DriverEntry(
                 IoDeleteDevice(&DriverObject->DeviceObject);
                 return STATUS_FAILED_DRIVER_ENTRY;
         }
+
+        DriverObject->MajorFunction[IRP_MJ_CREATE] = DeviceCreate;
+        DriverObject->MajorFunction[IRP_MJ_CLOSE] = DeviceClose;
 
         DEBUG_LOG("Driver entry complete");
 
