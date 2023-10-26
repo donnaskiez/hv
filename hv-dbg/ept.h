@@ -16,6 +16,11 @@ typedef union _EPTP {
         }Fields;
 }EPTP, * PEPTP;
 
+NTSTATUS
+hvdbgInitiateEpt(
+        _Out_ PEPTP* EptPointer
+);
+
 // See Table 28-1. 
 typedef union _EPT_PML4E {
         ULONG64 All;

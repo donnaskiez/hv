@@ -1,6 +1,9 @@
 #include "driver.h"
 
+#include "ept.h"
+
 #include <intrin.h>
+#include "vmcs.h"
 
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
 UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
@@ -24,7 +27,7 @@ hvdbgAllocateVmcsRegion(
 {
         INT status = 0;
         PVOID virtual_allocation = NULL;
-        PVOID physical_allocation = NULL;
+        UINT64 physical_allocation = NULL;
         PHYSICAL_ADDRESS physical_max = { 0 };
         PHYSICAL_ADDRESS physical_address = { 0 };
         IA32_VMX_BASIC_MSR ia32_basic_msr = { 0 };
@@ -44,15 +47,13 @@ hvdbgAllocateVmcsRegion(
 
         RtlSecureZeroMemory(virtual_allocation, ALIGNMENT_PAGE_SIZE);
 
-        physical_address = MmGetPhysicalAddress(virtual_allocation);
+        physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
-        if (!physical_address.QuadPart)
+        if (!physical_allocation)
         {
                 MmFreeContiguousMemory(virtual_allocation);
                 return FALSE;
         }
-
-        physical_allocation = (PVOID)physical_address.QuadPart;
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
@@ -81,7 +82,7 @@ hvdbgAllocateVmxonRegion(
 {
         INT status = 0;
         PVOID virtual_allocation = NULL;
-        PVOID physical_allocation = NULL;
+        UINT64 physical_allocation = NULL;
         PHYSICAL_ADDRESS physical_max = { 0 };
         PHYSICAL_ADDRESS physical_address = { 0 };
         IA32_VMX_BASIC_MSR ia32_basic_msr = { 0 };
@@ -101,15 +102,13 @@ hvdbgAllocateVmxonRegion(
 
         RtlSecureZeroMemory(virtual_allocation, ALIGNMENT_PAGE_SIZE);
 
-        physical_address = MmGetPhysicalAddress(virtual_allocation);
+        physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
-        if (!physical_address.QuadPart)
+        if (!physical_allocation)
         {
                 MmFreeContiguousMemory(virtual_allocation);
                 return FALSE;
         }
-
-        physical_allocation = (PVOID)physical_address.QuadPart;
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
@@ -214,14 +213,16 @@ hvdbgInitiateVmxOperation()
         {
                 KeSetSystemAffinityThread(1ull << index);
                 hvdbgEnableVmxOperationOnCore();
-                hvdbgAllocateVmcsRegion(index);
                 hvdbgAllocateVmxonRegion(index);
+                hvdbgAllocateVmcsRegion(index);
 
                 DEBUG_LOG("VMX Operation enable on core: %lx", index);
         }
 
         return TRUE;
 }
+
+
 
 STATIC
 NTSTATUS
@@ -264,6 +265,49 @@ DeviceClose(
         return Irp->IoStatus.Status;
 }
 
+#define VMM_STACK_SIZE 0x8000
+
+VOID
+hvdbgVirtualizeCore(
+        _In_ INT ProcessorIndex,
+        _In_ PEPTP Eptp
+)
+{
+        KeSetSystemAffinityThread(1ull << ProcessorIndex);
+
+        vmm_state[ProcessorIndex].vmm_stack = 
+                ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOL_TAG_VMM);
+
+        if (!vmm_state[ProcessorIndex].vmm_stack)
+                return;
+
+        vmm_state[ProcessorIndex].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
+
+        if (!vmm_state[ProcessorIndex].msr_bitmap_va)
+                return;
+
+        vmm_state[ProcessorIndex].msr_bitmap_pa = 
+                MmGetPhysicalAddress(vmm_state[ProcessorIndex].msr_bitmap_va).QuadPart;
+
+        if (!vmm_state[ProcessorIndex].msr_bitmap_pa)
+                return;
+
+        BOOLEAN status = SetupVmcs(&vmm_state[ProcessorIndex], Eptp);
+
+        if (!status)
+        {
+                DEBUG_ERROR("SetupVmcs failed withs tatsu %x", status);
+        }
+
+        __vmx_save_state();
+        __vmx_vmlaunch();
+
+        ULONG64 ErrorCode = 0;
+        __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
+        __vmx_off();
+        DEBUG_LOG("VMLAUNCH Error : 0x%llx\n", ErrorCode);
+}
+
 NTSTATUS
 DeviceCreate(
         _In_ PDEVICE_OBJECT DeviceObject,
@@ -271,7 +315,30 @@ DeviceCreate(
 )
 {
         UNREFERENCED_PARAMETER(DeviceObject);
+
+        EPTP eptp = { 0 };
+
+        NTSTATUS status = hvdbgInitiateEpt(&eptp);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("Failed to intiialise EPT");
+                goto end;
+        }
+
         hvdbgInitiateVmxOperation();
+
+        for (size_t i = 0; i < (100 * PAGE_SIZE) - 1; i++)
+        {
+                void* TempAsm = "\xF4";
+                memcpy(guest_virtual_memory_address + i, TempAsm, 1);
+        }
+
+        //
+        // Launching VM for Test (in the 0th virtual processor)
+        //
+        int ProcessorID = 0;
+end:
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
 }

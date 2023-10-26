@@ -14,6 +14,9 @@
 #define VMX_UNSUPPORTED 1 /* VT unsupported or disabled on 1+ cores */
 #define VMX_INUSE 
 
+extern void __vmx_save_state();
+extern void __vmx_exit_and_restore_state();
+
 typedef struct _CPUID
 {
         INT eax;
@@ -29,6 +32,10 @@ typedef struct _VMM_STATE
 	UINT64 vmcs_region_va;
 	UINT64 vmxon_region_pa;
 	UINT64 vmcs_region_pa;
+	UINT64 ept_pointer;
+	UINT64 vmm_stack;
+	UINT64 msr_bitmap_va;
+	UINT64 msr_bitmap_pa;
 
 }VMM_STATE, * PVMM_STATE;
 
