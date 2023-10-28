@@ -1,107 +1,35 @@
-; https://revers.engineering/day-4-vmcs-segmentation-ops/
+PUBLIC __vmx_enable
+PUBLIC AsmPerformInvept
+PUBLIC __readcs
+PUBLIC __readds
+PUBLIC __reades
+PUBLIC __readss
+PUBLIC __readfs
+PUBLIC __readgs
+PUBLIC __readldtr
+PUBLIC __readtr
+PUBLIC __readgdtbase
+PUBLIC __readidtbase
+PUBLIC __getgdtlimit
+PUBLIC __getidtlimit
+PUBLIC __readrflags
+PUBLIC __vmx_terminate
+PUBLIC __vmx_savestate
+PUBLIC AsmVmexitHandler
 
-PUBLIC __read_ldtr
-PUBLIC __read_tr
-PUBLIC __read_cs
-PUBLIC __read_ss
-PUBLIC __read_ds
-PUBLIC __read_es
-PUBLIC __read_fs
-PUBLIC __read_gs
-PUBLIC __vmx_save_state
-PUBLIC __vmx_exit_and_restore_state
-PUBLIC __get_gdt_base
-PUBLIC GetGdtBase
-PUBLIC GetIdtBase
-PUBLIC GetRflags
-
-EXTERN stack_pointer_to_return:QWORD
-EXTERN base_pointer_to_return:QWORD
+EXTERN g_StackPointerForReturning:QWORD
+EXTERN g_BasePointerForReturning:QWORD
 
 EXTERN MainVmexitHandler:PROC
 EXTERN VmResumeInstruction:PROC
 
 .code _text
 
-__read_ldtr proc
-        sldt    ax
-        ret
-__read_ldtr endp
-
-__read_tr proc
-        str     ax
-        ret
-__read_tr endp
-
-__read_cs proc
-        mov     ax, cs
-        ret
-__read_cs endp
-
-__read_ss proc
-        mov     ax, ss
-        ret
-__read_ss endp
-
-__read_ds proc
-        mov     ax, ds
-        ret
-__read_ds endp
-
-__read_es proc
-        mov     ax, es
-        ret
-__read_es endp
-
-__read_fs proc
-        mov     ax, fs
-        ret
-__read_fs endp
-
-__read_gs proc
-        mov     ax, gs
-        ret
-__read_gs endp
-
-__get_gdt_base PROC
-
-	LOCAL	GDTR[10]:BYTE
-	SGDT	GDTR
-	MOV		RAX, QWORD PTR GDTR[2]
-
-	RET
-
-__get_gdt_base ENDP
-
-__vmx_save_state proc
-        mov stack_pointer_to_return, rsp
-        mov base_pointer_to_return, rbp
-        ret
-__vmx_save_state endp
-
-__vmx_exit_and_restore_state proc
-        VMXOFF  ; turn it off before existing
-	
-	MOV RSP, stack_pointer_to_return
-	MOV RBP, base_pointer_to_return
-	
-	; make rsp point to a correct return point
-	ADD RSP, 8
-	
-	; return True
-
-	XOR RAX, RAX
-	MOV RAX, 1
-	
-	; return section
-	
-	MOV     RBX, [RSP+28h+8h]
-	MOV     RSI, [RSP+28h+10h]
-	ADD     RSP, 020h
-	POP     RDI
-	
-	RET
-__vmx_exit_and_restore_state endp
+;------------------------------------------------------------------------
+    VMX_ERROR_CODE_SUCCESS              = 0
+    VMX_ERROR_CODE_FAILED_WITH_STATUS   = 1
+    VMX_ERROR_CODE_FAILED               = 2
+;------------------------------------------------------------------------
 
 AsmVmexitHandler PROC
 
@@ -151,9 +79,180 @@ AsmVmexitHandler PROC
 	
 AsmVmexitHandler ENDP
 
+__vmx_enable PROC PUBLIC
+
+	PUSH RAX			    ; Save the state
+	
+	XOR RAX, RAX			; Clear the RAX
+	MOV RAX, CR4
+
+	OR RAX,02000h	    	; Set the 14th bit
+	MOV CR4, RAX
+	
+	POP RAX			     	; Restore the state
+	RET
+
+__vmx_enable ENDP
+
 ;------------------------------------------------------------------------
 
-GetGdtLimit PROC
+AsmPerformInvept PROC PUBLIC
+
+	INVEPT  RCX, OWORD PTR [RDX]
+	JZ FailedWithStatus
+	JC Failed
+	XOR     RAX, RAX
+
+	RET
+
+FailedWithStatus:    
+	MOV     RAX, VMX_ERROR_CODE_FAILED_WITH_STATUS
+	RET
+
+Failed:   
+	MOV     RAX, VMX_ERROR_CODE_FAILED
+	RET
+
+AsmPerformInvept ENDP
+
+;------------------------------------------------------------------------
+
+__vmx_terminate PROC PUBLIC
+
+	VMXOFF  ; turn it off before existing
+	
+	MOV RSP, g_StackPointerForReturning
+	MOV RBP, g_BasePointerForReturning
+	
+	; make rsp point to a correct return point
+	ADD RSP, 8
+	
+	; return True
+
+	XOR RAX, RAX
+	MOV RAX, 1
+	
+	; return section
+	
+	MOV     RBX, [RSP+28h+8h]
+	MOV     RSI, [RSP+28h+10h]
+	ADD     RSP, 020h
+	POP     RDI
+	
+	RET
+	
+__vmx_terminate ENDP 
+
+;------------------------------------------------------------------------
+
+__vmx_savestate PROC PUBLIC
+
+	MOV g_StackPointerForReturning, RSP
+	MOV g_BasePointerForReturning, RBP
+
+	RET
+
+__vmx_savestate ENDP 
+
+;------------------------------------------------------------------------
+
+__readgdtbase PROC
+
+	LOCAL	GDTR[10]:BYTE
+	SGDT	GDTR
+	MOV		RAX, QWORD PTR GDTR[2]
+
+	RET
+
+__readgdtbase ENDP
+
+;------------------------------------------------------------------------
+
+__readcs PROC
+
+	MOV		RAX, CS
+	RET
+
+__readcs ENDP
+
+;------------------------------------------------------------------------
+
+__readds PROC
+
+	MOV		RAX, DS
+	RET
+
+__readds ENDP
+
+;------------------------------------------------------------------------
+
+__reades PROC
+
+	MOV		RAX, ES
+	RET
+
+__reades ENDP
+
+;------------------------------------------------------------------------
+
+__readss PROC
+
+	MOV		RAX, SS
+	RET
+
+__readss ENDP
+
+;------------------------------------------------------------------------
+
+__readfs PROC
+
+	MOV		RAX, FS
+	RET
+
+__readfs ENDP
+
+;------------------------------------------------------------------------
+
+__readgs PROC
+
+	MOV		RAX, GS
+	RET
+
+__readgs ENDP
+
+;------------------------------------------------------------------------
+
+__readldtr PROC
+
+	SLDT	RAX
+	RET
+
+__readldtr ENDP
+
+;------------------------------------------------------------------------
+
+__readtr PROC
+
+	STR		RAX
+	RET
+
+__readtr ENDP
+
+;------------------------------------------------------------------------
+
+__readidtbase PROC
+
+	LOCAL	IDTR[10]:BYTE
+	
+	SIDT	IDTR
+	MOV		RAX, QWORD PTR IDTR[2]
+	RET
+
+__readidtbase ENDP
+
+;------------------------------------------------------------------------
+
+__getgdtlimit PROC
 
 	LOCAL	GDTR[10]:BYTE
 
@@ -162,11 +261,11 @@ GetGdtLimit PROC
 
 	RET
 
-GetGdtLimit ENDP
+__getgdtlimit ENDP
 
 ;------------------------------------------------------------------------
 
-GetIdtLimit PROC
+__getidtlimit PROC
 
 	LOCAL	IDTR[10]:BYTE
 	
@@ -175,38 +274,18 @@ GetIdtLimit PROC
 
 	RET
 
-GetIdtLimit ENDP
+__getidtlimit ENDP
 
 ;------------------------------------------------------------------------
 
-GetRflags PROC
+__readrflags PROC
 
 	PUSHFQ
 	POP		RAX
 	RET
 
-GetRflags ENDP
+__readrflags ENDP
 
 ;------------------------------------------------------------------------
-
-GetGdtBase PROC
-
-	LOCAL	GDTR[10]:BYTE
-	SGDT	GDTR
-	MOV		RAX, QWORD PTR GDTR[2]
-
-	RET
-
-GetGdtBase ENDP
-
-GetIdtBase PROC
-
-	LOCAL	IDTR[10]:BYTE
-	
-	SIDT	IDTR
-	MOV		RAX, QWORD PTR IDTR[2]
-	RET
-
-GetIdtBase ENDP
 
 END

@@ -1,7 +1,7 @@
 #ifndef EPT_H
 #define EPT_H
 
-#include <ntifs.h>
+#include <ntddk.h>
 
 // See Table 24-8. Format of Extended-Page-Table Pointer
 typedef union _EPTP {
@@ -16,10 +16,8 @@ typedef union _EPTP {
         }Fields;
 }EPTP, * PEPTP;
 
-NTSTATUS
-hvdbgInitiateEpt(
-        _Out_ PEPTP* EptPointer
-);
+PEPTP
+InitializeEptp();
 
 // See Table 28-1. 
 typedef union _EPT_PML4E {

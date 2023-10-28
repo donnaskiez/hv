@@ -27,7 +27,7 @@
     <ClCompile Include="driver.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="vmcs.c">
+    <ClCompile Include="vmx.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ept.c">
@@ -38,13 +38,16 @@
     <ClInclude Include="driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="vmcs.h">
+    <ClInclude Include="vmx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="segment.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ept.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
