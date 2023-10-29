@@ -48,6 +48,29 @@ DeviceCreate(
 )
 {
         UNREFERENCED_PARAMETER(DeviceObject);
+
+        PIPI_CALL_CONTEXT context = ExAllocatePool2(POOL_FLAG_NON_PAGED, KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
+
+        if (!context)
+                return STATUS_ABANDONED;
+
+        PEPTP pept = InitializeEptp();
+
+        for (int i = 0; i < KeQueryActiveProcessorCount(0); i++)
+        {
+                context[i].eptp = pept;
+                context[i].guest_stack = NULL;
+        }
+
+        InitiateVmx(context);
+
+        __try
+        {
+                BroadcastVmxInitiation(context);
+        }
+        __except (GetExceptionCode())
+        {
+        }
 end:
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
@@ -91,27 +114,6 @@ DriverEntry(
         DriverObject->MajorFunction[IRP_MJ_CLOSE] = DeviceClose;
 
         DEBUG_LOG("Driver entry complete");
-
-        PEPTP eptp = InitializeEptp();
-
-        __try
-        {
-                InitiateVmx();
-
-                for (size_t i = 0; i < (100 * PAGE_SIZE) - 1; i++)
-                {
-                        void* TempAsm = "\xF4";
-                        memcpy(g_VirtualGuestMemoryAddress + i, TempAsm, 1);
-                }
-
-                //
-                // Launching VM for Test (in the 0th virtual processor)
-                //
-                LaunchVm(0, eptp);
-        }
-        __except (GetExceptionCode())
-        {
-        }
 
         return status;
 }

@@ -7,10 +7,30 @@
 #include "ept.h"
 
 VOID
-InitiateVmx();
+BroadcastVmxTermination();
+
+typedef struct _IPI_CALL_CONTEXT
+{
+	PEPTP eptp;
+	PVOID guest_stack;
+
+}IPI_CALL_CONTEXT, * PIPI_CALL_CONTEXT;
 
 VOID
-LaunchVm(int ProcessorID, PEPTP EPTP);
+InitiateVmx(
+	_In_ PIPI_CALL_CONTEXT Context
+);
+
+BOOLEAN
+BroadcastVmxInitiation(
+	_In_ PIPI_CALL_CONTEXT Context
+);
+
+VOID
+VirtualizeCore(
+	_In_ PIPI_CALL_CONTEXT Context,
+	_In_ PVOID StackPointer
+);
 
 ULONG ExitReason;
 
@@ -22,8 +42,13 @@ extern int ProcessorCounts;
 
 UINT64 stack_pointer_to_return;
 UINT64 base_pointer_to_return;
+
 BOOLEAN
-SetupVmcs(VIRTUAL_MACHINE_STATE* GuestState, PEPTP EPTP);
+SetupVmcs(
+	_In_ VIRTUAL_MACHINE_STATE* GuestState,
+	_In_ PVOID StackPointer
+);
+
 extern UINT64 guest_virtual_memory_address;
 USHORT  GetIdtLimit(VOID);
 USHORT  GetGdtLimit(VOID);
@@ -33,8 +58,16 @@ extern ULONG64 inline __readgdtbase();
 extern ULONG64 inline __readidtbase();
 extern void inline __vmx_enable();
 extern void inline __vmx_terminate();
-extern void inline __vmx_savestate();
 extern unsigned char inline AsmPerformInvept(_In_ unsigned long Type, _In_ void* Descriptor);
+
+extern void VmxRestoreState();
+extern UINT64 inline SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
+
+VOID
+InsertStackPointerIntoIpiContextStruct(
+	_In_ PIPI_CALL_CONTEXT Context,
+	_In_ PVOID StackPointer
+);
 
 extern USHORT  __readcs(VOID);
 extern USHORT  __readds(VOID);

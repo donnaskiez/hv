@@ -14,14 +14,18 @@ PUBLIC __getgdtlimit
 PUBLIC __getidtlimit
 PUBLIC __readrflags
 PUBLIC __vmx_terminate
-PUBLIC __vmx_savestate
+PUBLIC SaveStateAndVirtualizeCore
 PUBLIC AsmVmexitHandler
+PUBLIC VmxRestoreState
 
 EXTERN g_StackPointerForReturning:QWORD
 EXTERN g_BasePointerForReturning:QWORD
 
 EXTERN MainVmexitHandler:PROC
 EXTERN VmResumeInstruction:PROC
+EXTERN VirtualizeCore:PROC
+
+EXTERN InsertStackPointerIntoIpiContextStruct:PROC
 
 .code _text
 
@@ -78,6 +82,29 @@ AsmVmexitHandler PROC
     JMP VmResumeInstruction
 	
 AsmVmexitHandler ENDP
+
+VmxRestoreState PROC
+
+	ADD RSP, 28h
+	POP R15
+	POP R14
+	POP R13
+	POP R12
+	POP R11
+	POP R10
+	POP R9
+	POP R8
+	POP RDI
+	POP RSI
+	POP RBP
+	POP RBX
+	POP RDX
+	POP RCX
+	POP RAX
+	
+	RET
+	
+VmxRestoreState ENDP
 
 __vmx_enable PROC PUBLIC
 
@@ -145,14 +172,39 @@ __vmx_terminate ENDP
 
 ;------------------------------------------------------------------------
 
-__vmx_savestate PROC PUBLIC
+; No need to raise the irql as these routines run at IPI_LEVEL 
 
-	MOV g_StackPointerForReturning, RSP
-	MOV g_BasePointerForReturning, RBP
+SaveStateAndVirtualizeCore PROC PUBLIC
 
+	PUSH RAX
+	PUSH RCX
+	PUSH RDX
+	PUSH RBX
+	PUSH RBP
+	PUSH RSI
+	PUSH RDI
+	PUSH R8
+	PUSH R9
+	PUSH R10
+	PUSH R11
+	PUSH R12
+	PUSH R13
+	PUSH R14
+	PUSH R15
+	
+	SUB RSP, 28h
+
+	; It a x64 FastCall function but as long as the definition of SaveState is the same
+	; as VirtualizeCore, so we RCX & RDX both have a correct value
+	; But VirtualizeCore also has a stack, so it's the third argument
+	; and according to FastCall, it should be in R8
+
+	MOV RDX, RSP
+	INT 3
+	CALL VirtualizeCore	
 	RET
 
-__vmx_savestate ENDP 
+SaveStateAndVirtualizeCore ENDP 
 
 ;------------------------------------------------------------------------
 

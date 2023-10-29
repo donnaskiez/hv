@@ -68,6 +68,7 @@ IsVmxSupported()
 *
 * Source: 3c 24.2
 */
+STATIC
 BOOLEAN
 hvdbgAllocateVmcsRegion(VIRTUAL_MACHINE_STATE* GuestState)
 {
@@ -106,6 +107,7 @@ hvdbgAllocateVmcsRegion(VIRTUAL_MACHINE_STATE* GuestState)
         return TRUE;
 }
 
+STATIC
 BOOLEAN
 hvdbgAllocateVmxonRegion(VIRTUAL_MACHINE_STATE* GuestState)
 {
@@ -158,78 +160,83 @@ hvdbgAllocateVmxonRegion(VIRTUAL_MACHINE_STATE* GuestState)
         return TRUE;
 }
 
-VOID
-InitiateVmx()
+STATIC
+BOOLEAN
+AllocateVmmState()
 {
-        if (!IsVmxSupported())
+        vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0), POOLTAG);
+        return vmm_state != NULL ? TRUE : FALSE;
+}
+
+VOID
+InitiateVmx(
+        _In_ PIPI_CALL_CONTEXT Context
+)
+{
+        if (!AllocateVmmState())
         {
-                DbgPrint("[*] VMX is not supported in this machine !\n");
+                DEBUG_LOG("Failed to allocate vmm state");
                 return;
         }
 
-        PAGED_CODE();
-
-        vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0), POOLTAG);
-        proc_count = KeQueryActiveProcessorCount(0);
-
-        if (!vmm_state)
-                return;
-
-        for (size_t index = 0; index < proc_count; index++)
+        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
-                KeSetSystemAffinityThread(1ull << index);
+                PAGED_CODE();
+
+                KeSetSystemAffinityThread(1ull << core);
+
+                DEBUG_LOG("Executing InitiateVmx on processor index: %lx", core);
+
                 hvdbgEnableVmxOperationOnCore();
-                hvdbgAllocateVmxonRegion(&vmm_state[index]);
-                hvdbgAllocateVmcsRegion(&vmm_state[index]);
-                DEBUG_LOG("VMX operation initiated on core: %lx", (ULONG)index);
+                hvdbgAllocateVmxonRegion(&vmm_state[core]);
+                hvdbgAllocateVmcsRegion(&vmm_state[core]);
+
+                vmm_state[core].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
+
+                if (!vmm_state[core].vmm_stack)
+                {
+                        DEBUG_LOG("Error in allocating VMM Stack.");
+                        return;
+                }
+
+                vmm_state[core].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE); // should be aligned
+
+                if (!vmm_state[core].msr_bitmap_va)
+                {
+                        DEBUG_LOG("Error in allocating MSRBitMap.");
+                        return;
+                }
+                RtlSecureZeroMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
+
+                vmm_state[core].msr_bitmap_pa = MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va).QuadPart;
+
+                DEBUG_LOG("VMX initiated on core: %lx", KeGetCurrentProcessorNumber());
         }
 }
 
 VOID
-LaunchVm(int ProcessorID, PEPTP EPTP)
+VirtualizeCore(
+        _In_ PIPI_CALL_CONTEXT Context,
+        _In_ PVOID StackPointer
+)
 {
-        KeSetSystemAffinityThread(1ull << ProcessorID);
-
-        DbgPrint("[*]\t\tCurrent thread is executing in %d th logical processor.\n", ProcessorID);
-
-        PAGED_CODE();
-
-        vmm_state[ProcessorID].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
-
-        if (!vmm_state[ProcessorID].vmm_stack)
-        {
-                DbgPrint("[*] Error in allocating VMM Stack.\n");
-                return;
-        }
-
-        vmm_state[ProcessorID].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE); // should be aligned
-
-        if (!vmm_state[ProcessorID].msr_bitmap_va)
-        {
-                DbgPrint("[*] Error in allocating MSRBitMap.\n");
-                return;
-        }
-        RtlSecureZeroMemory(vmm_state[ProcessorID].msr_bitmap_va, PAGE_SIZE);
-
-        vmm_state[ProcessorID].msr_bitmap_pa = MmGetPhysicalAddress(vmm_state[ProcessorID].msr_bitmap_va).QuadPart;
-
-        SetupVmcs(&vmm_state[ProcessorID], EPTP);
-
-        __vmx_savestate();
+        __debugbreak();
+        SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
+        __debugbreak();
         __vmx_vmlaunch();
-
         /*
         * If vmlaunch succeeds, we will never get here.
         */
         ULONG64 ErrorCode = 0;
         __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
         __vmx_off();
-        DbgPrint("[*] VMLAUNCH Error : 0x%llx\n", ErrorCode);
+        DEBUG_LOG("VMLAUNCH Error : 0x%llx", ErrorCode);
         __debugbreak();
 
 ReturnWithoutError:
+
         __vmx_off();
-        DbgPrint("[*] VMXOFF Executed Successfully. !\n");
+        DEBUG_LOG("VMXOFF Executed Successfully. !");
 
         return TRUE;
 
@@ -237,26 +244,60 @@ ReturnWithoutError:
         // Return With Error
         //
 ErrorReturn:
-        DbgPrint("[*] Fail to setup VMCS !\n");
+
+        DEBUG_LOG("Fail to setup VMCS !");
         return FALSE;
 }
 
+STATIC
 VOID
-TerminateVmx()
+TerminateVmx(
+        _In_ ULONG_PTR Argument
+)
 {
-        DbgPrint("\n[*] Terminating VMX...\n");
+        UNREFERENCED_PARAMETER(Argument);
 
-        for (size_t i = 0; i < proc_count; i++)
+        DEBUG_LOG("Terminated VMX on processor index: %lx", KeGetCurrentProcessorNumber());
+
+        __vmx_off();
+
+        //MmFreeContiguousMemory(MmGetPhysicalAddress(
+        //        vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart);
+
+        //MmFreeContiguousMemory(MmGetPhysicalAddress(
+        //        vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart);
+}
+
+VOID
+InsertStackPointerIntoIpiContextStruct(
+        _In_ PIPI_CALL_CONTEXT Context, 
+        _In_ PVOID StackPointer
+)
+{
+        Context[KeGetCurrentProcessorNumber()].guest_stack = StackPointer;
+}
+
+BOOLEAN
+BroadcastVmxInitiation(
+        _In_ PIPI_CALL_CONTEXT Context
+)
+{
+        if (!IsVmxSupported())
         {
-                KeSetSystemAffinityThread(1ull << i);
-                DbgPrint("\t\tCurrent thread is executing in %d th logical processor.\n", i);
-
-                __vmx_off();
-                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[i].vmxon_region_pa).QuadPart);
-                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[i].vmcs_region_pa).QuadPart);
+                DEBUG_LOG("VMX operation is not supported on this machine");
+                return FALSE;
         }
 
-        DbgPrint("[*] VMX Operation turned off successfully. \n");
+        DEBUG_LOG("Eptp broadcast: %llx", (UINT64)Context->eptp);
+
+        KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
+        return TRUE;
+}
+
+VOID 
+BroadcastVmxTermination()
+{
+        KeIpiGenericCall(TerminateVmx, NULL);
 }
 
 UINT64
@@ -567,7 +608,10 @@ EncodeVmcsControlStateFields(
 }
 
 BOOLEAN
-SetupVmcs(VIRTUAL_MACHINE_STATE* GuestState, PEPTP EPTP)
+SetupVmcs(
+        _In_ VIRTUAL_MACHINE_STATE* GuestState, 
+        _In_ PVOID StackPointer
+)
 {
         BOOLEAN Status = FALSE;
 
@@ -628,8 +672,8 @@ SetupVmcs(VIRTUAL_MACHINE_STATE* GuestState, PEPTP EPTP)
         __vmx_vmwrite(GUEST_INTERRUPTIBILITY_INFO, 0);
         __vmx_vmwrite(GUEST_ACTIVITY_STATE, 0); // Active state
 
-        __vmx_vmwrite(CPU_BASED_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_HLT_EXITING | CPU_BASED_ACTIVATE_SECONDARY_CONTROLS, MSR_IA32_VMX_PROCBASED_CTLS));
-        __vmx_vmwrite(SECONDARY_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_CTL2_RDTSCP /* | CPU_BASED_CTL2_ENABLE_EPT*/, MSR_IA32_VMX_PROCBASED_CTLS2));
+        __vmx_vmwrite(CPU_BASED_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_ACTIVATE_MSR_BITMAP | CPU_BASED_ACTIVATE_SECONDARY_CONTROLS, MSR_IA32_VMX_PROCBASED_CTLS));
+        __vmx_vmwrite(SECONDARY_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_CTL2_RDTSCP | CPU_BASED_CTL2_ENABLE_INVPCID | CPU_BASED_CTL2_ENABLE_XSAVE_XRSTORS, MSR_IA32_VMX_PROCBASED_CTLS2));
 
         __vmx_vmwrite(PIN_BASED_VM_EXEC_CONTROL, AdjustControls(0, MSR_IA32_VMX_PINBASED_CTLS));
         __vmx_vmwrite(VM_EXIT_CONTROLS, AdjustControls(VM_EXIT_IA32E_MODE | VM_EXIT_ACK_INTR_ON_EXIT, MSR_IA32_VMX_EXIT_CTLS));
@@ -677,8 +721,9 @@ SetupVmcs(VIRTUAL_MACHINE_STATE* GuestState, PEPTP EPTP)
         //
         // left here just for test
         //
-        __vmx_vmwrite(guest_state_fields.natural_state.rsp, g_VirtualGuestMemoryAddress); // setup guest sp
-        __vmx_vmwrite(guest_state_fields.natural_state.rip, g_VirtualGuestMemoryAddress); // setup guest ip
+        __vmx_vmwrite(guest_state_fields.natural_state.rsp, StackPointer); // setup guest sp
+        __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState); // setup guest ip
+
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, AsmVmexitHandler);
 
@@ -730,8 +775,8 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         ULONG ExitQualification = 0;
         __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
 
-        DbgPrint("\nVM_EXIT_REASION 0x%x\n", ExitReason & 0xffff);
-        DbgPrint("\EXIT_QUALIFICATION 0x%x\n", ExitQualification);
+        DEBUG_LOG("\nVM_EXIT_REASION 0x%x\n", ExitReason & 0xffff);
+        DEBUG_LOG("\EXIT_QUALIFICATION 0x%x\n", ExitQualification);
 
         switch (ExitReason)
         {
