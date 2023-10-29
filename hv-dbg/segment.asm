@@ -23,7 +23,7 @@ PUBLIC MSRWrite
 EXTERN g_StackPointerForReturning:QWORD
 EXTERN g_BasePointerForReturning:QWORD
 
-EXTERN MainVmexitHandler:PROC
+EXTERN VmExitDispatcher:PROC
 EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
 
@@ -59,7 +59,7 @@ AsmVmexitHandler PROC
 	MOV RCX, RSP		; GuestRegs
 	SUB	RSP, 28h
 
-	CALL	MainVmexitHandler
+	CALL	VmExitDispatcher
 	ADD	RSP, 28h	
 
 	POP RAX

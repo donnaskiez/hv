@@ -54,6 +54,42 @@ USHORT  GetIdtLimit(VOID);
 USHORT  GetGdtLimit(VOID);
 ULONG64 GetRflags(VOID);
 
+// CPUID RCX(s) - Based on Hyper-V
+#define HYPERV_CPUID_VENDOR_AND_MAX_FUNCTIONS   0x40000000
+#define HYPERV_CPUID_INTERFACE                  0x40000001
+#define HYPERV_CPUID_VERSION                    0x40000002
+#define HYPERV_CPUID_FEATURES                   0x40000003
+#define HYPERV_CPUID_ENLIGHTMENT_INFO           0x40000004
+#define HYPERV_CPUID_IMPLEMENT_LIMITS           0x40000005
+#define HYPERV_HYPERVISOR_PRESENT_BIT           0x80000000
+#define HYPERV_CPUID_MIN                        0x40000005
+#define HYPERV_CPUID_MAX                        0x4000ffff
+
+#define DPL_USER   3
+#define DPL_SYSTEM 0
+
+// Exit Qualifications for MOV for Control Register Access
+#define TYPE_MOV_TO_CR   0
+#define TYPE_MOV_FROM_CR 1
+#define TYPE_CLTS        2
+#define TYPE_LMSW        3
+
+typedef union _MOV_CR_QUALIFICATION
+{
+	ULONG_PTR All;
+	struct
+	{
+		ULONG ControlRegister : 4;
+		ULONG AccessType : 2;
+		ULONG LMSWOperandType : 1;
+		ULONG Reserved1 : 1;
+		ULONG Register : 4;
+		ULONG Reserved2 : 4;
+		ULONG LMSWSourceData : 16;
+		ULONG Reserved3;
+	} Fields;
+} MOV_CR_QUALIFICATION, * PMOV_CR_QUALIFICATION;
+
 extern ULONG64 inline __readgdtbase();
 extern ULONG64 inline __readidtbase();
 extern void inline __vmx_enable();

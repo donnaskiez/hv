@@ -787,48 +787,40 @@ void SetBit(PVOID Addr, UINT64 bit, BOOLEAN Set) {
         }
 }
 
+STATIC
 VOID
-HandleMSRRead(PGUEST_REGS GuestRegs)
+DispatchExitReasonMsrRead(
+        _In_ PGUEST_REGS GuestState
+)
 {
         MSR msr = { 0 };
 
-        //
-        // RDMSR. The RDMSR instruction causes a VM exit if any of the following are true:
-        //
-        // The "use MSR bitmaps" VM-execution control is 0.
-        // The value of ECX is not in the ranges 00000000H - 00001FFFH and C0000000H - C0001FFFH
-        // The value of ECX is in the range 00000000H - 00001FFFH and bit n in read bitmap for low MSRs is 1,
-        //   where n is the value of ECX.
-        // The value of ECX is in the range C0000000H - C0001FFFH and bit n in read bitmap for high MSRs is 1,
-        //   where n is the value of ECX & 00001FFFH.
-        //
-
-        if (((GuestRegs->rcx <= 0x00001FFF)) || ((0xC0000000 <= GuestRegs->rcx) && (GuestRegs->rcx <= 0xC0001FFF)))
+        if (((GuestState->rcx <= 0x00001FFF)) || ((0xC0000000 <= GuestState->rcx) && (GuestState->rcx <= 0xC0001FFF)))
         {
-                msr.Content = MSRRead((ULONG)GuestRegs->rcx);
+                msr.Content = MSRRead((ULONG)GuestState->rcx);
         }
         else
         {
                 msr.Content = 0;
         }
 
-        GuestRegs->rax = msr.Low;
-        GuestRegs->rdx = msr.High;
+        GuestState->rax = msr.Low;
+        GuestState->rdx = msr.High;
 }
 
+STATIC
 VOID
-HandleMSRWrite(PGUEST_REGS GuestRegs)
+DispatchExitReasonMsrWrite(
+        _In_ PGUEST_REGS GuestState
+)
 {
         MSR msr = { 0 };
 
-        //
-        // Check for the sanity of MSR
-        //
-        if ((GuestRegs->rcx <= 0x00001FFF) || ((0xC0000000 <= GuestRegs->rcx) && (GuestRegs->rcx <= 0xC0001FFF)))
+        if ((GuestState->rcx <= 0x00001FFF) || ((0xC0000000 <= GuestState->rcx) && (GuestState->rcx <= 0xC0001FFF)))
         {
-                msr.Low = (ULONG)GuestRegs->rax;
-                msr.High = (ULONG)GuestRegs->rdx;
-                MSRWrite((ULONG)GuestRegs->rcx, msr.Content);
+                msr.Low = (ULONG)GuestState->rax;
+                msr.High = (ULONG)GuestState->rdx;
+                MSRWrite((ULONG)GuestState->rcx, msr.Content);
         }
 }
 
@@ -872,120 +864,25 @@ SetMsrBitmap(ULONG64 Msr, int ProcessID, BOOLEAN ReadDetection, BOOLEAN WriteDet
         return TRUE;
 }
 
-// CPUID RCX(s) - Based on Hyper-V
-#define HYPERV_CPUID_VENDOR_AND_MAX_FUNCTIONS   0x40000000
-#define HYPERV_CPUID_INTERFACE                  0x40000001
-#define HYPERV_CPUID_VERSION                    0x40000002
-#define HYPERV_CPUID_FEATURES                   0x40000003
-#define HYPERV_CPUID_ENLIGHTMENT_INFO           0x40000004
-#define HYPERV_CPUID_IMPLEMENT_LIMITS           0x40000005
-#define HYPERV_HYPERVISOR_PRESENT_BIT           0x80000000
-#define HYPERV_CPUID_MIN                        0x40000005
-#define HYPERV_CPUID_MAX                        0x4000ffff
-
-#define DPL_USER   3
-#define DPL_SYSTEM 0
-
-BOOLEAN
-HandleCPUID(PGUEST_REGS state)
-{
-        INT32 CpuInfo[4];
-        ULONG Mode = 0;
-
-        //
-        // Check for the magic CPUID sequence, and check that it is coming from
-        // Ring 0. Technically we could also check the RIP and see if this falls
-        // in the expected function, but we may want to allow a separate "unload"
-        // driver or code at some point
-        //
-
-        __vmx_vmread(GUEST_CS_SELECTOR, &Mode);
-        Mode = Mode & RPL_MASK;
-
-        if ((state->rax == 0x41414141) && (state->rcx == 0x42424242) && Mode == DPL_SYSTEM)
-        {
-                return TRUE; // Indicates we have to turn off VMX
-        }
-
-        //
-        // Otherwise, issue the CPUID to the logical processor based on the indexes
-        // on the VP's GPRs
-        //
-        __cpuidex(CpuInfo, (INT32)state->rax, (INT32)state->rcx);
-
-        //
-        // Check if this was CPUID 1h, which is the features request
-        //
-        if (state->rax == 1)
-        {
-                //
-                // Set the Hypervisor Present-bit in RCX, which Intel and AMD have both
-                // reserved for this indication
-                //
-                CpuInfo[2] |= HYPERV_HYPERVISOR_PRESENT_BIT;
-        }
-
-        else if (state->rax == HYPERV_CPUID_INTERFACE)
-        {
-                //
-                // Return our interface identifier
-                //
-                CpuInfo[0] = 'HVFS'; // [H]yper[V]isor [F]rom [S]cratch
-        }
-
-        //
-        // Copy the values from the logical processor registers into the VP GPRs
-        //
-        state->rax = CpuInfo[0];
-        state->rbx = CpuInfo[1];
-        state->rcx = CpuInfo[2];
-        state->rdx = CpuInfo[3];
-
-        return FALSE; // Indicates we don't have to turn off VMX
-}
-
-// Exit Qualifications for MOV for Control Register Access
-#define TYPE_MOV_TO_CR   0
-#define TYPE_MOV_FROM_CR 1
-#define TYPE_CLTS        2
-#define TYPE_LMSW        3
-
-typedef union _MOV_CR_QUALIFICATION
-{
-        ULONG_PTR All;
-        struct
-        {
-                ULONG ControlRegister : 4;
-                ULONG AccessType : 2;
-                ULONG LMSWOperandType : 1;
-                ULONG Reserved1 : 1;
-                ULONG Register : 4;
-                ULONG Reserved2 : 4;
-                ULONG LMSWSourceData : 16;
-                ULONG Reserved3;
-        } Fields;
-} MOV_CR_QUALIFICATION, * PMOV_CR_QUALIFICATION;
-
+STATIC
 VOID
-HandleControlRegisterAccess(PGUEST_REGS GuestState)
+DispatchExitReasonControlRegisterAccess(
+        _In_ PGUEST_REGS GuestState
+)
 {
-        ULONG ExitQualification = 0;
+        ULONG exit_qualification = 0;
 
-        __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
+        __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
 
-        PMOV_CR_QUALIFICATION data = (PMOV_CR_QUALIFICATION)&ExitQualification;
+        PMOV_CR_QUALIFICATION data = (PMOV_CR_QUALIFICATION)&exit_qualification;
 
-        PULONG64 RegPtr = (PULONG64)&GuestState->rax + data->Fields.Register;
+        PULONG64 register_ptr = (PULONG64)&GuestState->rax + data->Fields.Register;
 
-        //
-        // Because its RSP and as we didn't save RSP correctly (because of pushes)
-        // so we have to make it points to the GUEST_RSP
-        //
         if (data->Fields.Register == 4)
         {
                 INT64 RSP = 0;
                 __vmx_vmread(GUEST_RSP, &RSP);
-                *RegPtr = RSP;
+                *register_ptr = RSP;
         }
 
         switch (data->Fields.AccessType)
@@ -995,24 +892,18 @@ HandleControlRegisterAccess(PGUEST_REGS GuestState)
                 switch (data->Fields.ControlRegister)
                 {
                 case 0:
-                        __vmx_vmwrite(GUEST_CR0, *RegPtr);
-                        __vmx_vmwrite(CR0_READ_SHADOW, *RegPtr);
+                        __vmx_vmwrite(GUEST_CR0, *register_ptr);
+                        __vmx_vmwrite(CR0_READ_SHADOW, *register_ptr);
                         break;
                 case 3:
-
-                        __vmx_vmwrite(GUEST_CR3, (*RegPtr & ~(1ULL << 63)));
-
-                        //
-                        // In the case of using EPT, the context of EPT/VPID should be
-                        // invalidated
-                        //
+                        __vmx_vmwrite(GUEST_CR3, (*register_ptr & ~(1ULL << 63)));
                         break;
                 case 4:
-                        __vmx_vmwrite(GUEST_CR4, *RegPtr);
-                        __vmx_vmwrite(CR4_READ_SHADOW, *RegPtr);
+                        __vmx_vmwrite(GUEST_CR4, *register_ptr);
+                        __vmx_vmwrite(CR4_READ_SHADOW, *register_ptr);
                         break;
                 default:
-                        DbgPrint("[*] Unsupported register %d\n", data->Fields.ControlRegister);
+                        DEBUG_LOG("Register not supported.");
                         break;
                 }
         }
@@ -1023,38 +914,68 @@ HandleControlRegisterAccess(PGUEST_REGS GuestState)
                 switch (data->Fields.ControlRegister)
                 {
                 case 0:
-                        __vmx_vmread(GUEST_CR0, RegPtr);
+                        __vmx_vmread(GUEST_CR0, register_ptr);
                         break;
                 case 3:
-                        __vmx_vmread(GUEST_CR3, RegPtr);
+                        __vmx_vmread(GUEST_CR3, register_ptr);
                         break;
                 case 4:
-                        __vmx_vmread(GUEST_CR4, RegPtr);
+                        __vmx_vmread(GUEST_CR4, register_ptr);
                         break;
                 default:
-                        DbgPrint("[*] Unsupported register %d\n", data->Fields.ControlRegister);
+                        DEBUG_LOG("Register not supported.");
                         break;
                 }
         }
         break;
 
         default:
-                DbgPrint("[*] Unsupported operation %d\n", data->Fields.AccessType);
                 break;
         }
 }
 
+STATIC
+VOID 
+DispatchExitReasonCPUID(
+        _In_ PGUEST_REGS GuestState
+)
+{
+        INT32 cpuid_result[4];
+        ULONG mode = 0;
+
+        __vmx_vmread(GUEST_CS_SELECTOR, &mode);
+        mode = mode & RPL_MASK;
+
+        __cpuidex(cpuid_result, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+
+        if (GuestState->rax == 1)
+        {
+                cpuid_result[2] |= HYPERV_HYPERVISOR_PRESENT_BIT;
+        }
+        else if (GuestState->rax == HYPERV_CPUID_INTERFACE)
+        {
+                cpuid_result[0] = 'HVFS';
+        }
+
+        GuestState->rax = cpuid_result[0];
+        GuestState->rbx = cpuid_result[1];
+        GuestState->rcx = cpuid_result[2];
+        GuestState->rdx = cpuid_result[3];
+}
+
 VOID
-MainVmexitHandler(PGUEST_REGS GuestRegs)
+VmExitDispatcher(
+        _In_ PGUEST_REGS GuestState
+)
 {
         ULONG ExitReason = 0;
         __vmx_vmread(VM_EXIT_REASON, &ExitReason);
 
-        ULONG ExitQualification = 0;
-        __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
+        ULONG exit_qualification = 0;
+        __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
 
         //DEBUG_LOG("VM_EXIT_REASION 0x%x", ExitReason & 0xffff);
-        //DEBUG_LOG("EXIT_QUALIFICATION 0x%x", ExitQualification);
+        //DEBUG_LOG("EXIT_QUALIFICATION 0x%x", exit_qualification);
 
         switch (ExitReason)
         {
@@ -1069,52 +990,15 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         case EXIT_REASON_VMLAUNCH:
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
-        case EXIT_REASON_CPUID:
-        {
-                BOOLEAN Status = HandleCPUID(GuestRegs); // Detect whether we have to turn off VMX or Not
-                if (Status)
-                {
-                        // We have to save GUEST_RIP & GUEST_RSP somewhere to restore them directly
-
-                        ULONG ExitInstructionLength = 0;
-                        ULONG ExitReason;
-                        UINT64 g_GuestRSP;
-                        UINT64 g_GuestRIP;
-                        __vmx_vmread(GUEST_RIP, &g_GuestRIP);
-                        __vmx_vmread(GUEST_RSP, &g_GuestRSP);
-                        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &ExitInstructionLength);
-
-                        g_GuestRIP += ExitInstructionLength;
-                }
-                break;
-        }
+        case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(GuestState); break; }
         case EXIT_REASON_INVD:
         case EXIT_REASON_VMCALL:
-        case EXIT_REASON_CR_ACCESS:
-        {
-                HandleControlRegisterAccess(GuestRegs);
-                break;
-        }
-        case EXIT_REASON_MSR_READ:
-        {
-                ULONG ECX = GuestRegs->rcx & 0xffffffff;
-                HandleMSRRead(GuestRegs);
-                break;
-        }
-        case EXIT_REASON_MSR_WRITE:
-        {
-                ULONG ECX = GuestRegs->rcx & 0xffffffff;
-                HandleMSRWrite(GuestRegs);
-                break;
-        }
+        case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }
+        case EXIT_REASON_MSR_READ: { DispatchExitReasonMsrRead(GuestState); break; }
+        case EXIT_REASON_MSR_WRITE: { DispatchExitReasonMsrWrite(GuestState); break; }
         case EXIT_REASON_EPT_VIOLATION:
-        default:
-        {
-                DEBUG_ERROR("Invalid vmexit code");
-                break;
-        }
+        default: { DEBUG_ERROR("Invalid VMEXIT reason."); break; }
         }
 
         ResumeToNextInstruction();
 }
-//-----------------------------------------------------------------------------//
