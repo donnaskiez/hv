@@ -130,7 +130,7 @@
     <ClInclude Include="vmx.h" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="segment.asm" />
+    <MASM Include="asm.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

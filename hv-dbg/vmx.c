@@ -3,7 +3,7 @@
 #include "common.h"
 
 VIRTUAL_MACHINE_STATE* vmm_state;
-ULONG                     proc_count;
+ULONG proc_count;
 
 VMCS_GUEST_STATE_FIELDS   guest_state_fields = { 0 };
 VMCS_HOST_STATE_FIELDS    host_state_fields = { 0 };
@@ -220,30 +220,27 @@ VirtualizeCore(
         _In_ PVOID StackPointer
 )
 {
-        SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
+        NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("SetupVmcs failed with status %x", status);
+                return;
+        }
+
         __vmx_vmlaunch();
         /*
         * If vmlaunch succeeds, we will never get here.
         */
-        ULONG64 ErrorCode = 0;
-        __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
+        ULONG64 error_code = 0;
+        __vmx_vmread(VM_INSTRUCTION_ERROR, &error_code);
         __vmx_off();
-        DEBUG_LOG("VMLAUNCH Error : 0x%llx", ErrorCode);
+        DEBUG_LOG("VMLAUNCH Error : 0x%llx", error_code);
 
 ReturnWithoutError:
 
         __vmx_off();
-        DEBUG_LOG("VMXOFF Executed Successfully. !");
-
         return TRUE;
-
-        //
-        // Return With Error
-        //
-ErrorReturn:
-
-        DEBUG_LOG("Fail to setup VMCS !");
-        return FALSE;
 }
 
 STATIC
@@ -267,7 +264,7 @@ TerminateVmx(
 
 VOID
 InsertStackPointerIntoIpiContextStruct(
-        _In_ PIPI_CALL_CONTEXT Context, 
+        _In_ PIPI_CALL_CONTEXT Context,
         _In_ PVOID StackPointer
 )
 {
@@ -291,7 +288,7 @@ BroadcastVmxInitiation(
         return TRUE;
 }
 
-VOID 
+VOID
 BroadcastVmxTermination()
 {
         KeIpiGenericCall(TerminateVmx, NULL);
@@ -604,9 +601,10 @@ EncodeVmcsControlStateFields(
         Fields->word_state.eptp_index = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_CONTROL, VMCS_WIDTH_16, 2);
 }
 
-BOOLEAN
+STATIC
+NTSTATUS
 SetupVmcs(
-        _In_ VIRTUAL_MACHINE_STATE* GuestState, 
+        _In_ VIRTUAL_MACHINE_STATE* GuestState,
         _In_ PVOID StackPointer
 )
 {
@@ -628,8 +626,6 @@ SetupVmcs(
                 DEBUG_LOG("Unable to clear the vmcs region");
                 return STATUS_ABANDONED;
         }
-
-        DEBUG_LOG("es selector mine: %llx, es selector intel: %llx", (UINT64)host_state_fields.word_state.es_selector, (UINT64)HOST_ES_SELECTOR);
 
         __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
         __vmx_vmwrite(host_state_fields.word_state.cs_selector, __readcs() & 0xF8);
@@ -724,9 +720,7 @@ SetupVmcs(
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, AsmVmexitHandler);
 
-        Status = TRUE;
-Exit:
-        return Status;
+        return STATUS_SUCCESS;
 }
 
 VOID
@@ -754,7 +748,7 @@ VmResumeInstruction()
         ULONG64 ErrorCode = 0;
         __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
         __vmx_off();
-        DbgPrint("[*] VMRESUME Error : 0x%llx\n", ErrorCode);
+        DEBUG_ERROR("VMRESUME Error : 0x%llx", ErrorCode);
 
         //
         // It's such a bad error because we don't where to go!
@@ -763,28 +757,30 @@ VmResumeInstruction()
         DbgBreakPoint();
 }
 
-/* Set Bits for a special address (used on MSR Bitmaps) */
-void SetBit(PVOID Addr, UINT64 bit, BOOLEAN Set) {
+STATIC
+VOID
+SetBit(
+        _In_ PVOID Address,
+        _In_ UINT64 Bit,
+        _In_ BOOLEAN Set
+)
+{
 
         UINT64 byte;
         UINT64 temp;
         UINT64 n;
         BYTE* Addr2;
 
-        byte = bit / 8;
-        temp = bit % 8;
+        byte = Bit / 8;
+        temp = Bit % 8;
         n = 7 - temp;
 
-        Addr2 = Addr;
+        Addr2 = Address;
 
         if (Set)
-        {
                 Addr2[byte] |= (1 << n);
-        }
         else
-        {
                 Addr2[byte] &= ~(1 << n);
-        }
 }
 
 STATIC
@@ -824,16 +820,17 @@ DispatchExitReasonMsrWrite(
         }
 }
 
+STATIC
 BOOLEAN
-SetMsrBitmap(ULONG64 Msr, int ProcessID, BOOLEAN ReadDetection, BOOLEAN WriteDetection)
+SetMsrBitmap(
+        _In_ ULONG64 Msr,
+        _In_ INT ProcessID,
+        _In_ BOOLEAN ReadDetection,
+        _In_ BOOLEAN WriteDetection
+)
 {
         if (!ReadDetection && !WriteDetection)
-        {
-                //
-                // Invalid Command
-                //
                 return FALSE;
-        }
 
         if (Msr <= 0x00001FFF)
         {
@@ -935,7 +932,7 @@ DispatchExitReasonControlRegisterAccess(
 }
 
 STATIC
-VOID 
+VOID
 DispatchExitReasonCPUID(
         _In_ PGUEST_REGS GuestState
 )
@@ -968,16 +965,13 @@ VmExitDispatcher(
         _In_ PGUEST_REGS GuestState
 )
 {
-        ULONG ExitReason = 0;
-        __vmx_vmread(VM_EXIT_REASON, &ExitReason);
-
+        ULONG exit_reason = 0;
         ULONG exit_qualification = 0;
+
+        __vmx_vmread(VM_EXIT_REASON, &exit_reason);
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
 
-        //DEBUG_LOG("VM_EXIT_REASION 0x%x", ExitReason & 0xffff);
-        //DEBUG_LOG("EXIT_QUALIFICATION 0x%x", exit_qualification);
-
-        switch (ExitReason)
+        switch (exit_reason)
         {
         case EXIT_REASON_VMCLEAR:
         case EXIT_REASON_VMPTRLD:
