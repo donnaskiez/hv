@@ -17,6 +17,8 @@ PUBLIC __vmx_terminate
 PUBLIC SaveStateAndVirtualizeCore
 PUBLIC AsmVmexitHandler
 PUBLIC VmxRestoreState
+PUBLIC MSRRead
+PUBLIC MSRWrite
 
 EXTERN g_StackPointerForReturning:QWORD
 EXTERN g_BasePointerForReturning:QWORD
@@ -191,16 +193,8 @@ SaveStateAndVirtualizeCore PROC PUBLIC
 	PUSH R13
 	PUSH R14
 	PUSH R15
-	
 	SUB RSP, 28h
-
-	; It a x64 FastCall function but as long as the definition of SaveState is the same
-	; as VirtualizeCore, so we RCX & RDX both have a correct value
-	; But VirtualizeCore also has a stack, so it's the third argument
-	; and according to FastCall, it should be in R8
-
 	MOV RDX, RSP
-	INT 3
 	CALL VirtualizeCore	
 	RET
 
@@ -339,5 +333,26 @@ __readrflags PROC
 __readrflags ENDP
 
 ;------------------------------------------------------------------------
+
+MSRRead PROC
+
+	RDMSR				; MSR[ECX] --> EDX:EAX
+	SHL		RDX, 32
+	OR		RAX, RDX
+
+	RET
+
+MSRRead ENDP
+
+;------------------------------------------------------------------------
+
+MSRWrite PROC
+
+	MOV		RAX, RDX
+	SHR		RDX, 32
+	WRMSR
+	RET
+
+MSRWrite ENDP
 
 END

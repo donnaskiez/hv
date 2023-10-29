@@ -220,9 +220,7 @@ VirtualizeCore(
         _In_ PVOID StackPointer
 )
 {
-        __debugbreak();
         SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
-        __debugbreak();
         __vmx_vmlaunch();
         /*
         * If vmlaunch succeeds, we will never get here.
@@ -231,7 +229,6 @@ VirtualizeCore(
         __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
         __vmx_off();
         DEBUG_LOG("VMLAUNCH Error : 0x%llx", ErrorCode);
-        __debugbreak();
 
 ReturnWithoutError:
 
@@ -766,6 +763,115 @@ VmResumeInstruction()
         DbgBreakPoint();
 }
 
+/* Set Bits for a special address (used on MSR Bitmaps) */
+void SetBit(PVOID Addr, UINT64 bit, BOOLEAN Set) {
+
+        UINT64 byte;
+        UINT64 temp;
+        UINT64 n;
+        BYTE* Addr2;
+
+        byte = bit / 8;
+        temp = bit % 8;
+        n = 7 - temp;
+
+        Addr2 = Addr;
+
+        if (Set)
+        {
+                Addr2[byte] |= (1 << n);
+        }
+        else
+        {
+                Addr2[byte] &= ~(1 << n);
+        }
+}
+
+VOID
+HandleMSRRead(PGUEST_REGS GuestRegs)
+{
+        MSR msr = { 0 };
+
+        //
+        // RDMSR. The RDMSR instruction causes a VM exit if any of the following are true:
+        //
+        // The "use MSR bitmaps" VM-execution control is 0.
+        // The value of ECX is not in the ranges 00000000H - 00001FFFH and C0000000H - C0001FFFH
+        // The value of ECX is in the range 00000000H - 00001FFFH and bit n in read bitmap for low MSRs is 1,
+        //   where n is the value of ECX.
+        // The value of ECX is in the range C0000000H - C0001FFFH and bit n in read bitmap for high MSRs is 1,
+        //   where n is the value of ECX & 00001FFFH.
+        //
+
+        if (((GuestRegs->rcx <= 0x00001FFF)) || ((0xC0000000 <= GuestRegs->rcx) && (GuestRegs->rcx <= 0xC0001FFF)))
+        {
+                msr.Content = MSRRead((ULONG)GuestRegs->rcx);
+        }
+        else
+        {
+                msr.Content = 0;
+        }
+
+        GuestRegs->rax = msr.Low;
+        GuestRegs->rdx = msr.High;
+}
+
+VOID
+HandleMSRWrite(PGUEST_REGS GuestRegs)
+{
+        MSR msr = { 0 };
+
+        //
+        // Check for the sanity of MSR
+        //
+        if ((GuestRegs->rcx <= 0x00001FFF) || ((0xC0000000 <= GuestRegs->rcx) && (GuestRegs->rcx <= 0xC0001FFF)))
+        {
+                msr.Low = (ULONG)GuestRegs->rax;
+                msr.High = (ULONG)GuestRegs->rdx;
+                MSRWrite((ULONG)GuestRegs->rcx, msr.Content);
+        }
+}
+
+BOOLEAN
+SetMsrBitmap(ULONG64 Msr, int ProcessID, BOOLEAN ReadDetection, BOOLEAN WriteDetection)
+{
+        if (!ReadDetection && !WriteDetection)
+        {
+                //
+                // Invalid Command
+                //
+                return FALSE;
+        }
+
+        if (Msr <= 0x00001FFF)
+        {
+                if (ReadDetection)
+                {
+                        SetBit(vmm_state[ProcessID].msr_bitmap_pa, Msr, TRUE);
+                }
+                if (WriteDetection)
+                {
+                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 2048, Msr, TRUE);
+                }
+        }
+        else if ((0xC0000000 <= Msr) && (Msr <= 0xC0001FFF))
+        {
+                if (ReadDetection)
+                {
+                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 1024, Msr - 0xC0000000, TRUE);
+                }
+                if (WriteDetection)
+                {
+                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 3072, Msr - 0xC0000000, TRUE);
+                }
+        }
+        else
+        {
+                return FALSE;
+        }
+        return TRUE;
+}
+
 VOID
 MainVmexitHandler(PGUEST_REGS GuestRegs)
 {
@@ -775,18 +881,11 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         ULONG ExitQualification = 0;
         __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
 
-        DEBUG_LOG("\nVM_EXIT_REASION 0x%x\n", ExitReason & 0xffff);
-        DEBUG_LOG("\EXIT_QUALIFICATION 0x%x\n", ExitQualification);
+        DEBUG_LOG("VM_EXIT_REASION 0x%x", ExitReason & 0xffff);
+        DEBUG_LOG("EXIT_QUALIFICATION 0x%x", ExitQualification);
 
         switch (ExitReason)
         {
-                //
-                // 25.1.2  Instructions That Cause VM Exits Unconditionally
-                // The following instructions cause VM exits when they are executed in VMX non-root operation: CPUID, GETSEC,
-                // INVD, and XSETBV. This is also true of instructions introduced with VMX, which include: INVEPT, INVVPID,
-                // VMCALL, VMCLEAR, VMLAUNCH, VMPTRLD, VMPTRST, VMRESUME, VMXOFF, and VMXON.
-                //
-
         case EXIT_REASON_VMCLEAR:
         case EXIT_REASON_VMPTRLD:
         case EXIT_REASON_VMPTRST:
@@ -796,65 +895,36 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         case EXIT_REASON_VMXOFF:
         case EXIT_REASON_VMXON:
         case EXIT_REASON_VMLAUNCH:
-        {
-                break;
-        }
         case EXIT_REASON_HLT:
-        {
-                DbgPrint("[*] Execution of HLT detected... \n");
-
-                //
-                // that's enough for now ;)
-                //
-                __vmx_terminate();
-
-                break;
-        }
         case EXIT_REASON_EXCEPTION_NMI:
-        {
-                break;
-        }
-
         case EXIT_REASON_CPUID:
-        {
-                break;
-        }
-
         case EXIT_REASON_INVD:
-        {
-                break;
-        }
-
         case EXIT_REASON_VMCALL:
-        {
-                break;
-        }
-
         case EXIT_REASON_CR_ACCESS:
-        {
-                break;
-        }
-
         case EXIT_REASON_MSR_READ:
         {
+                ULONG ECX = GuestRegs->rcx & 0xffffffff;
+                // DbgPrint("[*] RDMSR (based on bitmap) : 0x%llx\n", ECX);
+                HandleMSRRead(GuestRegs);
+
                 break;
         }
-
         case EXIT_REASON_MSR_WRITE:
         {
+                ULONG ECX = GuestRegs->rcx & 0xffffffff;
+                // DbgPrint("[*] WRMSR (based on bitmap) : 0x%llx\n", ECX);
+                HandleMSRWrite(GuestRegs);
+
                 break;
         }
-
         case EXIT_REASON_EPT_VIOLATION:
-        {
-                break;
-        }
-
         default:
         {
-                // DbgBreakPoint();
+                DEBUG_ERROR("Invalid");
                 break;
         }
         }
+
+        ResumeToNextInstruction();
 }
 //-----------------------------------------------------------------------------//

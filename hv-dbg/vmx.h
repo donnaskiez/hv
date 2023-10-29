@@ -60,6 +60,12 @@ extern void inline __vmx_enable();
 extern void inline __vmx_terminate();
 extern unsigned char inline AsmPerformInvept(_In_ unsigned long Type, _In_ void* Descriptor);
 
+ULONG64
+MSRRead(ULONG32 reg);
+
+void
+MSRWrite(ULONG32 reg, ULONG64 MsrValue);
+
 extern void VmxRestoreState();
 extern UINT64 inline SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
 
