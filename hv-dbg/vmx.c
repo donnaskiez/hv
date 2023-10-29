@@ -872,6 +872,178 @@ SetMsrBitmap(ULONG64 Msr, int ProcessID, BOOLEAN ReadDetection, BOOLEAN WriteDet
         return TRUE;
 }
 
+// CPUID RCX(s) - Based on Hyper-V
+#define HYPERV_CPUID_VENDOR_AND_MAX_FUNCTIONS   0x40000000
+#define HYPERV_CPUID_INTERFACE                  0x40000001
+#define HYPERV_CPUID_VERSION                    0x40000002
+#define HYPERV_CPUID_FEATURES                   0x40000003
+#define HYPERV_CPUID_ENLIGHTMENT_INFO           0x40000004
+#define HYPERV_CPUID_IMPLEMENT_LIMITS           0x40000005
+#define HYPERV_HYPERVISOR_PRESENT_BIT           0x80000000
+#define HYPERV_CPUID_MIN                        0x40000005
+#define HYPERV_CPUID_MAX                        0x4000ffff
+
+#define DPL_USER   3
+#define DPL_SYSTEM 0
+
+BOOLEAN
+HandleCPUID(PGUEST_REGS state)
+{
+        INT32 CpuInfo[4];
+        ULONG Mode = 0;
+
+        //
+        // Check for the magic CPUID sequence, and check that it is coming from
+        // Ring 0. Technically we could also check the RIP and see if this falls
+        // in the expected function, but we may want to allow a separate "unload"
+        // driver or code at some point
+        //
+
+        __vmx_vmread(GUEST_CS_SELECTOR, &Mode);
+        Mode = Mode & RPL_MASK;
+
+        if ((state->rax == 0x41414141) && (state->rcx == 0x42424242) && Mode == DPL_SYSTEM)
+        {
+                return TRUE; // Indicates we have to turn off VMX
+        }
+
+        //
+        // Otherwise, issue the CPUID to the logical processor based on the indexes
+        // on the VP's GPRs
+        //
+        __cpuidex(CpuInfo, (INT32)state->rax, (INT32)state->rcx);
+
+        //
+        // Check if this was CPUID 1h, which is the features request
+        //
+        if (state->rax == 1)
+        {
+                //
+                // Set the Hypervisor Present-bit in RCX, which Intel and AMD have both
+                // reserved for this indication
+                //
+                CpuInfo[2] |= HYPERV_HYPERVISOR_PRESENT_BIT;
+        }
+
+        else if (state->rax == HYPERV_CPUID_INTERFACE)
+        {
+                //
+                // Return our interface identifier
+                //
+                CpuInfo[0] = 'HVFS'; // [H]yper[V]isor [F]rom [S]cratch
+        }
+
+        //
+        // Copy the values from the logical processor registers into the VP GPRs
+        //
+        state->rax = CpuInfo[0];
+        state->rbx = CpuInfo[1];
+        state->rcx = CpuInfo[2];
+        state->rdx = CpuInfo[3];
+
+        return FALSE; // Indicates we don't have to turn off VMX
+}
+
+// Exit Qualifications for MOV for Control Register Access
+#define TYPE_MOV_TO_CR   0
+#define TYPE_MOV_FROM_CR 1
+#define TYPE_CLTS        2
+#define TYPE_LMSW        3
+
+typedef union _MOV_CR_QUALIFICATION
+{
+        ULONG_PTR All;
+        struct
+        {
+                ULONG ControlRegister : 4;
+                ULONG AccessType : 2;
+                ULONG LMSWOperandType : 1;
+                ULONG Reserved1 : 1;
+                ULONG Register : 4;
+                ULONG Reserved2 : 4;
+                ULONG LMSWSourceData : 16;
+                ULONG Reserved3;
+        } Fields;
+} MOV_CR_QUALIFICATION, * PMOV_CR_QUALIFICATION;
+
+VOID
+HandleControlRegisterAccess(PGUEST_REGS GuestState)
+{
+        ULONG ExitQualification = 0;
+
+        __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
+
+        PMOV_CR_QUALIFICATION data = (PMOV_CR_QUALIFICATION)&ExitQualification;
+
+        PULONG64 RegPtr = (PULONG64)&GuestState->rax + data->Fields.Register;
+
+        //
+        // Because its RSP and as we didn't save RSP correctly (because of pushes)
+        // so we have to make it points to the GUEST_RSP
+        //
+        if (data->Fields.Register == 4)
+        {
+                INT64 RSP = 0;
+                __vmx_vmread(GUEST_RSP, &RSP);
+                *RegPtr = RSP;
+        }
+
+        switch (data->Fields.AccessType)
+        {
+        case TYPE_MOV_TO_CR:
+        {
+                switch (data->Fields.ControlRegister)
+                {
+                case 0:
+                        __vmx_vmwrite(GUEST_CR0, *RegPtr);
+                        __vmx_vmwrite(CR0_READ_SHADOW, *RegPtr);
+                        break;
+                case 3:
+
+                        __vmx_vmwrite(GUEST_CR3, (*RegPtr & ~(1ULL << 63)));
+
+                        //
+                        // In the case of using EPT, the context of EPT/VPID should be
+                        // invalidated
+                        //
+                        break;
+                case 4:
+                        __vmx_vmwrite(GUEST_CR4, *RegPtr);
+                        __vmx_vmwrite(CR4_READ_SHADOW, *RegPtr);
+                        break;
+                default:
+                        DbgPrint("[*] Unsupported register %d\n", data->Fields.ControlRegister);
+                        break;
+                }
+        }
+        break;
+
+        case TYPE_MOV_FROM_CR:
+        {
+                switch (data->Fields.ControlRegister)
+                {
+                case 0:
+                        __vmx_vmread(GUEST_CR0, RegPtr);
+                        break;
+                case 3:
+                        __vmx_vmread(GUEST_CR3, RegPtr);
+                        break;
+                case 4:
+                        __vmx_vmread(GUEST_CR4, RegPtr);
+                        break;
+                default:
+                        DbgPrint("[*] Unsupported register %d\n", data->Fields.ControlRegister);
+                        break;
+                }
+        }
+        break;
+
+        default:
+                DbgPrint("[*] Unsupported operation %d\n", data->Fields.AccessType);
+                break;
+        }
+}
+
 VOID
 MainVmexitHandler(PGUEST_REGS GuestRegs)
 {
@@ -881,8 +1053,8 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         ULONG ExitQualification = 0;
         __vmx_vmread(EXIT_QUALIFICATION, &ExitQualification);
 
-        DEBUG_LOG("VM_EXIT_REASION 0x%x", ExitReason & 0xffff);
-        DEBUG_LOG("EXIT_QUALIFICATION 0x%x", ExitQualification);
+        //DEBUG_LOG("VM_EXIT_REASION 0x%x", ExitReason & 0xffff);
+        //DEBUG_LOG("EXIT_QUALIFICATION 0x%x", ExitQualification);
 
         switch (ExitReason)
         {
@@ -898,29 +1070,47 @@ MainVmexitHandler(PGUEST_REGS GuestRegs)
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
         case EXIT_REASON_CPUID:
+        {
+                BOOLEAN Status = HandleCPUID(GuestRegs); // Detect whether we have to turn off VMX or Not
+                if (Status)
+                {
+                        // We have to save GUEST_RIP & GUEST_RSP somewhere to restore them directly
+
+                        ULONG ExitInstructionLength = 0;
+                        ULONG ExitReason;
+                        UINT64 g_GuestRSP;
+                        UINT64 g_GuestRIP;
+                        __vmx_vmread(GUEST_RIP, &g_GuestRIP);
+                        __vmx_vmread(GUEST_RSP, &g_GuestRSP);
+                        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &ExitInstructionLength);
+
+                        g_GuestRIP += ExitInstructionLength;
+                }
+                break;
+        }
         case EXIT_REASON_INVD:
         case EXIT_REASON_VMCALL:
         case EXIT_REASON_CR_ACCESS:
+        {
+                HandleControlRegisterAccess(GuestRegs);
+                break;
+        }
         case EXIT_REASON_MSR_READ:
         {
                 ULONG ECX = GuestRegs->rcx & 0xffffffff;
-                // DbgPrint("[*] RDMSR (based on bitmap) : 0x%llx\n", ECX);
                 HandleMSRRead(GuestRegs);
-
                 break;
         }
         case EXIT_REASON_MSR_WRITE:
         {
                 ULONG ECX = GuestRegs->rcx & 0xffffffff;
-                // DbgPrint("[*] WRMSR (based on bitmap) : 0x%llx\n", ECX);
                 HandleMSRWrite(GuestRegs);
-
                 break;
         }
         case EXIT_REASON_EPT_VIOLATION:
         default:
         {
-                DEBUG_ERROR("Invalid");
+                DEBUG_ERROR("Invalid vmexit code");
                 break;
         }
         }
