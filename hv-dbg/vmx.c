@@ -711,7 +711,7 @@ SetupVmcs(
         __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState); // setup guest ip
 
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
-        __vmx_vmwrite(host_state_fields.natural_state.rip, AsmVmexitHandler);
+        __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
 
         return STATUS_SUCCESS;
 }
@@ -785,7 +785,7 @@ DispatchExitReasonMsrRead(
 
         if (((GuestState->rcx <= 0x00001FFF)) || ((0xC0000000 <= GuestState->rcx) && (GuestState->rcx <= 0xC0001FFF)))
         {
-                msr.Content = MSRRead((ULONG)GuestState->rcx);
+                msr.Content = __readmsr((ULONG)GuestState->rcx);
         }
         else
         {
@@ -808,7 +808,7 @@ DispatchExitReasonMsrWrite(
         {
                 msr.Low = (ULONG)GuestState->rax;
                 msr.High = (ULONG)GuestState->rdx;
-                MSRWrite((ULONG)GuestState->rcx, msr.Content);
+                __writemsr((ULONG)GuestState->rcx, msr.Content);
         }
 }
 
@@ -928,6 +928,7 @@ DispatchExitReasonInvd(
         _In_ PGUEST_REGS GuestState
 )
 {
+        /* this is how hyper-v performs their invd */
         __wbinvd();
 }
 

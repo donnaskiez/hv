@@ -1,5 +1,5 @@
 PUBLIC __vmx_enable
-PUBLIC AsmPerformInvept
+PUBLIC __vmx_invept
 PUBLIC __readcs
 PUBLIC __readds
 PUBLIC __reades
@@ -14,28 +14,27 @@ PUBLIC __getgdtlimit
 PUBLIC __getidtlimit
 PUBLIC __readrflags
 PUBLIC __vmx_terminate
-PUBLIC SaveStateAndVirtualizeCore
-PUBLIC AsmVmexitHandler
-PUBLIC VmxRestoreState
-PUBLIC MSRRead
-PUBLIC MSRWrite
+PUBLIC __readmsr
+PUBLIC __writemsr
 
-EXTERN stack_pointer_to_return:QWORD
-EXTERN base_pointer_to_return:QWORD
+PUBLIC SaveStateAndVirtualizeCore
+PUBLIC VmexitHandler
+PUBLIC VmxRestoreState
 
 EXTERN VmExitDispatcher:PROC
 EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
 
+EXTERN stack_pointer_to_return:QWORD
+EXTERN base_pointer_to_return:QWORD
+
+VMX_ERROR_CODE_SUCCESS              = 0
+VMX_ERROR_CODE_FAILED_WITH_STATUS   = 1
+VMX_ERROR_CODE_FAILED               = 2
+
 .code _text
 
-;------------------------------------------------------------------------
-    VMX_ERROR_CODE_SUCCESS              = 0
-    VMX_ERROR_CODE_FAILED_WITH_STATUS   = 1
-    VMX_ERROR_CODE_FAILED               = 2
-;------------------------------------------------------------------------
-
-AsmVmexitHandler PROC
+VmexitHandler PROC
 
     PUSH R15
     PUSH R14
@@ -81,7 +80,35 @@ AsmVmexitHandler PROC
 	
     JMP VmResumeInstruction
 	
-AsmVmexitHandler ENDP
+VmexitHandler ENDP
+
+; No need to raise the irql as this routine run at IPI_LEVEL 
+
+SaveStateAndVirtualizeCore PROC PUBLIC
+
+	PUSH RAX
+	PUSH RCX
+	PUSH RDX
+	PUSH RBX
+	PUSH RBP
+	PUSH RSI
+	PUSH RDI
+	PUSH R8
+	PUSH R9
+	PUSH R10
+	PUSH R11
+	PUSH R12
+	PUSH R13
+	PUSH R14
+	PUSH R15
+	SUB RSP, 28h
+	MOV RDX, RSP
+	CALL VirtualizeCore	
+	RET
+
+SaveStateAndVirtualizeCore ENDP 
+
+; Restores the state of the registers pushed before we virtualized the core
 
 VmxRestoreState PROC
 
@@ -121,9 +148,7 @@ __vmx_enable PROC PUBLIC
 
 __vmx_enable ENDP
 
-;------------------------------------------------------------------------
-
-AsmPerformInvept PROC PUBLIC
+__vmx_invept PROC PUBLIC
 
 	INVEPT  RCX, OWORD PTR [RDX]
 	JZ FailedWithStatus
@@ -140,9 +165,7 @@ Failed:
 	MOV     RAX, VMX_ERROR_CODE_FAILED
 	RET
 
-AsmPerformInvept ENDP
-
-;------------------------------------------------------------------------
+__vmx_invept ENDP
 
 __vmx_terminate PROC PUBLIC
 
@@ -170,36 +193,6 @@ __vmx_terminate PROC PUBLIC
 	
 __vmx_terminate ENDP 
 
-;------------------------------------------------------------------------
-
-; No need to raise the irql as these routines run at IPI_LEVEL 
-
-SaveStateAndVirtualizeCore PROC PUBLIC
-
-	PUSH RAX
-	PUSH RCX
-	PUSH RDX
-	PUSH RBX
-	PUSH RBP
-	PUSH RSI
-	PUSH RDI
-	PUSH R8
-	PUSH R9
-	PUSH R10
-	PUSH R11
-	PUSH R12
-	PUSH R13
-	PUSH R14
-	PUSH R15
-	SUB RSP, 28h
-	MOV RDX, RSP
-	CALL VirtualizeCore	
-	RET
-
-SaveStateAndVirtualizeCore ENDP 
-
-;------------------------------------------------------------------------
-
 __readgdtbase PROC
 
 	LOCAL	GDTR[10]:BYTE
@@ -210,16 +203,12 @@ __readgdtbase PROC
 
 __readgdtbase ENDP
 
-;------------------------------------------------------------------------
-
 __readcs PROC
 
 	MOV		RAX, CS
 	RET
 
 __readcs ENDP
-
-;------------------------------------------------------------------------
 
 __readds PROC
 
@@ -228,16 +217,12 @@ __readds PROC
 
 __readds ENDP
 
-;------------------------------------------------------------------------
-
 __reades PROC
 
 	MOV		RAX, ES
 	RET
 
 __reades ENDP
-
-;------------------------------------------------------------------------
 
 __readss PROC
 
@@ -246,16 +231,12 @@ __readss PROC
 
 __readss ENDP
 
-;------------------------------------------------------------------------
-
 __readfs PROC
 
 	MOV		RAX, FS
 	RET
 
 __readfs ENDP
-
-;------------------------------------------------------------------------
 
 __readgs PROC
 
@@ -264,8 +245,6 @@ __readgs PROC
 
 __readgs ENDP
 
-;------------------------------------------------------------------------
-
 __readldtr PROC
 
 	SLDT	RAX
@@ -273,16 +252,12 @@ __readldtr PROC
 
 __readldtr ENDP
 
-;------------------------------------------------------------------------
-
 __readtr PROC
 
 	STR		RAX
 	RET
 
 __readtr ENDP
-
-;------------------------------------------------------------------------
 
 __readidtbase PROC
 
@@ -293,8 +268,6 @@ __readidtbase PROC
 	RET
 
 __readidtbase ENDP
-
-;------------------------------------------------------------------------
 
 __getgdtlimit PROC
 
@@ -307,8 +280,6 @@ __getgdtlimit PROC
 
 __getgdtlimit ENDP
 
-;------------------------------------------------------------------------
-
 __getidtlimit PROC
 
 	LOCAL	IDTR[10]:BYTE
@@ -320,8 +291,6 @@ __getidtlimit PROC
 
 __getidtlimit ENDP
 
-;------------------------------------------------------------------------
-
 __readrflags PROC
 
 	PUSHFQ
@@ -330,9 +299,7 @@ __readrflags PROC
 
 __readrflags ENDP
 
-;------------------------------------------------------------------------
-
-MSRRead PROC
+__readmsr PROC
 
 	RDMSR				; MSR[ECX] --> EDX:EAX
 	SHL		RDX, 32
@@ -340,17 +307,15 @@ MSRRead PROC
 
 	RET
 
-MSRRead ENDP
+__readmsr ENDP
 
-;------------------------------------------------------------------------
-
-MSRWrite PROC
+__writemsr PROC
 
 	MOV		RAX, RDX
 	SHR		RDX, 32
 	WRMSR
 	RET
 
-MSRWrite ENDP
+__writemsr ENDP
 
 END
