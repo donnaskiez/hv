@@ -20,14 +20,12 @@ PUBLIC VmxRestoreState
 PUBLIC MSRRead
 PUBLIC MSRWrite
 
-EXTERN g_StackPointerForReturning:QWORD
-EXTERN g_BasePointerForReturning:QWORD
+EXTERN stack_pointer_to_return:QWORD
+EXTERN base_pointer_to_return:QWORD
 
 EXTERN VmExitDispatcher:PROC
 EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
-
-EXTERN InsertStackPointerIntoIpiContextStruct:PROC
 
 .code _text
 
@@ -150,8 +148,8 @@ __vmx_terminate PROC PUBLIC
 
 	VMXOFF  ; turn it off before existing
 	
-	MOV RSP, g_StackPointerForReturning
-	MOV RBP, g_BasePointerForReturning
+	MOV RSP, stack_pointer_to_return
+	MOV RBP, base_pointer_to_return
 	
 	; make rsp point to a correct return point
 	ADD RSP, 8

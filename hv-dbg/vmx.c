@@ -2,6 +2,8 @@
 #include "ept.h"
 #include "common.h"
 
+#include <intrin.h>
+
 VIRTUAL_MACHINE_STATE* vmm_state;
 ULONG proc_count;
 
@@ -29,21 +31,15 @@ STATIC
 BOOLEAN
 IsVmxSupported()
 {
-        CPUID Data = { 0 };
+        CPUID cpuid = { 0 };
 
-        //
-        // Check for the VMX bit
-        //
-        __cpuid((int*)&Data, 1);
-        if ((Data.ecx & (1 << 5)) == 0)
+        __cpuid((INT*)&cpuid, 1);
+        if ((cpuid.ecx & (1 << 5)) == 0)
                 return FALSE;
 
         IA32_FEATURE_CONTROL_MSR Control = { 0 };
         Control.bit_address = __readmsr(MSR_IA32_FEATURE_CONTROL);
 
-        //
-        // BIOS lock check
-        //
         if (Control.bits.Lock == 0)
         {
                 Control.bits.Lock = TRUE;
@@ -52,7 +48,7 @@ IsVmxSupported()
         }
         else if (Control.bits.EnableVmxon == FALSE)
         {
-                DbgPrint("[*] VMX locked off in BIOS");
+                DEBUG_LOG("VMX not enabled in the bios");
                 return FALSE;
         }
 
@@ -181,15 +177,24 @@ InitiateVmx(
 
         for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
-                PAGED_CODE();
-
+                /* for now this limits us to 64 cores, whatever lol */
                 KeSetSystemAffinityThread(1ull << core);
 
                 DEBUG_LOG("Executing InitiateVmx on processor index: %lx", core);
 
                 hvdbgEnableVmxOperationOnCore();
-                hvdbgAllocateVmxonRegion(&vmm_state[core]);
-                hvdbgAllocateVmcsRegion(&vmm_state[core]);
+
+                if (!hvdbgAllocateVmxonRegion(&vmm_state[core]))
+                {
+                        DEBUG_ERROR("AllocateVmxonRegion failed");
+                        return;
+                }
+
+                if (!hvdbgAllocateVmcsRegion(&vmm_state[core]))
+                {
+                        DEBUG_ERROR("AllocateVmcsRegion failed");
+                        return;
+                }
 
                 vmm_state[core].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
 
@@ -229,15 +234,18 @@ VirtualizeCore(
         }
 
         __vmx_vmlaunch();
+
         /*
         * If vmlaunch succeeds, we will never get here.
         */
         ULONG64 error_code = 0;
+
         __vmx_vmread(VM_INSTRUCTION_ERROR, &error_code);
         __vmx_off();
-        DEBUG_LOG("VMLAUNCH Error : 0x%llx", error_code);
 
-ReturnWithoutError:
+        DEBUG_ERROR("VMLAUNCH Error : 0x%llx", error_code);
+
+success:
 
         __vmx_off();
         return TRUE;
@@ -251,24 +259,21 @@ TerminateVmx(
 {
         UNREFERENCED_PARAMETER(Argument);
 
-        DEBUG_LOG("Terminated VMX on processor index: %lx", KeGetCurrentProcessorNumber());
-
         __vmx_off();
 
-        //MmFreeContiguousMemory(MmGetPhysicalAddress(
-        //        vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart);
+        if (MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart)
+                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart);
 
-        //MmFreeContiguousMemory(MmGetPhysicalAddress(
-        //        vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart);
-}
+        if (MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart)
+                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart);
+        
+        if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
+                MmFreeNonCachedMemory(vmm_state[KeGetCurrentProcessorNumber()].msr_bitmap_va, PAGE_SIZE);
 
-VOID
-InsertStackPointerIntoIpiContextStruct(
-        _In_ PIPI_CALL_CONTEXT Context,
-        _In_ PVOID StackPointer
-)
-{
-        Context[KeGetCurrentProcessorNumber()].guest_stack = StackPointer;
+        if (vmm_state[KeGetCurrentProcessorNumber()].vmm_stack)
+                ExFreePoolWithTag(vmm_state[KeGetCurrentProcessorNumber()].vmm_stack, POOLTAG);
+
+        DEBUG_LOG("Terminated VMX on processor index: %lx", KeGetCurrentProcessorNumber());
 }
 
 BOOLEAN
@@ -288,24 +293,13 @@ BroadcastVmxInitiation(
         return TRUE;
 }
 
-VOID
+BOOLEAN
 BroadcastVmxTermination()
 {
         KeIpiGenericCall(TerminateVmx, NULL);
 }
 
-UINT64
-VmptrstInstruction()
-{
-        PHYSICAL_ADDRESS vmcspa;
-        vmcspa.QuadPart = 0;
-        __vmx_vmptrst((unsigned __int64*)&vmcspa);
-
-        DbgPrint("[*] VMPTRST %llx\n", vmcspa);
-
-        return 0;
-}
-
+STATIC
 BOOLEAN
 GetSegmentDescriptor(
         PSEGMENT_SELECTOR SegmentSelector,
@@ -313,7 +307,8 @@ GetSegmentDescriptor(
         PUCHAR            GdtBase
 )
 {
-        PSEGMENT_DESCRIPTOR SegDesc;
+        ULONG64 temp;
+        PSEGMENT_DESCRIPTOR segment_descriptor;
 
         if (!SegmentSelector)
                 return FALSE;
@@ -321,19 +316,18 @@ GetSegmentDescriptor(
         if (Selector & 0x4)
                 return FALSE;
 
-        SegDesc = (PSEGMENT_DESCRIPTOR)((PUCHAR)GdtBase + (Selector & ~0x7));
+        segment_descriptor = (PSEGMENT_DESCRIPTOR)((PUCHAR)GdtBase + (Selector & ~0x7));
 
         SegmentSelector->SEL = Selector;
-        SegmentSelector->BASE = SegDesc->BASE0 | SegDesc->BASE1 << 16 | SegDesc->BASE2 << 24;
-        SegmentSelector->LIMIT = SegDesc->LIMIT0 | (SegDesc->LIMIT1ATTR1 & 0xf) << 16;
-        SegmentSelector->ATTRIBUTES.UCHARs = SegDesc->ATTR0 | (SegDesc->LIMIT1ATTR1 & 0xf0) << 4;
+        SegmentSelector->BASE = segment_descriptor->BASE0 | segment_descriptor->BASE1 << 16 | segment_descriptor->BASE2 << 24;
+        SegmentSelector->LIMIT = segment_descriptor->LIMIT0 | (segment_descriptor->LIMIT1ATTR1 & 0xf) << 16;
+        SegmentSelector->ATTRIBUTES.UCHARs = segment_descriptor->ATTR0 | (segment_descriptor->LIMIT1ATTR1 & 0xf0) << 4;
 
-        if (!(SegDesc->ATTR0 & 0x10))
+        if (!(segment_descriptor->ATTR0 & 0x10))
         {
-                ULONG64 Tmp;
                 // this is a TSS or callgate etc, save the base high part
-                Tmp = (*(PULONG64)((PUCHAR)SegDesc + 8));
-                SegmentSelector->BASE = (SegmentSelector->BASE & 0xffffffff) | (Tmp << 32);
+                temp = (*(PULONG64)((PUCHAR)segment_descriptor + 8));
+                SegmentSelector->BASE = (SegmentSelector->BASE & 0xffffffff) | (temp << 32);
         }
 
         if (SegmentSelector->ATTRIBUTES.Fields.G)
@@ -348,19 +342,19 @@ GetSegmentDescriptor(
 BOOLEAN
 SetGuestSelector(PVOID GDT_Base, ULONG Segment_Register, USHORT Selector)
 {
-        SEGMENT_SELECTOR SegmentSelector = { 0 };
-        ULONG            uAccessRights;
+        SEGMENT_SELECTOR segment_selector = { 0 };
+        ULONG            access_rights;
 
-        GetSegmentDescriptor(&SegmentSelector, Selector, GDT_Base);
-        uAccessRights = ((PUCHAR)&SegmentSelector.ATTRIBUTES)[0] + (((PUCHAR)&SegmentSelector.ATTRIBUTES)[1] << 12);
+        GetSegmentDescriptor(&segment_selector, Selector, GDT_Base);
+        access_rights = ((PUCHAR)&segment_selector.ATTRIBUTES)[0] + (((PUCHAR)&segment_selector.ATTRIBUTES)[1] << 12);
 
         if (!Selector)
-                uAccessRights |= 0x10000;
+                access_rights |= 0x10000;
 
-        __vmx_vmwrite(GUEST_ES_SELECTOR + Segment_Register * 2, Selector);
-        __vmx_vmwrite(GUEST_ES_LIMIT + Segment_Register * 2, SegmentSelector.LIMIT);
-        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segment_Register * 2, uAccessRights);
-        __vmx_vmwrite(GUEST_ES_BASE + Segment_Register * 2, SegmentSelector.BASE);
+        __vmx_vmwrite(guest_state_fields.word_state.es_selector + Segment_Register * 2, Selector);
+        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + Segment_Register * 2, segment_selector.LIMIT);
+        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segment_Register * 2, access_rights);
+        __vmx_vmwrite(GUEST_ES_BASE + Segment_Register * 2, segment_selector.BASE);
 
         return TRUE;
 }
@@ -385,19 +379,19 @@ __vmx_fill_selector_data(
         _In_ ULONG  Segreg,
         _In_ USHORT Selector)
 {
-        SEGMENT_SELECTOR SegmentSelector = { 0 };
-        ULONG            AccessRights;
+        SEGMENT_SELECTOR segment_selector = { 0 };
+        ULONG            access_rights;
 
-        GetSegmentDescriptor(&SegmentSelector, Selector, GdtBase);
-        AccessRights = ((PUCHAR)&SegmentSelector.ATTRIBUTES)[0] + (((PUCHAR)&SegmentSelector.ATTRIBUTES)[1] << 12);
+        GetSegmentDescriptor(&segment_selector, Selector, GdtBase);
+        access_rights = ((PUCHAR)&segment_selector.ATTRIBUTES)[0] + (((PUCHAR)&segment_selector.ATTRIBUTES)[1] << 12);
 
         if (!Selector)
-                AccessRights |= 0x10000;
+                access_rights |= 0x10000;
 
-        __vmx_vmwrite(GUEST_ES_SELECTOR + Segreg * 2, Selector);
-        __vmx_vmwrite(GUEST_ES_LIMIT + Segreg * 2, SegmentSelector.LIMIT);
-        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segreg * 2, AccessRights);
-        __vmx_vmwrite(GUEST_ES_BASE + Segreg * 2, SegmentSelector.BASE);
+        __vmx_vmwrite(guest_state_fields.word_state.es_selector + Segreg * 2, Selector);
+        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + Segreg * 2, segment_selector.LIMIT);
+        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segreg * 2, access_rights);
+        __vmx_vmwrite(GUEST_ES_BASE + Segreg * 2, segment_selector.BASE);
 }
 
 STATIC
@@ -601,7 +595,6 @@ EncodeVmcsControlStateFields(
         Fields->word_state.eptp_index = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_CONTROL, VMCS_WIDTH_16, 2);
 }
 
-STATIC
 NTSTATUS
 SetupVmcs(
         _In_ VIRTUAL_MACHINE_STATE* GuestState,
@@ -726,16 +719,19 @@ SetupVmcs(
 VOID
 ResumeToNextInstruction()
 {
-        PVOID ResumeRIP = NULL;
-        PVOID CurrentRIP = NULL;
-        ULONG ExitInstructionLength = 0;
+        PVOID resume_rip = NULL;
+        PVOID current_rip = NULL;
+        ULONG exit_instruction_length = 0;
 
-        __vmx_vmread(GUEST_RIP, &CurrentRIP);
-        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &ExitInstructionLength);
+        /*
+        * Advance the guest RIP by the size of the exit-causing instruction
+        */
+        __vmx_vmread(GUEST_RIP, &current_rip);
+        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
 
-        ResumeRIP = (PCHAR)CurrentRIP + ExitInstructionLength;
+        resume_rip = (PCHAR)current_rip + exit_instruction_length;
 
-        __vmx_vmwrite(GUEST_RIP, (ULONG64)ResumeRIP);
+        __vmx_vmwrite(GUEST_RIP, (ULONG64)resume_rip);
 }
 
 VOID
@@ -743,18 +739,14 @@ VmResumeInstruction()
 {
         __vmx_vmresume();
 
-        // if VMRESUME succeeds will never be here !
+        /* If vmresume succeeds we won't reach here */
 
         ULONG64 ErrorCode = 0;
+
         __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
         __vmx_off();
-        DEBUG_ERROR("VMRESUME Error : 0x%llx", ErrorCode);
 
-        //
-        // It's such a bad error because we don't where to go!
-        // prefer to break
-        //
-        DbgBreakPoint();
+        DEBUG_ERROR("VMRESUME Error : 0x%llx", ErrorCode);
 }
 
 STATIC
@@ -872,7 +864,6 @@ DispatchExitReasonControlRegisterAccess(
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
 
         PMOV_CR_QUALIFICATION data = (PMOV_CR_QUALIFICATION)&exit_qualification;
-
         PULONG64 register_ptr = (PULONG64)&GuestState->rax + data->Fields.Register;
 
         if (data->Fields.Register == 4)
@@ -933,26 +924,22 @@ DispatchExitReasonControlRegisterAccess(
 
 STATIC
 VOID
+DispatchExitReasonInvd(
+        _In_ PGUEST_REGS GuestState
+)
+{
+        __wbinvd();
+}
+
+STATIC
+VOID
 DispatchExitReasonCPUID(
         _In_ PGUEST_REGS GuestState
 )
 {
         INT32 cpuid_result[4];
-        ULONG mode = 0;
-
-        __vmx_vmread(GUEST_CS_SELECTOR, &mode);
-        mode = mode & RPL_MASK;
 
         __cpuidex(cpuid_result, (INT32)GuestState->rax, (INT32)GuestState->rcx);
-
-        if (GuestState->rax == 1)
-        {
-                cpuid_result[2] |= HYPERV_HYPERVISOR_PRESENT_BIT;
-        }
-        else if (GuestState->rax == HYPERV_CPUID_INTERFACE)
-        {
-                cpuid_result[0] = 'HVFS';
-        }
 
         GuestState->rax = cpuid_result[0];
         GuestState->rbx = cpuid_result[1];
@@ -985,7 +972,7 @@ VmExitDispatcher(
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
         case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(GuestState); break; }
-        case EXIT_REASON_INVD:
+        case EXIT_REASON_INVD: { DispatchExitReasonInvd(GuestState); break; }
         case EXIT_REASON_VMCALL:
         case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }
         case EXIT_REASON_MSR_READ: { DispatchExitReasonMsrRead(GuestState); break; }

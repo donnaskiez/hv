@@ -2,8 +2,6 @@
 #include "vmx.h"
 #include "ept.h"
 
-UINT64 g_VirtualGuestMemoryAddress;
-
 PEPTP
 InitializeEptp()
 {
@@ -78,12 +76,12 @@ InitializeEptp()
         //
         const int PagesToAllocate = 100;
 
-        g_VirtualGuestMemoryAddress = ExAllocatePoolWithTag(NonPagedPool, PagesToAllocate * PAGE_SIZE, POOLTAG);
+        UINT64 guest_virtual = ExAllocatePoolWithTag(NonPagedPool, PagesToAllocate * PAGE_SIZE, POOLTAG);
 
-        if (!g_VirtualGuestMemoryAddress)
+        if (!guest_virtual)
                 return NULL;
 
-        RtlZeroMemory(g_VirtualGuestMemoryAddress, PagesToAllocate * PAGE_SIZE);
+        RtlZeroMemory(guest_virtual, PagesToAllocate * PAGE_SIZE);
 
         for (size_t i = 0; i < PagesToAllocate; i++)
         {
@@ -93,7 +91,7 @@ InitializeEptp()
                 EptPt[i].Fields.Execute = 1;
                 EptPt[i].Fields.ExecuteForUserMode = 0;
                 EptPt[i].Fields.IgnorePAT = 0;
-                EptPt[i].Fields.PhysicalAddress = MmGetPhysicalAddress(g_VirtualGuestMemoryAddress + (i * PAGE_SIZE)).QuadPart / PAGE_SIZE;
+                EptPt[i].Fields.PhysicalAddress = MmGetPhysicalAddress(guest_virtual + (i * PAGE_SIZE)).QuadPart / PAGE_SIZE;
                 EptPt[i].Fields.Read = 1;
                 EptPt[i].Fields.SuppressVE = 0;
                 EptPt[i].Fields.Write = 1;

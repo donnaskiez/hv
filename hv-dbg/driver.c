@@ -9,26 +9,6 @@
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
 UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
 
-STATIC
-VOID
-hvdbgTerminateVmx()
-{
-        for (ULONG index = 0; index < KeQueryActiveProcessorCount(0); index++)
-        {
-                KeSetSystemAffinityThread(1ull << index);
-
-                __vmx_off();
-
-                DEBUG_LOG("Vmx operation terminated on thread: %lx", index);
-
-                if (vmm_state[index].vmcs_region_va)
-                        MmFreeContiguousMemory(vmm_state[index].vmcs_region_va);
-
-                if (vmm_state[index].vmxon_region_va)
-                        MmFreeContiguousMemory(vmm_state[index].vmxon_region_va);
-        }
-}
-
 NTSTATUS
 DeviceClose(
         _In_ PDEVICE_OBJECT DeviceObject,
@@ -36,7 +16,7 @@ DeviceClose(
 )
 {
         UNREFERENCED_PARAMETER(DeviceObject);
-        hvdbgTerminateVmx();
+        BroadcastVmxTermination();
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
 }
@@ -49,17 +29,24 @@ DeviceCreate(
 {
         UNREFERENCED_PARAMETER(DeviceObject);
 
-        PIPI_CALL_CONTEXT context = ExAllocatePool2(POOL_FLAG_NON_PAGED, KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
+        PIPI_CALL_CONTEXT context = 
+                ExAllocatePool2(POOL_FLAG_NON_PAGED, KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
 
         if (!context)
                 return STATUS_ABANDONED;
 
         PEPTP pept = InitializeEptp();
 
-        for (int i = 0; i < KeQueryActiveProcessorCount(0); i++)
+        if (!pept)
         {
-                context[i].eptp = pept;
-                context[i].guest_stack = NULL;
+                ExFreePoolWithTag(context, POOLTAG);
+                goto end;
+        }
+
+        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
+        {
+                context[core].eptp = pept;
+                context[core].guest_stack = NULL;
         }
 
         InitiateVmx(context);

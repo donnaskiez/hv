@@ -18,14 +18,14 @@ UINT64 g_BasePointerForReturning;
 
 typedef struct _VIRTUAL_MACHINE_STATE
 {
-        UINT64 vmxon_region_pa;        // VMXON region
-        UINT64 vmxon_region_va;        // VMXON region
-        UINT64 vmcs_region_pa;        // VMCS region
-        UINT64 vmcs_region_va;        // VMCS region
-        UINT64 Eptp;              // Extended-Page-Table Pointer
-        UINT64 vmm_stack;          // Stack for VMM in VM-Exit State
-        UINT64 msr_bitmap_va;         // MSR Bitmap Virtual Address
-        UINT64 msr_bitmap_pa; // MSR Bitmap Physical Address
+        UINT64 vmxon_region_pa;
+        UINT64 vmxon_region_va;   
+        UINT64 vmcs_region_pa;       
+        UINT64 vmcs_region_va;   
+        UINT64 eptp;              
+        UINT64 vmm_stack;
+        UINT64 msr_bitmap_va;
+        UINT64 msr_bitmap_pa;
 
 } VIRTUAL_MACHINE_STATE, * PVIRTUAL_MACHINE_STATE;
 
@@ -198,29 +198,6 @@ typedef union _MSR
 
         ULONG64 Content;
 } MSR, * PMSR;
-
-// IOCTL Codes and Its meanings
-#define IOCTL_TEST 0x1 // In case of testing
-
-//
-// Device type           -- in the "User Defined" range."
-//
-#define SIOCTL_TYPE 40000
-
-//
-// The IOCTL function codes from 0x800 to 0xFFF are for customer use.
-//
-#define IOCTL_SIOCTL_METHOD_IN_DIRECT \
-    CTL_CODE(SIOCTL_TYPE, 0x900, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
-
-#define IOCTL_SIOCTL_METHOD_OUT_DIRECT \
-    CTL_CODE(SIOCTL_TYPE, 0x901, METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
-
-#define IOCTL_SIOCTL_METHOD_BUFFERED \
-    CTL_CODE(SIOCTL_TYPE, 0x902, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-#define IOCTL_SIOCTL_METHOD_NEITHER \
-    CTL_CODE(SIOCTL_TYPE, 0x903, METHOD_NEITHER, FILE_ANY_ACCESS)
 
 typedef union SEGMENT_ATTRIBUTES
 {

@@ -6,9 +6,6 @@
 #include "driver.h"
 #include "ept.h"
 
-VOID
-BroadcastVmxTermination();
-
 typedef struct _IPI_CALL_CONTEXT
 {
 	PEPTP eptp;
@@ -26,6 +23,9 @@ BroadcastVmxInitiation(
 	_In_ PIPI_CALL_CONTEXT Context
 );
 
+BOOLEAN
+BroadcastVmxTermination();
+
 VOID
 VirtualizeCore(
 	_In_ PIPI_CALL_CONTEXT Context,
@@ -36,20 +36,17 @@ ULONG ExitReason;
 
 extern VIRTUAL_MACHINE_STATE* vmm_state;
 
-extern UINT64 g_VirtualGuestMemoryAddress;
-
 extern int ProcessorCounts;
 
 UINT64 stack_pointer_to_return;
 UINT64 base_pointer_to_return;
 
-BOOLEAN
+NTSTATUS
 SetupVmcs(
 	_In_ VIRTUAL_MACHINE_STATE* GuestState,
 	_In_ PVOID StackPointer
 );
 
-extern UINT64 guest_virtual_memory_address;
 USHORT  GetIdtLimit(VOID);
 USHORT  GetGdtLimit(VOID);
 ULONG64 GetRflags(VOID);
