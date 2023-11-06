@@ -1,6 +1,7 @@
 #include "vmx.h"
 #include "ept.h"
 #include "common.h"
+#include "ia32.h"
 
 #include <intrin.h>
 
@@ -658,6 +659,12 @@ SetupVmcs(
         __vmx_vmwrite(GUEST_INTERRUPTIBILITY_INFO, 0);
         __vmx_vmwrite(GUEST_ACTIVITY_STATE, 0); // Active state
 
+        IA32_VMX_PROCBASED_CTLS2_REGISTER ctls2 = { 0 };
+        ctls2.EnableVpid = TRUE;
+        ctls2.EnableRdtscp = TRUE;
+        ctls2.EnableXsaves = TRUE;
+        ctls2.EnableInvpcid = TRUE;
+
         __vmx_vmwrite(CPU_BASED_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_ACTIVATE_MSR_BITMAP | CPU_BASED_ACTIVATE_SECONDARY_CONTROLS, MSR_IA32_VMX_PROCBASED_CTLS));
         __vmx_vmwrite(SECONDARY_VM_EXEC_CONTROL, AdjustControls(CPU_BASED_CTL2_RDTSCP | CPU_BASED_CTL2_ENABLE_INVPCID | CPU_BASED_CTL2_ENABLE_XSAVE_XRSTORS, MSR_IA32_VMX_PROCBASED_CTLS2));
 
@@ -747,110 +754,6 @@ VmResumeInstruction()
         __vmx_off();
 
         DEBUG_ERROR("VMRESUME Error : 0x%llx", ErrorCode);
-}
-
-STATIC
-VOID
-SetBit(
-        _In_ PVOID Address,
-        _In_ UINT64 Bit,
-        _In_ BOOLEAN Set
-)
-{
-
-        UINT64 byte;
-        UINT64 temp;
-        UINT64 n;
-        BYTE* Addr2;
-
-        byte = Bit / 8;
-        temp = Bit % 8;
-        n = 7 - temp;
-
-        Addr2 = Address;
-
-        if (Set)
-                Addr2[byte] |= (1 << n);
-        else
-                Addr2[byte] &= ~(1 << n);
-}
-
-STATIC
-VOID
-DispatchExitReasonMsrRead(
-        _In_ PGUEST_REGS GuestState
-)
-{
-        MSR msr = { 0 };
-
-        if (((GuestState->rcx <= 0x00001FFF)) || ((0xC0000000 <= GuestState->rcx) && (GuestState->rcx <= 0xC0001FFF)))
-        {
-                msr.Content = __readmsr((ULONG)GuestState->rcx);
-        }
-        else
-        {
-                msr.Content = 0;
-        }
-
-        GuestState->rax = msr.Low;
-        GuestState->rdx = msr.High;
-}
-
-STATIC
-VOID
-DispatchExitReasonMsrWrite(
-        _In_ PGUEST_REGS GuestState
-)
-{
-        MSR msr = { 0 };
-
-        if ((GuestState->rcx <= 0x00001FFF) || ((0xC0000000 <= GuestState->rcx) && (GuestState->rcx <= 0xC0001FFF)))
-        {
-                msr.Low = (ULONG)GuestState->rax;
-                msr.High = (ULONG)GuestState->rdx;
-                __writemsr((ULONG)GuestState->rcx, msr.Content);
-        }
-}
-
-STATIC
-BOOLEAN
-SetMsrBitmap(
-        _In_ ULONG64 Msr,
-        _In_ INT ProcessID,
-        _In_ BOOLEAN ReadDetection,
-        _In_ BOOLEAN WriteDetection
-)
-{
-        if (!ReadDetection && !WriteDetection)
-                return FALSE;
-
-        if (Msr <= 0x00001FFF)
-        {
-                if (ReadDetection)
-                {
-                        SetBit(vmm_state[ProcessID].msr_bitmap_pa, Msr, TRUE);
-                }
-                if (WriteDetection)
-                {
-                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 2048, Msr, TRUE);
-                }
-        }
-        else if ((0xC0000000 <= Msr) && (Msr <= 0xC0001FFF))
-        {
-                if (ReadDetection)
-                {
-                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 1024, Msr - 0xC0000000, TRUE);
-                }
-                if (WriteDetection)
-                {
-                        SetBit(vmm_state[ProcessID].msr_bitmap_pa + 3072, Msr - 0xC0000000, TRUE);
-                }
-        }
-        else
-        {
-                return FALSE;
-        }
-        return TRUE;
 }
 
 STATIC
@@ -976,10 +879,10 @@ VmExitDispatcher(
         case EXIT_REASON_INVD: { DispatchExitReasonInvd(GuestState); break; }
         case EXIT_REASON_VMCALL:
         case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }
-        case EXIT_REASON_MSR_READ: { DispatchExitReasonMsrRead(GuestState); break; }
-        case EXIT_REASON_MSR_WRITE: { DispatchExitReasonMsrWrite(GuestState); break; }
+        case EXIT_REASON_MSR_READ:
+        case EXIT_REASON_MSR_WRITE:
         case EXIT_REASON_EPT_VIOLATION:
-        default: { DEBUG_ERROR("Invalid VMEXIT reason."); break; }
+        default: { break; }
         }
 
         ResumeToNextInstruction();
