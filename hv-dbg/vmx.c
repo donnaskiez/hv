@@ -668,12 +668,8 @@ VmcsWriteGuestStateFields(
         __vmx_vmwrite(guest_state_fields.dword_state.sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
         __vmx_vmwrite(guest_state_fields.natural_state.sysenter_eip, __readmsr(MSR_IA32_SYSENTER_EIP));
         __vmx_vmwrite(guest_state_fields.natural_state.sysenter_esp, __readmsr(MSR_IA32_SYSENTER_ESP));
-
         __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
         __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
-
-        __vmx_vmwrite(GUEST_INTERRUPTIBILITY_INFO, 0);
-        __vmx_vmwrite(GUEST_ACTIVITY_STATE, 0);
 
         __vmx_vmwrite(GUEST_IA32_DEBUGCTL_HIGH, __readmsr(MSR_IA32_DEBUGCTL) >> 32);
 
@@ -687,7 +683,6 @@ VmcsWriteControlStateFields()
 {
         /*
         * ActivateSecondaryControls activates the secondary processor-based VM-execution controls.
-        * 
         * If UseMsrBitmaps is not set, all RDMSR and WRMSR instructions cause vm-exits. 
         */
         IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls = { 0 };
@@ -742,8 +737,6 @@ SetupVmcs(
         _In_ PVOID StackPointer
 )
 {
-        BOOLEAN Status = FALSE;
-
         // Load Extended Page Table Pointer
         //__vmx_vmwrite(EPT_POINTER, EPTP->All);
 
