@@ -5,7 +5,7 @@
 
 #include <intrin.h>
 
-VIRTUAL_MACHINE_STATE* vmm_state;
+PVIRTUAL_MACHINE_STATE vmm_state;
 ULONG proc_count;
 
 VMCS_GUEST_STATE_FIELDS   guest_state_fields = { 0 };
@@ -67,7 +67,9 @@ IsVmxSupported()
 */
 STATIC
 BOOLEAN
-hvdbgAllocateVmcsRegion(VIRTUAL_MACHINE_STATE* GuestState)
+hvdbgAllocateVmcsRegion(
+        _In_ PVIRTUAL_MACHINE_STATE GuestState
+)
 {
         INT                status = 0;
         PVOID              virtual_allocation = NULL;
@@ -106,7 +108,9 @@ hvdbgAllocateVmcsRegion(VIRTUAL_MACHINE_STATE* GuestState)
 
 STATIC
 BOOLEAN
-hvdbgAllocateVmxonRegion(VIRTUAL_MACHINE_STATE* GuestState)
+hvdbgAllocateVmxonRegion(
+        _In_ PVIRTUAL_MACHINE_STATE GuestState
+)
 {
         INT                status = 0;
         PVOID              virtual_allocation = NULL;
@@ -262,19 +266,21 @@ TerminateVmx(
 
         __vmx_off();
 
-        if (MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart)
-                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmxon_region_pa).QuadPart);
+        ULONG proc_num = KeGetCurrentProcessorNumber();
 
-        if (MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart)
-                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[KeGetCurrentProcessorNumber()].vmcs_region_pa).QuadPart);
-        
+        if (MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart)
+                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart);
+
+        if (MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart)
+                MmFreeContiguousMemory(MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart);
+
         if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
-                MmFreeNonCachedMemory(vmm_state[KeGetCurrentProcessorNumber()].msr_bitmap_va, PAGE_SIZE);
+                MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va, PAGE_SIZE);
 
-        if (vmm_state[KeGetCurrentProcessorNumber()].vmm_stack)
-                ExFreePoolWithTag(vmm_state[KeGetCurrentProcessorNumber()].vmm_stack, POOLTAG);
+        if (vmm_state[proc_num].vmm_stack)
+                ExFreePoolWithTag(vmm_state[proc_num].vmm_stack, POOLTAG);
 
-        DEBUG_LOG("Terminated VMX on processor index: %lx", KeGetCurrentProcessorNumber());
+        DEBUG_LOG("Terminated VMX on processor index: %lx", proc_num);
 }
 
 BOOLEAN
@@ -599,13 +605,9 @@ EncodeVmcsControlStateFields(
 STATIC
 VOID
 VmcsWriteHostStateFields(
-        _In_ VIRTUAL_MACHINE_STATE* GuestState
+        _In_ PVIRTUAL_MACHINE_STATE GuestState
 )
 {
-        SEGMENT_SELECTOR segment_selector = { 0 };
-
-        GetSegmentDescriptor(&segment_selector, __readtr(), (PUCHAR)__readgdtbase());
-
         __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
         __vmx_vmwrite(host_state_fields.word_state.cs_selector, __readcs() & 0xF8);
         __vmx_vmwrite(host_state_fields.word_state.ss_selector, __readss() & 0xF8);
@@ -618,15 +620,8 @@ VmcsWriteHostStateFields(
         __vmx_vmwrite(host_state_fields.natural_state.cr3, __readcr3());
         __vmx_vmwrite(host_state_fields.natural_state.cr4, __readcr4());
 
-        __vmx_vmwrite(host_state_fields.natural_state.tr_base, segment_selector.BASE);
-        __vmx_vmwrite(host_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(host_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
         __vmx_vmwrite(host_state_fields.natural_state.gdtr_base, __readgdtbase());
         __vmx_vmwrite(host_state_fields.natural_state.idtr_base, __readidtbase());
-
-        __vmx_vmwrite(host_state_fields.dword_state.ia32_sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_eip, __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_esp, __readmsr(MSR_IA32_SYSENTER_ESP));
 
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
@@ -640,6 +635,7 @@ VmcsWriteGuestStateFields(
 {
         __vmx_vmwrite(guest_state_fields.qword_state.vmcs_link_pointer, ~0ull);
 
+        __vmx_vmwrite(GUEST_IA32_DEBUGCTL_HIGH, __readmsr(MSR_IA32_DEBUGCTL) >> 32);
         __vmx_vmwrite(guest_state_fields.qword_state.debug_control, __readmsr(MSR_IA32_DEBUGCTL) & 0xFFFFFFFF);
 
         __vmx_fill_selector_data(__readgdtbase(), ES, __reades());
@@ -654,7 +650,6 @@ VmcsWriteGuestStateFields(
         __vmx_vmwrite(guest_state_fields.natural_state.cr0, __readcr0());
         __vmx_vmwrite(guest_state_fields.natural_state.cr3, __readcr3());
         __vmx_vmwrite(guest_state_fields.natural_state.cr4, __readcr4());
-
         __vmx_vmwrite(guest_state_fields.natural_state.dr7, 0x400);
 
         __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, __readgdtbase());
@@ -671,10 +666,8 @@ VmcsWriteGuestStateFields(
         __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
         __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
 
-        __vmx_vmwrite(GUEST_IA32_DEBUGCTL_HIGH, __readmsr(MSR_IA32_DEBUGCTL) >> 32);
-
-        __vmx_vmwrite(guest_state_fields.natural_state.rsp, StackPointer); // setup guest sp
-        __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState); // setup guest ip
+        __vmx_vmwrite(guest_state_fields.natural_state.rsp, StackPointer);
+        __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState);
 }
 
 STATIC
@@ -733,13 +726,10 @@ VmcsWriteControlStateFields()
 
 NTSTATUS
 SetupVmcs(
-        _In_ VIRTUAL_MACHINE_STATE* GuestState,
+        _In_ PVIRTUAL_MACHINE_STATE GuestState,
         _In_ PVOID StackPointer
 )
 {
-        // Load Extended Page Table Pointer
-        //__vmx_vmwrite(EPT_POINTER, EPTP->All);
-
         EncodeVmcsControlStateFields(&control_state_fields);
         EncodeVmcsGuestStateFields(&guest_state_fields);
         EncodeVmcsHostStateFields(&host_state_fields);
@@ -784,12 +774,12 @@ VmResumeInstruction()
 
         /* If vmresume succeeds we won't reach here */
 
-        ULONG64 ErrorCode = 0;
+        UINT64 error = 0;
 
-        __vmx_vmread(VM_INSTRUCTION_ERROR, &ErrorCode);
+        __vmx_vmread(VM_INSTRUCTION_ERROR, &error);
         __vmx_off();
 
-        DEBUG_ERROR("VMRESUME Error : 0x%llx", ErrorCode);
+        DEBUG_ERROR("VMRESUME Error : 0x%llx", error);
 }
 
 STATIC
