@@ -100,7 +100,7 @@ DriverEntry(
 
         DriverObject->MajorFunction[IRP_MJ_CREATE] = DeviceCreate;
         DriverObject->MajorFunction[IRP_MJ_CLOSE] = DeviceClose;
-        TranslateNextInstruction(DeviceCreate);
+
         DEBUG_LOG("Driver entry complete");
 
         return status;

@@ -14,9 +14,6 @@ VMCS_GUEST_STATE_FIELDS   guest_state_fields = { 0 };
 VMCS_HOST_STATE_FIELDS    host_state_fields = { 0 };
 VMCS_CONTROL_STATE_FIELDS control_state_fields = { 0 };
 
-#define STATIC static
-#define VOID void
-
 /*
  * Assuming the thread calling this is binded to a particular core
  */
@@ -607,6 +604,18 @@ VmcsWriteHostStateFields(
 
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
+        
+        SEGMENT_SELECTOR selector = { 0 };
+
+        GetSegmentDescriptor(&selector, __readtr(), (PUCHAR)__readgdtbase());
+        __vmx_vmwrite(HOST_TR_BASE, selector.BASE);
+
+        __vmx_vmwrite(HOST_FS_BASE, __readmsr(MSR_FS_BASE));
+        __vmx_vmwrite(HOST_GS_BASE, __readmsr(MSR_GS_BASE));
+
+        __vmx_vmwrite(HOST_IA32_SYSENTER_CS, __readmsr(MSR_IA32_SYSENTER_CS));
+        __vmx_vmwrite(HOST_IA32_SYSENTER_EIP, __readmsr(MSR_IA32_SYSENTER_EIP));
+        __vmx_vmwrite(HOST_IA32_SYSENTER_ESP, __readmsr(MSR_IA32_SYSENTER_ESP));
 }
 
 STATIC
@@ -637,8 +646,8 @@ VmcsWriteGuestStateFields(
         __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, __readgdtbase());
         __vmx_vmwrite(guest_state_fields.natural_state.idtr_base, __readidtbase());
 
-        __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, __getgdtlimit());
-        __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, __getidtlimit());
+        __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, __segmentlimit(__readgdtbase));
+        __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, __segmentlimit(__readidtbase));
 
         __vmx_vmwrite(guest_state_fields.natural_state.rflags, __readrflags());
 
@@ -654,7 +663,9 @@ VmcsWriteGuestStateFields(
 
 STATIC
 VOID
-VmcsWriteControlStateFields()
+VmcsWriteControlStateFields(
+        _In_ PVIRTUAL_MACHINE_STATE GuestState
+)
 {
         /*
         * ActivateSecondaryControls activates the secondary processor-based VM-execution controls.
@@ -704,6 +715,8 @@ VmcsWriteControlStateFields()
 
         __vmx_vmwrite(VM_ENTRY_CONTROLS, 
                 AdjustMsrControl((UINT32)entry_ctls.AsUInt, MSR_IA32_VMX_ENTRY_CTLS));
+
+        __vmx_vmwrite(control_state_fields.qword_state.msr_bitmap_address, GuestState->msr_bitmap_pa);
 }
 
 NTSTATUS
@@ -728,15 +741,17 @@ SetupVmcs(
                 return STATUS_ABANDONED;
         }
 
-        VmcsWriteControlStateFields();
+        VmcsWriteControlStateFields(GuestState);
         VmcsWriteGuestStateFields(StackPointer);
         VmcsWriteHostStateFields(GuestState);
-
+        //SetupVmcsAndVirtualizeMachine(GuestState, StackPointer);
         return STATUS_SUCCESS;
 }
 
 VOID
-ResumeToNextInstruction()
+ResumeToNextInstruction(
+        _In_ UINT64 InstructionOffset
+)
 {
         PVOID current_rip = NULL;
         ULONG exit_instruction_length = 0;
@@ -746,7 +761,7 @@ ResumeToNextInstruction()
         */
         __vmx_vmread(GUEST_RIP, &current_rip);
         __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
-        __vmx_vmwrite(GUEST_RIP, (UINT64)current_rip + exit_instruction_length);
+        __vmx_vmwrite(GUEST_RIP, (UINT64)current_rip + exit_instruction_length + InstructionOffset);
 }
 
 VOID
@@ -864,20 +879,18 @@ VmExitDispatcher(
         _In_ PGUEST_REGS GuestState
 )
 {
+        UINT64 next_instruction_length = 0;
         ULONG exit_reason = 0;
         ULONG exit_qualification = 0;
         UINT64 current_rip = 0;
-        ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
         ULONG exit_instruction_length = 0;
+        ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
+
         __vmx_vmread(VM_EXIT_REASON, &exit_reason);
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
         __vmx_vmread(GUEST_RIP, &current_rip);
         __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
 
-        CHAR buffer[16];
-
-        memcpy(buffer, current_rip, exit_instruction_length);
-        status = TranslateNextInstruction(buffer);
         switch (exit_reason)
         {
         case EXIT_REASON_VMCLEAR:
@@ -892,19 +905,28 @@ VmExitDispatcher(
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
         case EXIT_REASON_CPUID: 
-        { 
-                //status = TranslateNextInstruction(buffer);
+        {
                 DispatchExitReasonCPUID(GuestState);
                 break;
         }
-        case EXIT_REASON_INVD: { DispatchExitReasonInvd(GuestState); break; }
+        case EXIT_REASON_INVD: 
+        { 
+                DispatchExitReasonInvd(GuestState); 
+                break; 
+        }
         case EXIT_REASON_VMCALL:
-        case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }
+        case EXIT_REASON_CR_ACCESS: 
+        { 
+                DispatchExitReasonControlRegisterAccess(GuestState); 
+                break; 
+        }
         case EXIT_REASON_MSR_READ:
         case EXIT_REASON_MSR_WRITE:
         case EXIT_REASON_EPT_VIOLATION:
         default: { break; }
         }
 
-        ResumeToNextInstruction();
+        TranslateNextInstruction((PVOID)(current_rip + exit_instruction_length), GuestState, &next_instruction_length);
+
+        ResumeToNextInstruction(next_instruction_length);
 }

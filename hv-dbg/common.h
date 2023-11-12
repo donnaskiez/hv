@@ -6,6 +6,9 @@
 #define DEBUG_LOG(fmt, ...)   DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[+] " fmt "\n", ##__VA_ARGS__)
 #define DEBUG_ERROR(fmt, ...) DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[-] " fmt "\n", ##__VA_ARGS__)
 
+#define STATIC static
+#define VOID void
+
 extern USHORT  __readcs(VOID);
 extern USHORT  __readds(VOID);
 extern USHORT  __reades(VOID);
