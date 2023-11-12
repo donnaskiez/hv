@@ -879,12 +879,14 @@ VmExitDispatcher(
         _In_ PGUEST_REGS GuestState
 )
 {
-        UINT64 next_instruction_length = 0;
+        UINT64 additional_rip_offset = 0;
         ULONG exit_reason = 0;
         ULONG exit_qualification = 0;
         UINT64 current_rip = 0;
         ULONG exit_instruction_length = 0;
         ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
+        ZydisDecodedInstruction instruction = { 0 };
+        ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT] = { 0 };
 
         __vmx_vmread(VM_EXIT_REASON, &exit_reason);
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
@@ -904,29 +906,46 @@ VmExitDispatcher(
         case EXIT_REASON_VMLAUNCH:
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
-        case EXIT_REASON_CPUID: 
-        {
-                DispatchExitReasonCPUID(GuestState);
-                break;
-        }
-        case EXIT_REASON_INVD: 
-        { 
-                DispatchExitReasonInvd(GuestState); 
-                break; 
-        }
+        case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(GuestState); break; }
+        case EXIT_REASON_INVD: { DispatchExitReasonInvd(GuestState); break; }
         case EXIT_REASON_VMCALL:
-        case EXIT_REASON_CR_ACCESS: 
-        { 
-                DispatchExitReasonControlRegisterAccess(GuestState); 
-                break; 
-        }
+        case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }
         case EXIT_REASON_MSR_READ:
         case EXIT_REASON_MSR_WRITE:
         case EXIT_REASON_EPT_VIOLATION:
         default: { break; }
         }
 
-        TranslateNextInstruction((PVOID)(current_rip + exit_instruction_length), GuestState, &next_instruction_length);
+        /*
+        * Once we have processed the initial instruction causing the vmexit, we can
+        * translate the next instruction. Once decoded, if its a vm-exit causing instruction
+        * we can process that instruction and then advance the rip by the size of the 2 
+        * exit-inducing instructions - saving us 1 vm exit (2 minus 1 = 1).
+        */
 
-        ResumeToNextInstruction(next_instruction_length);
+        status = DecodeInstructionAtAddress(
+                (PVOID)(current_rip + exit_instruction_length), 
+                &instruction, 
+                operands
+        );
+
+        if (!ZYAN_SUCCESS(status))
+        {
+                ResumeToNextInstruction(0);
+                return;
+        }
+
+        status = CheckForExitingInstruction(
+                &instruction,
+                operands,
+                GuestState
+        );
+
+        if (!ZYAN_SUCCESS(status))
+        {
+                ResumeToNextInstruction(0);
+                return;
+        }
+
+        ResumeToNextInstruction((UINT64)instruction.length);
 }

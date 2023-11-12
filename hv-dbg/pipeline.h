@@ -6,10 +6,17 @@
 #include <Zydis/Zydis.h>
 
 ZyanStatus
-TranslateNextInstruction(
-	_In_ PVOID Instruction,
-	_In_ PGUEST_REGS GuestState,
-	_Out_ PUINT64 NextInstructionLength
+DecodeInstructionAtAddress(
+	_In_ PVOID Address,
+	_In_ ZydisDecodedInstruction* Instruction,
+	_In_ ZydisDecodedOperand* Operand
+);
+
+ZyanStatus
+CheckForExitingInstruction(
+	_In_ ZydisDecodedInstruction* Instruction,
+	_In_ ZydisDecodedOperand* Operands,
+	_In_ PGUEST_REGS GuestState
 );
 
 #endif
