@@ -108,7 +108,8 @@
     <Link>
       <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>includes\zydis\msvc\bin\DebugX64Kernel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -127,7 +128,8 @@
     <Link>
       <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>includes\zydis\msvc\bin\ReleaseX64Kernel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -138,7 +140,8 @@
     <Link>
       <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>includes\zydis\msvc\bin\ReleaseARM64Kernel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>includes/zydis/dependencies/zycore/include;includes/zydis/include;includes/zydis/src;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -156,7 +159,8 @@
     <Link>
       <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>includes\zydis\msvc\bin\DebugARM64Kernel</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>includes/zydis/dependencies/zycore/include;includes/zydis/include;includes/zydis/src;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -313,6 +317,7 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4201;4603;4627;4986;4987;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4201;4603;4627;4986;4987;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <ClCompile Include="pipeline.c" />
     <ClCompile Include="vmx.c" />
   </ItemGroup>
   <ItemGroup>
@@ -380,6 +385,7 @@
     <ClInclude Include="includes\zydis\include\Zydis\Status.h" />
     <ClInclude Include="includes\zydis\include\Zydis\Utils.h" />
     <ClInclude Include="includes\zydis\include\Zydis\Zydis.h" />
+    <ClInclude Include="pipeline.h" />
     <ClInclude Include="segment.h" />
     <ClInclude Include="vmx.h" />
   </ItemGroup>

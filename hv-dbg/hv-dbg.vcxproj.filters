@@ -102,6 +102,9 @@
     <ClCompile Include="includes\zydis\src\Zydis.c">
       <Filter>Source Files\Zydis</Filter>
     </ClCompile>
+    <ClCompile Include="pipeline.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h">
@@ -241,6 +244,9 @@
     </ClInclude>
     <ClInclude Include="includes\zydis\dependencies\zycore\include\Zycore\Zycore.h">
       <Filter>Header Files\Zydis\Zycore</Filter>
+    </ClInclude>
+    <ClInclude Include="pipeline.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

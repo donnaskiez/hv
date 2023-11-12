@@ -2,8 +2,10 @@
 #include "ept.h"
 #include "common.h"
 #include "ia32.h"
+#include "pipeline.h"
 
 #include <intrin.h>
+#include <Zydis/Zydis.h>
 
 PVIRTUAL_MACHINE_STATE vmm_state;
 ULONG proc_count;
@@ -342,26 +344,6 @@ GetSegmentDescriptor(
                 // 4096-bit granularity is enabled for this segment, scale the limit
                 SegmentSelector->LIMIT = (SegmentSelector->LIMIT << 12) + 0xfff;
         }
-
-        return TRUE;
-}
-
-BOOLEAN
-SetGuestSelector(PVOID GDT_Base, ULONG Segment_Register, USHORT Selector)
-{
-        SEGMENT_SELECTOR segment_selector = { 0 };
-        ULONG            access_rights;
-
-        GetSegmentDescriptor(&segment_selector, Selector, GDT_Base);
-        access_rights = ((PUCHAR)&segment_selector.ATTRIBUTES)[0] + (((PUCHAR)&segment_selector.ATTRIBUTES)[1] << 12);
-
-        if (!Selector)
-                access_rights |= 0x10000;
-
-        __vmx_vmwrite(guest_state_fields.word_state.es_selector + Segment_Register * 2, Selector);
-        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + Segment_Register * 2, segment_selector.LIMIT);
-        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segment_Register * 2, access_rights);
-        __vmx_vmwrite(GUEST_ES_BASE + Segment_Register * 2, segment_selector.BASE);
 
         return TRUE;
 }
@@ -884,10 +866,18 @@ VmExitDispatcher(
 {
         ULONG exit_reason = 0;
         ULONG exit_qualification = 0;
-
+        UINT64 current_rip = 0;
+        ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
+        ULONG exit_instruction_length = 0;
         __vmx_vmread(VM_EXIT_REASON, &exit_reason);
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
+        __vmx_vmread(GUEST_RIP, &current_rip);
+        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
 
+        CHAR buffer[16];
+
+        memcpy(buffer, current_rip, exit_instruction_length);
+        status = TranslateNextInstruction(buffer);
         switch (exit_reason)
         {
         case EXIT_REASON_VMCLEAR:
@@ -901,7 +891,12 @@ VmExitDispatcher(
         case EXIT_REASON_VMLAUNCH:
         case EXIT_REASON_HLT:
         case EXIT_REASON_EXCEPTION_NMI:
-        case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(GuestState); break; }
+        case EXIT_REASON_CPUID: 
+        { 
+                //status = TranslateNextInstruction(buffer);
+                DispatchExitReasonCPUID(GuestState);
+                break;
+        }
         case EXIT_REASON_INVD: { DispatchExitReasonInvd(GuestState); break; }
         case EXIT_REASON_VMCALL:
         case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(GuestState); break; }

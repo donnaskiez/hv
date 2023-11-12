@@ -5,6 +5,7 @@
 #include <intrin.h>
 #include "vmx.h"
 #include "common.h"
+#include "pipeline.h"
 
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
 UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
@@ -99,7 +100,7 @@ DriverEntry(
 
         DriverObject->MajorFunction[IRP_MJ_CREATE] = DeviceCreate;
         DriverObject->MajorFunction[IRP_MJ_CLOSE] = DeviceClose;
-
+        TranslateNextInstruction(DeviceCreate);
         DEBUG_LOG("Driver entry complete");
 
         return status;
