@@ -188,6 +188,14 @@ InitiateVmx(
 
                 hvdbgEnableVmxOperationOnCore();
 
+                //ZyanStatus status = InitialiseDisassemblerState();
+                
+                //if (!ZYAN_SUCCESS(status))
+                //{
+                //        DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
+                //        return;
+                //}
+
                 if (!hvdbgAllocateVmxonRegion(&vmm_state[core]))
                 {
                         DEBUG_ERROR("AllocateVmxonRegion failed");
@@ -884,9 +892,8 @@ VmExitDispatcher(
         ULONG exit_qualification = 0;
         UINT64 current_rip = 0;
         ULONG exit_instruction_length = 0;
+        UINT64 increment_size = 0;
         ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
-        ZydisDecodedInstruction instruction = { 0 };
-        ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT] = { 0 };
 
         __vmx_vmread(VM_EXIT_REASON, &exit_reason);
         __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
@@ -923,29 +930,19 @@ VmExitDispatcher(
         * exit-inducing instructions - saving us 1 vm exit (2 minus 1 = 1).
         */
 
-        status = DecodeInstructionAtAddress(
-                (PVOID)(current_rip + exit_instruction_length), 
-                &instruction, 
-                operands
+        //HandleFutureInstructions(
+        //        (PVOID)((UINT64)current_rip + exit_instruction_length),
+        //        GuestState,
+        //        &increment_size
+        //);
+
+        //ResumeToNextInstruction(exit_instruction_length + increment_size);
+
+        status = HandleFutureInstructions(
+                (PVOID)(current_rip + exit_instruction_length),
+                GuestState,
+                &additional_rip_offset
         );
 
-        if (!ZYAN_SUCCESS(status))
-        {
-                ResumeToNextInstruction(0);
-                return;
-        }
-
-        status = CheckForExitingInstruction(
-                &instruction,
-                operands,
-                GuestState
-        );
-
-        if (!ZYAN_SUCCESS(status))
-        {
-                ResumeToNextInstruction(0);
-                return;
-        }
-
-        ResumeToNextInstruction((UINT64)instruction.length);
+        ResumeToNextInstruction(additional_rip_offset);
 }
