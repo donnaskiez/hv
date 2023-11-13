@@ -188,13 +188,13 @@ InitiateVmx(
 
                 hvdbgEnableVmxOperationOnCore();
 
-                //ZyanStatus status = InitialiseDisassemblerState();
+                ZyanStatus status = InitialiseDisassemblerState();
                 
-                //if (!ZYAN_SUCCESS(status))
-                //{
-                //        DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
-                //        return;
-                //}
+                if (!ZYAN_SUCCESS(status))
+                {
+                        DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
+                        return;
+                }
 
                 if (!hvdbgAllocateVmxonRegion(&vmm_state[core]))
                 {

@@ -12,4 +12,7 @@ HandleFutureInstructions(
 	_Out_ PUINT64 RipIncrementSize
 );
 
+ZyanStatus
+InitialiseDisassemblerState();
+
 #endif
