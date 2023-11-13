@@ -930,14 +930,6 @@ VmExitDispatcher(
         * exit-inducing instructions - saving us 1 vm exit (2 minus 1 = 1).
         */
 
-        //HandleFutureInstructions(
-        //        (PVOID)((UINT64)current_rip + exit_instruction_length),
-        //        GuestState,
-        //        &increment_size
-        //);
-
-        //ResumeToNextInstruction(exit_instruction_length + increment_size);
-
         status = HandleFutureInstructions(
                 (PVOID)(current_rip + exit_instruction_length),
                 GuestState,
