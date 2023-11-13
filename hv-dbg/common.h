@@ -278,7 +278,7 @@ enum VMCS_FIELDS
 #define EXIT_REASON_PCOMMIT                      65
 
 #define POOLTAG        0x48564653
-#define VMM_STACK_SIZE 0x16000
+#define VMM_STACK_SIZE 0x8000
 #define RPL_MASK       3
 
 #define POOL_TAG_VMM 'vmmm'

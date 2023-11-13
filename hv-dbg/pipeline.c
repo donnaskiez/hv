@@ -42,12 +42,12 @@ DispatchMovInstruction(
 		switch (Operands[1].reg.value)
 		{
 		case ZYDIS_REGISTER_RAX: { __writecr3(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RCX: { __writecr3(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDX: { __writecr3(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBX: { __writecr3(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBP: { __writecr3(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RSI: { __writecr3(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDI: { __writecr3(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RCX: { __writecr3(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDX: { __writecr3(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBX: { __writecr3(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBP: { __writecr3(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RSI: { __writecr3(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDI: { __writecr3(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
 		}
 	}
 	case ZYDIS_REGISTER_CR4:
@@ -56,12 +56,12 @@ DispatchMovInstruction(
 		switch (Operands[1].reg.value)
 		{
 		case ZYDIS_REGISTER_RAX: { __writecr4(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RCX: { __writecr4(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDX: { __writecr4(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBX: { __writecr4(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBP: { __writecr4(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RSI: { __writecr4(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDI: { __writecr4(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RCX: { __writecr4(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDX: { __writecr4(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBX: { __writecr4(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBP: { __writecr4(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RSI: { __writecr4(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDI: { __writecr4(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
 		}
 	}
 	case ZYDIS_REGISTER_CR0:
@@ -70,12 +70,12 @@ DispatchMovInstruction(
 		switch (Operands[1].reg.value)
 		{
 		case ZYDIS_REGISTER_RAX: { __writecr0(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RCX: { __writecr0(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDX: { __writecr0(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBX: { __writecr0(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RBP: { __writecr0(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RSI: { __writecr0(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_RDI: { __writecr0(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RCX: { __writecr0(GuestState->rcx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDX: { __writecr0(GuestState->rdx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBX: { __writecr0(GuestState->rbx); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RBP: { __writecr0(GuestState->rbp); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RSI: { __writecr0(GuestState->rsi); return ZYAN_STATUS_SUCCESS; }
+		//case ZYDIS_REGISTER_RDI: { __writecr0(GuestState->rdi); return ZYAN_STATUS_SUCCESS; }
 		}
 	}
 	}

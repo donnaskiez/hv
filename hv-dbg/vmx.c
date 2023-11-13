@@ -76,22 +76,28 @@ hvdbgAllocateVmcsRegion(
         PHYSICAL_ADDRESS   physical_max = { 0 };
         PHYSICAL_ADDRESS   physical_address = { 0 };
         IA32_VMX_BASIC_MSR ia32_basic_msr = { 0 };
-
+        DEBUG_LOG("Allocating vmcs region on core: %lx", KeGetCurrentProcessorNumber());
         physical_max.QuadPart = MAXULONG64;
 
-        virtual_allocation = MmAllocateContiguousMemory(
-                ALIGNMENT_PAGE_SIZE * 2,
-                physical_max);
+        virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
         if (!virtual_allocation)
+        {
+                DEBUG_ERROR("Failed to allocate vmcs region");
                 return FALSE;
+        }
 
-        RtlSecureZeroMemory(virtual_allocation, ALIGNMENT_PAGE_SIZE * 2);
+        DEBUG_LOG("vmcs va: %llx, core: %lx", (UINT64)virtual_allocation, KeGetCurrentProcessorNumber());
+
+        RtlSecureZeroMemory(virtual_allocation, PAGE_SIZE);
 
         physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
+        DEBUG_LOG("core: %lx, vmcs physical: %llx", KeGetCurrentProcessorNumber(), physical_allocation);
+
         if (!physical_allocation)
         {
+                DEBUG_LOG("Faield to get vmcs pa address");
                 MmFreeContiguousMemory(virtual_allocation);
                 return FALSE;
         }
@@ -100,7 +106,7 @@ hvdbgAllocateVmcsRegion(
 
         *(UINT64*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
 
-        vmm_state->vmcs_region_pa = physical_allocation;
+        GuestState->vmcs_region_pa = physical_allocation;
 
         return TRUE;
 }
@@ -117,17 +123,18 @@ hvdbgAllocateVmxonRegion(
         PHYSICAL_ADDRESS   physical_max = { 0 };
         PHYSICAL_ADDRESS   physical_address = { 0 };
         IA32_VMX_BASIC_MSR ia32_basic_msr = { 0 };
-
+        DEBUG_LOG("Allocating vmxon region on core: %lx", KeGetCurrentProcessorNumber());
         physical_max.QuadPart = MAXULONG64;
 
-        virtual_allocation = MmAllocateContiguousMemory(
-                ALIGNMENT_PAGE_SIZE,
-                physical_max);
+        virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
         if (!virtual_allocation)
+        {
+                DEBUG_ERROR("MmAllocateContiguousMemory failed");
                 return FALSE;
+        }
 
-        RtlSecureZeroMemory(virtual_allocation, ALIGNMENT_PAGE_SIZE);
+        RtlSecureZeroMemory(virtual_allocation, PAGE_SIZE);
 
         physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
@@ -155,7 +162,7 @@ hvdbgAllocateVmxonRegion(
                 return FALSE;
         }
 
-        vmm_state->vmxon_region_pa = physical_allocation;
+        GuestState->vmxon_region_pa = physical_allocation;
 
         return TRUE;
 }
@@ -178,11 +185,14 @@ InitiateVmx(
                 DEBUG_LOG("Failed to allocate vmm state");
                 return;
         }
-
-        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
+        DEBUG_LOG("Core count: %lx", KeQueryActiveGroupCount);
+        for (ULONG core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
                 /* for now this limits us to 64 cores, whatever lol */
                 KeSetSystemAffinityThread(1ull << core);
+
+                while (KeGetCurrentProcessorNumber() != core)
+                        YieldProcessor();
 
                 DEBUG_LOG("Executing InitiateVmx on processor index: %lx", core);
 
@@ -207,7 +217,7 @@ InitiateVmx(
                         DEBUG_ERROR("AllocateVmcsRegion failed");
                         return;
                 }
-
+                DEBUG_LOG("Allocating vmmstack on core: %lx", KeGetCurrentProcessorNumber());
                 vmm_state[core].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
 
                 if (!vmm_state[core].vmm_stack)
@@ -215,19 +225,20 @@ InitiateVmx(
                         DEBUG_LOG("Error in allocating VMM Stack.");
                         return;
                 }
-
-                vmm_state[core].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE); // should be aligned
+                DEBUG_LOG("Allocating msrbit on core: %lx", KeGetCurrentProcessorNumber());
+                vmm_state[core].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
 
                 if (!vmm_state[core].msr_bitmap_va)
                 {
                         DEBUG_LOG("Error in allocating MSRBitMap.");
                         return;
                 }
+
                 RtlSecureZeroMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
 
                 vmm_state[core].msr_bitmap_pa = MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va).QuadPart;
 
-                DEBUG_LOG("VMX initiated on core: %lx", KeGetCurrentProcessorNumber());
+                DEBUG_LOG("core: %lx, vmcs region pa: %llx", core, vmm_state[core].vmcs_region_pa);
         }
 }
 
@@ -237,8 +248,9 @@ VirtualizeCore(
         _In_ PVOID StackPointer
 )
 {
+        DEBUG_LOG("setting up vmcs regions on core: %lx", KeGetCurrentProcessorNumber());
         NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
-
+        
         if (!NT_SUCCESS(status))
         {
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
@@ -737,6 +749,8 @@ SetupVmcs(
         EncodeVmcsGuestStateFields(&guest_state_fields);
         EncodeVmcsHostStateFields(&host_state_fields);
 
+        DEBUG_LOG("Core: %lx: - vmcs pa: %llx", KeGetCurrentProcessorNumber(), GuestState->vmcs_region_pa);
+
         if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK)
         {
                 DEBUG_ERROR("Unable to clear the vmcs region");
@@ -745,7 +759,11 @@ SetupVmcs(
 
         if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK)
         {
-                DEBUG_ERROR("vmptrld failed");
+
+                ULONG64 error_code = 0;
+
+                __vmx_vmread(VM_INSTRUCTION_ERROR, &error_code);
+                DEBUG_ERROR("vmptrld failed with status: %x", (ULONG)error_code);
                 return STATUS_ABANDONED;
         }
 
@@ -936,5 +954,5 @@ VmExitDispatcher(
                 &additional_rip_offset
         );
 
-        ResumeToNextInstruction(additional_rip_offset);
+        ResumeToNextInstruction(0);
 }
