@@ -36,45 +36,56 @@ VMX_ERROR_CODE_FAILED               = 2
 
 VmexitHandler PROC
 
-    PUSH R15
-    PUSH R14
-    PUSH R13
-    PUSH R12
-    PUSH R11
-    PUSH R10
-    PUSH R9
-    PUSH R8        
-    PUSH RDI
-    PUSH RSI
-    PUSH RBP
-    PUSH RBP	; RSP
-    PUSH RBX
-    PUSH RDX
-    PUSH RCX
-    PUSH RAX	
-
+	push R15
+	push R14
+	push R13
+	push R12
+	push R11
+	push R10
+	push R9
+	push R8        
+	push RDI
+	push RSI
+	push RBP
+	push RBP	; RSP
+	push RBX
+	push RDX
+	push RCX
+	push RAX	
+	sub     rsp, 60h
+	vmovups  xmmword ptr [rsp +  0h], xmm0
+	vmovups  xmmword ptr [rsp + 10h], xmm1
+	vmovups  xmmword ptr [rsp + 20h], xmm2
+	vmovups  xmmword ptr [rsp + 30h], xmm3
+	vmovups  xmmword ptr [rsp + 40h], xmm4
+	vmovups  xmmword ptr [rsp + 50h], xmm5
 	MOV RCX, RSP		; GuestRegs
 	SUB	RSP, 28h
-
 	CALL	VmExitDispatcher
 	ADD	RSP, 28h	
-
-	POP RAX
-    POP RCX
-    POP RDX
-    POP RBX
-    POP RBP		; RSP
-    POP RBP
-    POP RSI
-    POP RDI 
-    POP R8
-    POP R9
-    POP R10
-    POP R11
-    POP R12
-    POP R13
-    POP R14
-    POP R15
+        vmovups  xmm0, xmmword ptr [rsp +  0h]
+        vmovups  xmm1, xmmword ptr [rsp + 10h]
+        vmovups  xmm2, xmmword ptr [rsp + 20h]
+        vmovups  xmm3, xmmword ptr [rsp + 30h]
+        vmovups  xmm4, xmmword ptr [rsp + 40h]
+        vmovups  xmm5, xmmword ptr [rsp + 50h]
+        add     rsp, 60h
+	pop RAX
+	pop RCX
+	pop RDX
+	pop RBX
+	pop RBP		; RSP
+	pop RBP
+	pop RSI
+	pop RDI 
+	pop R8
+	pop R9
+	pop R10
+	pop R11
+	pop R12
+	pop R13
+	pop R14
+	pop R15
 
 	SUB RSP, 0100h ; to avoid error in future functions
 	
@@ -86,21 +97,21 @@ VmexitHandler ENDP
 
 SaveStateAndVirtualizeCore PROC PUBLIC
 
-	PUSH RAX
-	PUSH RCX
-	PUSH RDX
-	PUSH RBX
-	PUSH RBP
-	PUSH RSI
-	PUSH RDI
-	PUSH R8
-	PUSH R9
-	PUSH R10
-	PUSH R11
-	PUSH R12
-	PUSH R13
-	PUSH R14
-	PUSH R15
+	push RAX
+	push RCX
+	push RDX
+	push RBX
+	push RBP
+	push RSI
+	push RDI
+	push R8
+	push R9
+	push R10
+	push R11
+	push R12
+	push R13
+	push R14
+	push R15
 	SUB RSP, 28h
 	MOV RDX, RSP
 	CALL VirtualizeCore	
@@ -113,21 +124,21 @@ SaveStateAndVirtualizeCore ENDP
 VmxRestoreState PROC
 
 	ADD RSP, 28h
-	POP R15
-	POP R14
-	POP R13
-	POP R12
-	POP R11
-	POP R10
-	POP R9
-	POP R8
-	POP RDI
-	POP RSI
-	POP RBP
-	POP RBX
-	POP RDX
-	POP RCX
-	POP RAX
+	pop R15
+	pop R14
+	pop R13
+	pop R12
+	pop R11
+	pop R10
+	pop R9
+	pop R8
+	pop RDI
+	pop RSI
+	pop RBP
+	pop RBX
+	pop RDX
+	pop RCX
+	pop RAX
 	
 	RET
 	

@@ -954,5 +954,5 @@ VmExitDispatcher(
                 &additional_rip_offset
         );
 
-        ResumeToNextInstruction(0);
+        ResumeToNextInstruction(additional_rip_offset);
 }

@@ -3,6 +3,18 @@
 #include <intrin.h>
 
 /*
+* This is a custom implementation of a paper published by some vmware
+* engineers which can be seen here:
+* 
+* https://www.usenix.org/system/files/conference/atc12/atc12-final158.pdf
+* 
+* Right now it produces around a 3-5% performance increase depending on the 
+* instructions in the cluster (and my clusters are only 2 instructions as of now)
+* but I think its still a cool start and was fun building. (besides implementing
+* Zydis... Thankyou matti for that...)
+*/
+
+/*
 * Once initialised the decoder is constant and not changed, so we can use
 * a single instance for every core.
 */
