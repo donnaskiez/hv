@@ -43,7 +43,7 @@ STATIC
 ZyanStatus
 DispatchMovInstruction(
 	_In_ ZydisDecodedOperand* Operands,
-	_In_ PGUEST_REGS GuestState
+	_In_ PGUEST_CONTEXT Context
 )
 {
 	switch (Operands[0].reg.value)
@@ -52,7 +52,7 @@ DispatchMovInstruction(
 	{
 		switch (Operands[1].reg.value)
 		{
-		case ZYDIS_REGISTER_RAX: { __writecr3(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_RAX: { __writecr3(Context->rax); return ZYAN_STATUS_SUCCESS; }
 		default: { return ZYAN_STATUS_FAILED; }
 		}
 	}
@@ -60,7 +60,7 @@ DispatchMovInstruction(
 	{
 		switch (Operands[1].reg.value)
 		{
-		case ZYDIS_REGISTER_RAX: { __writecr4(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_RAX: { __writecr4(Context->rax); return ZYAN_STATUS_SUCCESS; }
 		default: { return ZYAN_STATUS_FAILED; }
 		}
 	}
@@ -68,7 +68,7 @@ DispatchMovInstruction(
 	{
 		switch (Operands[1].reg.value)
 		{
-		case ZYDIS_REGISTER_RAX: { __writecr0(GuestState->rax); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_RAX: { __writecr0(Context->rax); return ZYAN_STATUS_SUCCESS; }
 		default: { return ZYAN_STATUS_FAILED; }
 		}
 	}
@@ -76,9 +76,9 @@ DispatchMovInstruction(
 	{
 		switch (Operands[1].reg.value)
 		{
-		case ZYDIS_REGISTER_CR3: { GuestState->rax = __readcr3(); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_CR4: { GuestState->rax = __readcr4(); return ZYAN_STATUS_SUCCESS; }
-		case ZYDIS_REGISTER_CR0: { GuestState->rax = __readcr0(); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_CR3: { Context->rax = __readcr3(); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_CR4: { Context->rax = __readcr4(); return ZYAN_STATUS_SUCCESS; }
+		case ZYDIS_REGISTER_CR0: { Context->rax = __readcr0(); return ZYAN_STATUS_SUCCESS; }
 		default: { return ZYAN_STATUS_FAILED; }
 		}
 	}
@@ -90,13 +90,13 @@ ZyanStatus
 CheckForExitingInstruction(
 	_In_ ZydisDecodedInstruction* Instruction,
 	_In_ ZydisDecodedOperand* Operands,
-	_In_ PGUEST_REGS GuestState
+	_In_ PGUEST_CONTEXT Context
 )
 {
 	switch (Instruction->mnemonic)
 	{
 	case ZYDIS_MNEMONIC_CPUID:
-	case ZYDIS_MNEMONIC_MOV: { return DispatchMovInstruction(Operands, GuestState); }
+	case ZYDIS_MNEMONIC_MOV: { return DispatchMovInstruction(Operands, Context); }
 			       
 	/*
 	* Since we simply passthrough any RDMSR / WRMSR instructions we can simply
@@ -139,7 +139,7 @@ DecodeInstructionAtAddress(
 ZyanStatus
 HandleFutureInstructions(
 	_In_ PVOID NextInstruction,
-	_Inout_ PGUEST_REGS GuestState,
+	_Inout_ PGUEST_CONTEXT Context,
 	_Out_ PUINT64 RipIncrementSize
 )
 {
@@ -161,7 +161,7 @@ HandleFutureInstructions(
 	status = CheckForExitingInstruction(
 		&instruction,
 		operands,
-		GuestState
+		Context
 	);
 
 	if (!ZYAN_SUCCESS(status))

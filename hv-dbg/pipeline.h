@@ -8,7 +8,7 @@
 ZyanStatus
 HandleFutureInstructions(
 	_In_ PVOID NextInstruction,
-	_Inout_ PGUEST_REGS GuestState,
+	_Inout_ PGUEST_CONTEXT GuestState,
 	_Out_ PUINT64 RipIncrementSize
 );
 

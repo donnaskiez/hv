@@ -36,6 +36,13 @@ VMX_ERROR_CODE_FAILED               = 2
 
 VmexitHandler PROC
 
+	sub     rsp, 70h
+	vmovups  xmmword ptr [rsp +  0h], xmm0
+	vmovups  xmmword ptr [rsp + 10h], xmm1
+	vmovups  xmmword ptr [rsp + 20h], xmm2
+	vmovups  xmmword ptr [rsp + 30h], xmm3
+	vmovups  xmmword ptr [rsp + 40h], xmm4
+	vmovups  xmmword ptr [rsp + 50h], xmm5
 	push R15
 	push R14
 	push R13
@@ -52,24 +59,10 @@ VmexitHandler PROC
 	push RDX
 	push RCX
 	push RAX	
-	sub     rsp, 60h
-	vmovups  xmmword ptr [rsp +  0h], xmm0
-	vmovups  xmmword ptr [rsp + 10h], xmm1
-	vmovups  xmmword ptr [rsp + 20h], xmm2
-	vmovups  xmmword ptr [rsp + 30h], xmm3
-	vmovups  xmmword ptr [rsp + 40h], xmm4
-	vmovups  xmmword ptr [rsp + 50h], xmm5
 	MOV RCX, RSP		; GuestRegs
 	SUB	RSP, 28h
 	CALL	VmExitDispatcher
 	ADD	RSP, 28h	
-        vmovups  xmm0, xmmword ptr [rsp +  0h]
-        vmovups  xmm1, xmmword ptr [rsp + 10h]
-        vmovups  xmm2, xmmword ptr [rsp + 20h]
-        vmovups  xmm3, xmmword ptr [rsp + 30h]
-        vmovups  xmm4, xmmword ptr [rsp + 40h]
-        vmovups  xmm5, xmmword ptr [rsp + 50h]
-        add     rsp, 60h
 	pop RAX
 	pop RCX
 	pop RDX
@@ -86,6 +79,13 @@ VmexitHandler PROC
 	pop R13
 	pop R14
 	pop R15
+        vmovups  xmm0, xmmword ptr [rsp +  0h]
+        vmovups  xmm1, xmmword ptr [rsp + 10h]
+        vmovups  xmm2, xmmword ptr [rsp + 20h]
+        vmovups  xmm3, xmmword ptr [rsp + 30h]
+        vmovups  xmm4, xmmword ptr [rsp + 40h]
+        vmovups  xmm5, xmmword ptr [rsp + 50h]
+        add     rsp, 70h
 
 	SUB RSP, 0100h ; to avoid error in future functions
 	

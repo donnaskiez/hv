@@ -1,14 +1,13 @@
-#ifndef VMCS_H
-#define VMCS_H
+#ifndef VMX_H
+#define VMX_H
 
 #include "common.h"
 #include "vmx.h"
 #include "driver.h"
-#include "ept.h"
 
 typedef struct _IPI_CALL_CONTEXT
 {
-	PEPTP eptp;
+	PVOID eptp;
 	PVOID guest_stack;
 
 }IPI_CALL_CONTEXT, * PIPI_CALL_CONTEXT;
@@ -45,12 +44,6 @@ BroadcastVmxTermination();
 VOID
 VirtualizeCore(
 	_In_ PIPI_CALL_CONTEXT Context,
-	_In_ PVOID StackPointer
-);
-
-NTSTATUS
-SetupVmcs(
-	_In_ VIRTUAL_MACHINE_STATE* GuestState,
 	_In_ PVOID StackPointer
 );
 
@@ -93,12 +86,7 @@ void
 __writemsr(ULONG32 reg, ULONG64 MsrValue);
 
 extern void VmxRestoreState();
-extern UINT64 inline SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
 
-VOID
-InsertStackPointerIntoIpiContextStruct(
-	_In_ PIPI_CALL_CONTEXT Context,
-	_In_ PVOID StackPointer
-);
+extern UINT64 inline SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
 
 #endif

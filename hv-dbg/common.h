@@ -493,14 +493,8 @@ enum SEGREGS
         TR
 };
 
-typedef struct _GUEST_REGS
+typedef struct _GUEST_CONTEXT
 {
-        M128A Xmm0;
-        M128A Xmm1;
-        M128A Xmm2;
-        M128A Xmm3;
-        M128A Xmm4;
-        M128A Xmm5;
         ULONG64 rax; // 0x00         // NOT VALID FOR SVM
         ULONG64 rcx;
         ULONG64 rdx; // 0x10
@@ -517,7 +511,14 @@ typedef struct _GUEST_REGS
         ULONG64 r13;
         ULONG64 r14; // 0x70
         ULONG64 r15;
-} GUEST_REGS, * PGUEST_REGS;
+        M128A Xmm0;
+        M128A Xmm1;
+        M128A Xmm2;
+        M128A Xmm3;
+        M128A Xmm4;
+        M128A Xmm5;
+        CHAR padding[10];
+} GUEST_CONTEXT, * PGUEST_CONTEXT;
 
 typedef union _RFLAGS
 {

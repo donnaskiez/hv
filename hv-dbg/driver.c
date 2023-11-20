@@ -1,7 +1,5 @@
 #include "driver.h"
 
-#include "ept.h"
-
 #include <intrin.h>
 #include "vmx.h"
 #include "common.h"
@@ -36,17 +34,9 @@ DeviceCreate(
         if (!context)
                 return STATUS_ABANDONED;
 
-        PEPTP pept = InitializeEptp();
-
-        if (!pept)
-        {
-                ExFreePoolWithTag(context, POOLTAG);
-                goto end;
-        }
-
         for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
-                context[core].eptp = pept;
+                context[core].eptp = NULL;
                 context[core].guest_stack = NULL;
         }
 
