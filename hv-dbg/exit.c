@@ -105,11 +105,20 @@ DispatchExitReasonControlRegisterAccess(
 
 STATIC
 VOID
-DispatchExitReasonInvd(
+DispatchExitReasonINVD(
         _In_ PGUEST_CONTEXT Context
 )
 {
         /* this is how hyper-v performs their invd */
+        __wbinvd();
+}
+
+STATIC
+VOID
+DispatchExitReasonWBINVD(
+        _In_ PGUEST_CONTEXT Context
+)
+{
         __wbinvd();
 }
 
@@ -129,13 +138,31 @@ DispatchExitReasonCPUID(
         Context->rdx = cpuid_result[3];
 }
 
+/*
+* Reads the current value of the processor’s time-stamp counter (a 64-bit MSR) 
+* into the EDX:EAX registers. The EDX register is loaded with the high-order 
+* 32 bits of the MSR and the EAX register is loaded with the low-order 32 bits. 
+* (On processors that support the Intel 64 architecture, the high-order 32 bits 
+* of each of RAX and RDX are cleared.)
+* 
+* source: https://www.felixcloutier.com/x86/rdtsc
+*/
 STATIC
 VOID
 DispatchExitReasonRDTSC(
         _In_ PGUEST_CONTEXT Context
 )
 {
-        DEBUG_LOG("exit reason RDTSC");
+        DEBUG_LOG("rdtsc exit");
+
+        LARGE_INTEGER tsc = { 0 };
+        tsc.QuadPart = __rdtsc();
+
+        Context->rax = 0;
+        Context->rdx = 0;
+
+        Context->rax = tsc.LowPart;
+        Context->rdx = tsc.HighPart;
 }
 
 VOID
@@ -171,12 +198,13 @@ VmExitDispatcher(
         case EXIT_REASON_RDTSC: { DispatchExitReasonRDTSC(Context); break; }
         case EXIT_REASON_EXCEPTION_NMI:
         case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(Context); break; }
-        case EXIT_REASON_INVD: { DispatchExitReasonInvd(Context); break; }
+        case EXIT_REASON_INVD: { DispatchExitReasonINVD(Context); break; }
         case EXIT_REASON_VMCALL:
         case EXIT_REASON_CR_ACCESS: { DispatchExitReasonControlRegisterAccess(Context); break; }
         case EXIT_REASON_MSR_READ:
         case EXIT_REASON_MSR_WRITE:
         case EXIT_REASON_EPT_VIOLATION:
+        case EXIT_REASON_WBINVD: { DispatchExitReasonWBINVD(Context); break; }
         default: { break; }
         }
 
