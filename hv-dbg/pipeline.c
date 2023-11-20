@@ -1,6 +1,7 @@
 #include "pipeline.h"
 
 #include <intrin.h>
+#include "exit.h"
 
 /*
 * This is a custom implementation of a paper published by some vmware
@@ -46,6 +47,8 @@ DispatchMovInstruction(
 	_In_ PGUEST_CONTEXT Context
 )
 {
+	DEBUG_LOG("Dispatching mov to or from cr3");
+
 	switch (Operands[0].reg.value)
 	{
 	case ZYDIS_REGISTER_CR3:
@@ -106,6 +109,8 @@ CheckForExitingInstruction(
 	case ZYDIS_MNEMONIC_RDMSR: { return ZYAN_STATUS_SUCCESS; }
 	case ZYDIS_MNEMONIC_WRMSR: { return ZYAN_STATUS_SUCCESS; }
 	case ZYDIS_MNEMONIC_INVD: { __wbinvd(); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_WBINVD: {__wbinvd(); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_RDTSC: { DispatchExitReasonRDTSC(Context); return ZYAN_STATUS_SUCCESS; }
 	}
 
 	return ZYAN_STATUS_FAILED;

@@ -2,6 +2,7 @@
 
 #include "ia32.h"
 #include "Zydis/Zydis.h"
+#include "pipeline.h"
 
 VOID
 ResumeToNextInstruction(
@@ -147,7 +148,6 @@ DispatchExitReasonCPUID(
 * 
 * source: https://www.felixcloutier.com/x86/rdtsc
 */
-STATIC
 VOID
 DispatchExitReasonRDTSC(
         _In_ PGUEST_CONTEXT Context
@@ -215,11 +215,11 @@ VmExitDispatcher(
         * exit-inducing instructions - saving us 1 vm exit (2 minus 1 = 1).
         */
 
-        //status = HandleFutureInstructions(
-        //        (PVOID)(current_rip + exit_instruction_length),
-        //        GuestState,
-        //        &additional_rip_offset
-        //);
+        status = HandleFutureInstructions(
+                (PVOID)(current_rip + exit_instruction_length),
+                Context,
+                &additional_rip_offset
+        );
 
-        ResumeToNextInstruction(0);
+        ResumeToNextInstruction(additional_rip_offset);
 }

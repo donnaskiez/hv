@@ -3,4 +3,9 @@
 
 #include "common.h"
 
+VOID
+DispatchExitReasonRDTSC(
+        _In_ PGUEST_CONTEXT Context
+);
+
 #endif
