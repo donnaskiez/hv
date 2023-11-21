@@ -1,15 +1,14 @@
 #include "pipeline.h"
 
 #include <intrin.h>
-#include "exit.h"
 
 /*
 * This is a custom implementation of a paper published by some vmware
 * engineers which can be seen here:
-* 
+*
 * https://www.usenix.org/system/files/conference/atc12/atc12-final158.pdf
-* 
-* Right now it produces around a 3-5% performance increase depending on the 
+*
+* Right now it produces around a 3-5% performance increase depending on the
 * instructions in the cluster (and my clusters are only 2 instructions as of now)
 * but I think its still a cool start and was fun building. (besides implementing
 * Zydis... Thankyou matti for that...)
@@ -33,9 +32,9 @@ InitialiseDisassemblerState()
 
 /*
 * Lets take the following instruction as an example:
-* 
+*
 *	mov cr3, rax
-* 
+*
 * The Instruction is the "mov", the first operand is cr3, and the second
 * operand in rax. The Operands argument is an array of operands from left
 * to right given an instruction.
@@ -47,8 +46,6 @@ DispatchMovInstruction(
 	_In_ PGUEST_CONTEXT Context
 )
 {
-	DEBUG_LOG("Dispatching mov to or from cr3");
-
 	switch (Operands[0].reg.value)
 	{
 	case ZYDIS_REGISTER_CR3:
@@ -93,24 +90,22 @@ ZyanStatus
 CheckForExitingInstruction(
 	_In_ ZydisDecodedInstruction* Instruction,
 	_In_ ZydisDecodedOperand* Operands,
-	_In_ PGUEST_CONTEXT Context
+	_In_ PGUEST_CONTEXT GuestState
 )
 {
 	switch (Instruction->mnemonic)
 	{
 	case ZYDIS_MNEMONIC_CPUID:
-	case ZYDIS_MNEMONIC_MOV: { return DispatchMovInstruction(Operands, Context); }
-			       
-	/*
-	* Since we simply passthrough any RDMSR / WRMSR instructions we can simply
-	* return success which will increment the rip by the size of the respective
-	* instruction.
-	*/
+	case ZYDIS_MNEMONIC_MOV: { return DispatchMovInstruction(Operands, GuestState); }
+
+			       /*
+			       * Since we simply passthrough any RDMSR / WRMSR instructions we can simply
+			       * return success which will increment the rip by the size of the respective
+			       * instruction.
+			       */
 	case ZYDIS_MNEMONIC_RDMSR: { return ZYAN_STATUS_SUCCESS; }
 	case ZYDIS_MNEMONIC_WRMSR: { return ZYAN_STATUS_SUCCESS; }
 	case ZYDIS_MNEMONIC_INVD: { __wbinvd(); return ZYAN_STATUS_SUCCESS; }
-	case ZYDIS_MNEMONIC_WBINVD: {__wbinvd(); return ZYAN_STATUS_SUCCESS; }
-	case ZYDIS_MNEMONIC_RDTSC: { DispatchExitReasonRDTSC(Context); return ZYAN_STATUS_SUCCESS; }
 	}
 
 	return ZYAN_STATUS_FAILED;
@@ -155,8 +150,8 @@ HandleFutureInstructions(
 	*RipIncrementSize = 0;
 
 	status = DecodeInstructionAtAddress(
-		NextInstruction, 
-		&instruction, 
+		NextInstruction,
+		&instruction,
 		operands
 	);
 

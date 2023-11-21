@@ -28,7 +28,7 @@ DeviceCreate(
 {
         UNREFERENCED_PARAMETER(DeviceObject);
 
-        PIPI_CALL_CONTEXT context = 
+        PIPI_CALL_CONTEXT context =
                 ExAllocatePool2(POOL_FLAG_NON_PAGED, KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
 
         if (!context)

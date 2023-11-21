@@ -1,5 +1,3 @@
-PUBLIC __vmx_enable
-PUBLIC __vmx_invept
 PUBLIC __readcs
 PUBLIC __readds
 PUBLIC __reades
@@ -13,9 +11,13 @@ PUBLIC __readidtbase
 PUBLIC __getgdtlimit
 PUBLIC __getidtlimit
 PUBLIC __readrflags
-PUBLIC __vmx_terminate
+
 PUBLIC __readmsr
 PUBLIC __writemsr
+
+PUBLIC __vmx_enable
+PUBLIC __vmx_invept
+PUBLIC __vmx_terminate
 
 PUBLIC SaveStateAndVirtualizeCore
 PUBLIC VmexitHandler
@@ -36,60 +38,92 @@ VMX_ERROR_CODE_FAILED               = 2
 
 VmexitHandler PROC
 
-	sub     rsp, 70h
+	; save general purpose registers
+
+	push r15
+	push r14
+	push r13
+	push r12
+	push r11
+	push r10
+	push r9
+	push r8        
+	push rdi
+	push rsi
+	push rbp
+	push rbp
+	push rbx
+	push rdx
+	push rcx
+	push rax	
+	
+	; save floating point registers
+	; vmovups allows us to store them in an unaligned address
+	; which is not ideal and should be fixed.
+
+	sub     rsp, 60h
+
 	vmovups  xmmword ptr [rsp +  0h], xmm0
 	vmovups  xmmword ptr [rsp + 10h], xmm1
 	vmovups  xmmword ptr [rsp + 20h], xmm2
 	vmovups  xmmword ptr [rsp + 30h], xmm3
 	vmovups  xmmword ptr [rsp + 40h], xmm4
 	vmovups  xmmword ptr [rsp + 50h], xmm5
-	push R15
-	push R14
-	push R13
-	push R12
-	push R11
-	push R10
-	push R9
-	push R8        
-	push RDI
-	push RSI
-	push RBP
-	push RBP	; RSP
-	push RBX
-	push RDX
-	push RCX
-	push RAX	
-	MOV RCX, RSP		; GuestRegs
-	SUB	RSP, 28h
+
+	; first argument for our exit handler is the guest register state, 
+	; so store the base of the stack in rcx
+
+	mov rcx, rsp
+
+	; allocate some space for the shadow stack
+
+	sub	rsp, 28h
+
+	; call our vm exit dispatcher
+
 	CALL	VmExitDispatcher
-	ADD	RSP, 28h	
-	pop RAX
-	pop RCX
-	pop RDX
-	pop RBX
-	pop RBP		; RSP
-	pop RBP
-	pop RSI
-	pop RDI 
-	pop R8
-	pop R9
-	pop R10
-	pop R11
-	pop R12
-	pop R13
-	pop R14
-	pop R15
+
+	; increment stack pointer to free our shadow stack space	
+
+	add	rsp, 28h	
+
+	; restore our saved floating point registers back
+
         vmovups  xmm0, xmmword ptr [rsp +  0h]
         vmovups  xmm1, xmmword ptr [rsp + 10h]
         vmovups  xmm2, xmmword ptr [rsp + 20h]
         vmovups  xmm3, xmmword ptr [rsp + 30h]
         vmovups  xmm4, xmmword ptr [rsp + 40h]
         vmovups  xmm5, xmmword ptr [rsp + 50h]
-        add     rsp, 70h
 
-	SUB RSP, 0100h ; to avoid error in future functions
+	; increment stack pointer since we've restored the floating point registers
 	
-    JMP VmResumeInstruction
+        add     rsp, 60h
+
+	; pop the general purpose registers back
+
+	pop rax
+	pop rcx
+	pop rdx
+	pop rbx
+	pop rbp
+	pop rbp
+	pop rsi
+	pop rdi 
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+	
+	sub rsp, 0100h
+			
+	; resume execution 
+
+	jmp VmResumeInstruction
 	
 VmexitHandler ENDP
 
@@ -312,7 +346,7 @@ __readrflags ENDP
 
 __readmsr PROC
 
-	RDMSR				; MSR[ECX] --> EDX:EAX
+	RDMSR
 	SHL		RDX, 32
 	OR		RAX, RDX
 

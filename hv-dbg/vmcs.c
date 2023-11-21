@@ -1,8 +1,9 @@
 #include "vmcs.h"
 
-#include "vmx.h"
 #include "ia32.h"
+#include "vmx.h"
 #include "encode.h"
+#include "arch.h"
 
 VMCS_GUEST_STATE_FIELDS   guest_state_fields = { 0 };
 VMCS_HOST_STATE_FIELDS    host_state_fields = { 0 };
@@ -11,13 +12,13 @@ VMCS_CONTROL_STATE_FIELDS control_state_fields = { 0 };
 STATIC
 BOOLEAN
 GetSegmentDescriptor(
-        PSEGMENT_SELECTOR SegmentSelector,
-        USHORT            Selector,
-        PUCHAR            GdtBase
+        _In_ PSEGMENT_SELECTOR SegmentSelector,
+        _In_ USHORT            Selector,
+        _In_ PUCHAR            GdtBase
 )
 {
-        ULONG64 temp;
-        PSEGMENT_DESCRIPTOR segment_descriptor;
+        ULONG64 temp = 0;
+        PSEGMENT_DESCRIPTOR segment_descriptor = NULL;
 
         if (!SegmentSelector)
                 return FALSE;
@@ -48,7 +49,6 @@ GetSegmentDescriptor(
         return TRUE;
 }
 
-STATIC
 ULONG
 AdjustMsrControl(
         _In_ ULONG Control,
@@ -63,27 +63,26 @@ AdjustMsrControl(
         return Control;
 }
 
-STATIC
 VOID
-VmcsWriteSelectorData(
+VmcsWriteSelectors(
         _In_ PVOID  GdtBase,
-        _In_ ULONG  Segreg,
-        _In_ USHORT Selector)
+        _In_ ULONG  SegmentRegisters,
+        _In_ USHORT Selector
+)
 {
         SEGMENT_SELECTOR segment_selector = { 0 };
         ULONG            access_rights;
 
         GetSegmentDescriptor(&segment_selector, Selector, GdtBase);
-
         access_rights = ((PUCHAR)&segment_selector.ATTRIBUTES)[0] + (((PUCHAR)&segment_selector.ATTRIBUTES)[1] << 12);
 
         if (!Selector)
                 access_rights |= 0x10000;
 
-        __vmx_vmwrite(guest_state_fields.word_state.es_selector + Segreg * 2, Selector);
-        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + Segreg * 2, segment_selector.LIMIT);
-        __vmx_vmwrite(GUEST_ES_AR_BYTES + Segreg * 2, access_rights);
-        __vmx_vmwrite(GUEST_ES_BASE + Segreg * 2, segment_selector.BASE);
+        __vmx_vmwrite(guest_state_fields.word_state.es_selector + SegmentRegisters * 2, Selector);
+        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + SegmentRegisters * 2, segment_selector.LIMIT);
+        __vmx_vmwrite(GUEST_ES_AR_BYTES + SegmentRegisters * 2, access_rights);
+        __vmx_vmwrite(GUEST_ES_BASE + SegmentRegisters * 2, segment_selector.BASE);
 }
 
 STATIC
@@ -133,14 +132,14 @@ VmcsWriteGuestStateFields(
         __vmx_vmwrite(GUEST_IA32_DEBUGCTL_HIGH, __readmsr(MSR_IA32_DEBUGCTL) >> 32);
         __vmx_vmwrite(guest_state_fields.qword_state.debug_control, __readmsr(MSR_IA32_DEBUGCTL) & 0xFFFFFFFF);
 
-        VmcsWriteSelectorData(__readgdtbase(), ES, __reades());
-        VmcsWriteSelectorData(__readgdtbase(), CS, __readcs());
-        VmcsWriteSelectorData(__readgdtbase(), SS, __readss());
-        VmcsWriteSelectorData(__readgdtbase(), DS, __readds());
-        VmcsWriteSelectorData(__readgdtbase(), FS, __readfs());
-        VmcsWriteSelectorData(__readgdtbase(), GS, __readgs());
-        VmcsWriteSelectorData(__readgdtbase(), LDTR, __readldtr());
-        VmcsWriteSelectorData(__readgdtbase(), TR, __readtr());
+        VmcsWriteSelectors(__readgdtbase(), ES, __reades());
+        VmcsWriteSelectors(__readgdtbase(), CS, __readcs());
+        VmcsWriteSelectors(__readgdtbase(), SS, __readss());
+        VmcsWriteSelectors(__readgdtbase(), DS, __readds());
+        VmcsWriteSelectors(__readgdtbase(), FS, __readfs());
+        VmcsWriteSelectors(__readgdtbase(), GS, __readgs());
+        VmcsWriteSelectors(__readgdtbase(), LDTR, __readldtr());
+        VmcsWriteSelectors(__readgdtbase(), TR, __readtr());
 
         __vmx_vmwrite(guest_state_fields.natural_state.cr0, __readcr0());
         __vmx_vmwrite(guest_state_fields.natural_state.cr3, __readcr3());

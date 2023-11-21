@@ -1,7 +1,10 @@
 #include "vmx.h"
+
 #include "common.h"
 #include "ia32.h"
 #include "pipeline.h"
+#include "encode.h"
+#include "arch.h"
 #include "vmcs.h"
 
 #include <intrin.h>
@@ -82,13 +85,9 @@ hvdbgAllocateVmcsRegion(
                 return FALSE;
         }
 
-        DEBUG_LOG("vmcs va: %llx, core: %lx", (UINT64)virtual_allocation, KeGetCurrentProcessorNumber());
-
         RtlSecureZeroMemory(virtual_allocation, PAGE_SIZE);
 
         physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
-
-        DEBUG_LOG("core: %lx, vmcs physical: %llx", KeGetCurrentProcessorNumber(), physical_allocation);
 
         if (!physical_allocation)
         {
@@ -170,7 +169,7 @@ AllocateVmmState()
         return vmm_state != NULL ? TRUE : FALSE;
 }
 
-VOID
+NTSTATUS
 InitiateVmx(
         _In_ PIPI_CALL_CONTEXT Context
 )
@@ -178,7 +177,7 @@ InitiateVmx(
         if (!AllocateVmmState())
         {
                 DEBUG_LOG("Failed to allocate vmm state");
-                return;
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         for (ULONG core = 0; core < KeQueryActiveProcessorCount(0); core++)
@@ -189,28 +188,26 @@ InitiateVmx(
                 while (KeGetCurrentProcessorNumber() != core)
                         YieldProcessor();
 
-                DEBUG_LOG("Executing InitiateVmx on processor index: %lx", core);
-
                 hvdbgEnableVmxOperationOnCore();
 
                 ZyanStatus status = InitialiseDisassemblerState();
-                
+
                 if (!ZYAN_SUCCESS(status))
                 {
                         DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
-                        return;
+                        return STATUS_ABANDONED;
                 }
 
                 if (!hvdbgAllocateVmxonRegion(&vmm_state[core]))
                 {
                         DEBUG_ERROR("AllocateVmxonRegion failed");
-                        return;
+                        return STATUS_MEMORY_NOT_ALLOCATED;;
                 }
 
                 if (!hvdbgAllocateVmcsRegion(&vmm_state[core]))
                 {
                         DEBUG_ERROR("AllocateVmcsRegion failed");
-                        return;
+                        return STATUS_MEMORY_NOT_ALLOCATED;;
                 }
 
                 vmm_state[core].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
@@ -218,7 +215,7 @@ InitiateVmx(
                 if (!vmm_state[core].vmm_stack)
                 {
                         DEBUG_LOG("Error in allocating VMM Stack.");
-                        return;
+                        return STATUS_MEMORY_NOT_ALLOCATED;;
                 }
 
                 vmm_state[core].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
@@ -226,14 +223,12 @@ InitiateVmx(
                 if (!vmm_state[core].msr_bitmap_va)
                 {
                         DEBUG_LOG("Error in allocating MSRBitMap.");
-                        return;
+                        return STATUS_MEMORY_NOT_ALLOCATED;;
                 }
 
                 RtlSecureZeroMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
 
                 vmm_state[core].msr_bitmap_pa = MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va).QuadPart;
-
-                DEBUG_LOG("core: %lx, vmcs region pa: %llx", core, vmm_state[core].vmcs_region_pa);
         }
 }
 
@@ -243,10 +238,8 @@ VirtualizeCore(
         _In_ PVOID StackPointer
 )
 {
-        DEBUG_LOG("setting up vmcs regions on core: %lx", KeGetCurrentProcessorNumber());
-
         NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
-        
+
         if (!NT_SUCCESS(status))
         {
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
@@ -304,9 +297,8 @@ BroadcastVmxInitiation(
                 return FALSE;
         }
 
-        DEBUG_LOG("Eptp broadcast: %llx", (UINT64)Context->eptp);
-
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
+
         return TRUE;
 }
 
@@ -314,4 +306,5 @@ BOOLEAN
 BroadcastVmxTermination()
 {
         KeIpiGenericCall(TerminateVmx, NULL);
+        return TRUE;
 }

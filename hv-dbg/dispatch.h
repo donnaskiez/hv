@@ -4,8 +4,8 @@
 #include "common.h"
 
 VOID
-DispatchExitReasonRDTSC(
-        _In_ PGUEST_CONTEXT Context
+VmExitDispatcher(
+        _In_ PGUEST_CONTEXT GuestState
 );
 
 #endif

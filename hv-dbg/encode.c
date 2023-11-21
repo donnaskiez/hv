@@ -1,4 +1,4 @@
-#include "encode.h"
+#include "common.h"
 
 STATIC
 UINT32

@@ -108,7 +108,7 @@
     <ClCompile Include="encode.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="exit.c">
+    <ClCompile Include="dispatch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -117,9 +117,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vmx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="segment.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="common.h">
@@ -257,7 +254,10 @@
     <ClInclude Include="encode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="exit.h">
+    <ClInclude Include="dispatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="arch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

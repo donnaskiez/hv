@@ -28,7 +28,9 @@ typedef struct _VIRTUAL_MACHINE_STATE
 UINT64 stack_pointer_to_return;
 UINT64 base_pointer_to_return;
 
-VOID
+extern PVIRTUAL_MACHINE_STATE vmm_state;
+
+NTSTATUS
 InitiateVmx(
 	_In_ PIPI_CALL_CONTEXT Context
 );
@@ -46,47 +48,5 @@ VirtualizeCore(
 	_In_ PIPI_CALL_CONTEXT Context,
 	_In_ PVOID StackPointer
 );
-
-extern 
-VOID
-VmexitHandler();
-
-extern 
-ULONG64 
-inline 
-__readgdtbase();
-
-extern 
-ULONG64 
-inline 
-__readidtbase();
-
-extern 
-void 
-inline 
-__vmx_enable();
-
-extern
-void 
-inline 
-__vmx_terminate();
-
-extern 
-unsigned char 
-inline 
-__vmx_invept(
-	_In_ ULONG Type, 
-	_In_ PVOID Descriptor
-);
-
-ULONG64
-__readmsr(ULONG32 reg);
-
-void
-__writemsr(ULONG32 reg, ULONG64 MsrValue);
-
-extern void VmxRestoreState();
-
-extern UINT64 inline SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
 
 #endif
