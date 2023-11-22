@@ -61,7 +61,7 @@ VmexitHandler PROC
 	; vmovups allows us to store them in an unaligned address
 	; which is not ideal and should be fixed.
 
-	sub     rsp, 60h
+	sub     rsp, 70h
 
 	vmovups  xmmword ptr [rsp +  0h], xmm0
 	vmovups  xmmword ptr [rsp + 10h], xmm1
@@ -98,7 +98,7 @@ VmexitHandler PROC
 
 	; increment stack pointer since we've restored the floating point registers
 	
-        add     rsp, 60h
+        add     rsp, 70h
 
 	; pop the general purpose registers back
 

@@ -3,6 +3,7 @@
 #include <intrin.h>
 #include "vmx.h"
 #include "common.h"
+#include "ept.h"
 #include "pipeline.h"
 
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
@@ -34,9 +35,17 @@ DeviceCreate(
         if (!context)
                 return STATUS_ABANDONED;
 
+        PEPTP pept = InitializeEptp();
+
+        if (!pept)
+        {
+                ExFreePoolWithTag(context, POOLTAG);
+                goto end;
+        }
+
         for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
-                context[core].eptp = NULL;
+                context[core].eptp = pept;
                 context[core].guest_stack = NULL;
         }
 

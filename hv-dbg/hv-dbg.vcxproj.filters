@@ -111,6 +111,9 @@
     <ClCompile Include="dispatch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ept.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h">
@@ -258,6 +261,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="arch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ept.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

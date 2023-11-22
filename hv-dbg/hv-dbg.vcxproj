@@ -178,6 +178,7 @@
     <ClCompile Include="driver.c" />
     <ClCompile Include="encode.c" />
     <ClCompile Include="dispatch.c" />
+    <ClCompile Include="ept.c" />
     <ClCompile Include="includes\zydis\src\Decoder.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">4201;4064;4627;4627;4366;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">4201;4064;4627;4627;4366;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -328,6 +329,7 @@
     <ClInclude Include="driver.h" />
     <ClInclude Include="encode.h" />
     <ClInclude Include="dispatch.h" />
+    <ClInclude Include="ept.h" />
     <ClInclude Include="ia32.h" />
     <ClInclude Include="includes\zydis\dependencies\zycore\include\Zycore\Allocator.h" />
     <ClInclude Include="includes\zydis\dependencies\zycore\include\Zycore\ArgParse.h" />

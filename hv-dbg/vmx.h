@@ -4,10 +4,11 @@
 #include "common.h"
 #include "vmx.h"
 #include "driver.h"
+#include "ept.h"
 
 typedef struct _IPI_CALL_CONTEXT
 {
-	PVOID eptp;
+	PEPTP eptp;
 	PVOID guest_stack;
 
 }IPI_CALL_CONTEXT, * PIPI_CALL_CONTEXT;
