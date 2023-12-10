@@ -31,7 +31,7 @@ DeviceCreate(
 
         NTSTATUS status = STATUS_ABANDONED;
         PIPI_CALL_CONTEXT context = NULL;
-        PEPTP pept = NULL;
+        EPT_POINTER* pept = NULL;
 
         context = ExAllocatePool2(POOL_FLAG_NON_PAGED, 
                 KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);

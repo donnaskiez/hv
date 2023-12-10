@@ -10,4 +10,21 @@ SetupVmcs(
         _In_ PVOID StackPointer
 );
 
+UINT32
+VmcsReadInstructionErrorCode();
+
+UINT32
+VmcsReadInstructionLength();
+
+UINT64
+VmcsReadExitInstructionRip();
+
+VOID
+VmcsWriteGuestRip(
+        _In_ UINT64 NewValue
+);
+
+UINT32
+VmcsReadExitReason();
+
 #endif

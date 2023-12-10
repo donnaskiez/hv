@@ -4,9 +4,10 @@ STATIC
 UINT32
 EncodeField(
         _In_ VMCS_ACCESS_TYPE AccessType,
-        _In_ VMCS_TYPE        Type,
-        _In_ VMCS_WIDTH       Width,
-        _In_ UINT8            Index)
+        _In_ VMCS_TYPE Type,
+        _In_ VMCS_WIDTH Width,
+        _In_ UINT8 Index
+)
 {
         VMCS_ENCODING encoding =
         {
@@ -21,7 +22,8 @@ EncodeField(
 
 VOID
 EncodeVmcsGuestStateFields(
-        _Out_ PVMCS_GUEST_STATE_FIELDS Fields)
+        _Out_ PVMCS_GUEST_STATE_FIELDS Fields
+)
 {
         Fields->natural_state.cr0 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 0);
         Fields->natural_state.cr3 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 1);
@@ -40,7 +42,7 @@ EncodeVmcsGuestStateFields(
         Fields->natural_state.rsp = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 14);
         Fields->natural_state.rip = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 15);
         Fields->natural_state.rflags = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 16);
-        //pending_debug_exceptions
+        Fields->natural_state.pending_debug_exceptions = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 17);
         Fields->natural_state.sysenter_esp = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 18);
         Fields->natural_state.sysenter_eip = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_NATURAL, 19);
 
@@ -51,7 +53,10 @@ EncodeVmcsGuestStateFields(
         Fields->qword_state.pat = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 2);
         Fields->qword_state.efer = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 3);
         Fields->qword_state.perf_global_control = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 4);
-        //Fields->qword_state.bndcfgs             = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 5);
+        Fields->qword_state.pdpte0 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 5);
+        Fields->qword_state.pdpte1 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 6);
+        Fields->qword_state.pdpte2 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 7);
+        Fields->qword_state.pdpte3 = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_64, 8);
 
         /* 32 bit state fields */
 
@@ -73,9 +78,11 @@ EncodeVmcsGuestStateFields(
         Fields->dword_state.gs_access_rights = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 15);
         Fields->dword_state.ldtr_access_rights = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 16);
         Fields->dword_state.tr_access_rights = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 17);
-
+        Fields->dword_state.interruptibility_state = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 18);
+        Fields->dword_state.activity_state = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 19);
         Fields->dword_state.smbase = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 20);
         Fields->dword_state.sysenter_cs = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 21);
+        Fields->dword_state.vmx_preemption_timer_value = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_32, 23);
 
         /* 16 bit fields */
 
@@ -87,11 +94,14 @@ EncodeVmcsGuestStateFields(
         Fields->word_state.gs_selector = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_16, 5);
         Fields->word_state.ldtr_selector = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_16, 6);
         Fields->word_state.tr_selector = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_16, 7);
+        Fields->word_state.interrupt_status = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_16, 8);
+        Fields->word_state.pml_index = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_GUEST_STATE, VMCS_WIDTH_16, 9);
 }
 
 VOID
 EncodeVmcsHostStateFields(
-        _Out_ PVMCS_HOST_STATE_FIELDS Fields)
+        _Out_ PVMCS_HOST_STATE_FIELDS Fields
+)
 {
         /* natural */
 
@@ -110,7 +120,9 @@ EncodeVmcsHostStateFields(
 
         /* 64 bit */
 
-        Fields->natural_state.ia32_perf_global_ctrl = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_HOST_STATE, VMCS_WIDTH_64, 2);
+        Fields->qword_state.pat = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_HOST_STATE, VMCS_WIDTH_64, 0);
+        Fields->qword_state.efer = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_HOST_STATE, VMCS_WIDTH_64, 1);
+        Fields->qword_state.ia32_perf_global_ctrl = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_HOST_STATE, VMCS_WIDTH_64, 2);
 
         /* 16 bit */
 
@@ -129,7 +141,8 @@ EncodeVmcsHostStateFields(
 
 VOID
 EncodeVmcsControlStateFields(
-        _In_ PVMCS_CONTROL_STATE_FIELDS Fields)
+        _Out_ PVMCS_CONTROL_STATE_FIELDS Fields
+)
 {
         /* natural state */
 
@@ -196,4 +209,28 @@ EncodeVmcsControlStateFields(
         Fields->word_state.virtual_processor_identifier = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_CONTROL, VMCS_WIDTH_16, 0);
         Fields->word_state.posted_interrupt_notification_vector = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_CONTROL, VMCS_WIDTH_16, 1);
         Fields->word_state.eptp_index = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_CONTROL, VMCS_WIDTH_16, 2);
+}
+
+VOID
+EncodeVmcsExitStateFields(
+        _Out_ PVMCS_EXIT_STATE_FIELDS Fields
+)
+{
+        Fields->natural_state.exit_qualification = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 0);
+        Fields->natural_state.io_rcx = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 1);
+        Fields->natural_state.io_rsx = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 2);
+        Fields->natural_state.io_rdi = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 3);
+        Fields->natural_state.io_rip = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 4);
+        Fields->natural_state.guest_linear_address = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_NATURAL, 5);
+
+        Fields->qword_state.guest_physical_address = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_64, 0);
+
+        Fields->dword_state.instruction_error = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 0);
+        Fields->dword_state.reason = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 1);
+        Fields->dword_state.interruption_info = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 2);
+        Fields->dword_state.interruption_error_code = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 3);
+        Fields->dword_state.idt_vectoring_info = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 4);
+        Fields->dword_state.idt_vectoring_error_code = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 5);
+        Fields->dword_state.instruction_length = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 6);
+        Fields->dword_state.instruction_info = EncodeField(VMCS_ACCESS_FULL, VMCS_TYPE_EXIT_INFORMATION, VMCS_WIDTH_32, 7);
 }

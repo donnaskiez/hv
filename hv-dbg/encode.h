@@ -9,10 +9,15 @@ EncodeVmcsGuestStateFields(
 
 VOID
 EncodeVmcsControlStateFields(
-        _In_ PVMCS_CONTROL_STATE_FIELDS Fields);
+        _Out_ PVMCS_CONTROL_STATE_FIELDS Fields);
 
 VOID
 EncodeVmcsHostStateFields(
         _Out_ PVMCS_HOST_STATE_FIELDS Fields);
+
+VOID
+EncodeVmcsExitStateFields(
+        _Out_ PVMCS_EXIT_STATE_FIELDS Fields
+);
 
 #endif 

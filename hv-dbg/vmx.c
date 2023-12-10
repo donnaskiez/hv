@@ -248,15 +248,8 @@ VirtualizeCore(
 
         __vmx_vmlaunch();
 
-        /*
-        * If vmlaunch succeeds, we will never get here.
-        */
-        ULONG64 error_code = 0;
-
-        __vmx_vmread(VM_INSTRUCTION_ERROR, &error_code);
-        __vmx_off();
-
-        DEBUG_ERROR("VMLAUNCH Error : 0x%llx", error_code);
+        /* only if vmlaunch fails will we end up here */
+        DEBUG_ERROR("VMLAUNCH Error : 0x%llx", VmcsReadInstructionErrorCode());
 }
 
 STATIC

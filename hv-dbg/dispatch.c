@@ -2,6 +2,7 @@
 
 #include "Zydis/Zydis.h"
 #include "vmx.h"
+#include "vmcs.h"
 #include "pipeline.h"
 
 VOID
@@ -9,30 +10,14 @@ ResumeToNextInstruction(
         _In_ UINT64 InstructionOffset
 )
 {
-        PVOID current_rip = NULL;
-        ULONG exit_instruction_length = 0;
-
-        /*
-        * Advance the guest RIP by the size of the exit-causing instruction
-        */
-        __vmx_vmread(GUEST_RIP, &current_rip);
-        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
-        __vmx_vmwrite(GUEST_RIP, (UINT64)current_rip + exit_instruction_length + InstructionOffset);
+        VmcsWriteGuestRip(VmcsReadExitInstructionRip() + VmcsReadInstructionLength() + InstructionOffset);
 }
 
 VOID
 VmResumeInstruction()
 {
         __vmx_vmresume();
-
-        /* If vmresume succeeds we won't reach here */
-
-        UINT64 error = 0;
-
-        __vmx_vmread(VM_INSTRUCTION_ERROR, &error);
-        __vmx_off();
-
-        DEBUG_ERROR("VMRESUME Error : 0x%llx", error);
+        DEBUG_ERROR("VMRESUME Error : 0x%lx", VmcsReadInstructionErrorCode());
 }
 
 STATIC
@@ -145,15 +130,8 @@ VmExitDispatcher(
 )
 {
         UINT64 additional_rip_offset = 0;
-        ULONG exit_reason = 0;
-        UINT64 current_rip = 0;
-        ULONG exit_instruction_length = 0;
 
-        __vmx_vmread(VM_EXIT_REASON, &exit_reason);
-        __vmx_vmread(GUEST_RIP, &current_rip);
-        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
-
-        switch (exit_reason)
+        switch (VmcsReadExitReason())
         {
         case EXIT_REASON_CPUID: { DispatchExitReasonCPUID(Context); break; }
         case EXIT_REASON_INVD: { DispatchExitReasonINVD(Context); break; }
@@ -174,7 +152,7 @@ VmExitDispatcher(
 #pragma warning(push)
 #pragma warning(disable:6387)
         HandleFutureInstructions(
-                (PVOID)(current_rip + exit_instruction_length),
+                (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
                 Context,
                 &additional_rip_offset
         );

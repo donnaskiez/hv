@@ -19898,900 +19898,900 @@ typedef struct
   * @see Vol3C[28.2.2(EPT Translation Mechanism]
   * @see Vol3C[24.6.11(Extended-Page-Table Pointer (EPTP)] (reference)
   */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bits 2:0] EPT paging-structure memory type:
-//		 * - 0 = Uncacheable (UC)
-//		 * - 6 = Write-back (WB)
-//		 * Other values are reserved.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 MemoryType : 3;
-//#define EPT_POINTER_MEMORY_TYPE_BIT                                  0
-//#define EPT_POINTER_MEMORY_TYPE_FLAG                                 0x07
-//#define EPT_POINTER_MEMORY_TYPE_MASK                                 0x07
-//#define EPT_POINTER_MEMORY_TYPE(_)                                   (((_) >> 0) & 0x07)
-//
-//		/**
-//		 * [Bits 5:3] This value is 1 less than the EPT page-walk length.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 PageWalkLength : 3;
-//#define EPT_POINTER_PAGE_WALK_LENGTH_BIT                             3
-//#define EPT_POINTER_PAGE_WALK_LENGTH_FLAG                            0x38
-//#define EPT_POINTER_PAGE_WALK_LENGTH_MASK                            0x07
-//#define EPT_POINTER_PAGE_WALK_LENGTH(_)                              (((_) >> 3) & 0x07)
-//#define EPT_PAGE_WALK_LENGTH_4                                       0x00000003
-//
-//		/**
-//		 * [Bit 6] Setting this control to 1 enables accessed and dirty flags for EPT.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 EnableAccessAndDirtyFlags : 1;
-//#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_BIT                6
-//#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_FLAG               0x40
-//#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_MASK               0x01
-//#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS(_)                 (((_) >> 6) & 0x01)
-//
-//		/**
-//		 * [Bit 7] Setting this control to 1 enables enforcement of access rights for supervisor shadow-stack pages.
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 EnableSupervisorShadowStackPages : 1;
-//#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_BIT         7
-//#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_FLAG        0x80
-//#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_MASK        0x01
-//#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES(_)          (((_) >> 7) & 0x01)
-//		UINT64 Reserved1 : 4;
-//
-//		/**
-//		 * [Bits 47:12] Bits N-1:12 of the physical address of the 4-KByte aligned EPT PML4 table.
-//		 */
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_POINTER_PAGE_FRAME_NUMBER_BIT                            12
-//#define EPT_POINTER_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFFFF000
-//#define EPT_POINTER_PAGE_FRAME_NUMBER_MASK                           0xFFFFFFFFF
-//#define EPT_POINTER_PAGE_FRAME_NUMBER(_)                             (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved2 : 16;
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_POINTER;
-//
-///**
-// * @brief Format of an EPT PML4 Entry (PML4E) that References an EPT Page-Directory-Pointer Table
-// *
-// * A 4-KByte naturally aligned EPT PML4 table is located at the physical address specified in bits 51:12 of the
-// * extended-page-table pointer (EPTP), a VM-execution control field. An EPT PML4 table comprises 512 64-bit entries (EPT
-// * PML4Es). An EPT PML4E is selected using the physical address defined as follows:
-// * - Bits 63:52 are all 0.
-// * - Bits 51:12 are from the EPTP.
-// * - Bits 11:3 are bits 47:39 of the guest-physical address.
-// * - Bits 2:0 are all 0.
-// * Because an EPT PML4E is identified using bits 47:39 of the guest-physical address, it controls access to a 512- GByte
-// * region of the guest-physical-address space.
-// *
-// * @see Vol3C[24.6.11(Extended-Page-Table Pointer (EPTP)]
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 512-GByte region controlled by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PML4E_READ_ACCESS_BIT                                    0
-//#define EPT_PML4E_READ_ACCESS_FLAG                                   0x01
-//#define EPT_PML4E_READ_ACCESS_MASK                                   0x01
-//#define EPT_PML4E_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 512-GByte region controlled by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PML4E_WRITE_ACCESS_BIT                                   1
-//#define EPT_PML4E_WRITE_ACCESS_FLAG                                  0x02
-//#define EPT_PML4E_WRITE_ACCESS_MASK                                  0x01
-//#define EPT_PML4E_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 512-GByte region controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 512-GByte region controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PML4E_EXECUTE_ACCESS_BIT                                 2
-//#define EPT_PML4E_EXECUTE_ACCESS_FLAG                                0x04
-//#define EPT_PML4E_EXECUTE_ACCESS_MASK                                0x01
-//#define EPT_PML4E_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
-//		UINT64 Reserved1 : 5;
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 512-GByte region
-//		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PML4E_ACCESSED_BIT                                       8
-//#define EPT_PML4E_ACCESSED_FLAG                                      0x100
-//#define EPT_PML4E_ACCESSED_MASK                                      0x01
-//#define EPT_PML4E_ACCESSED(_)                                        (((_) >> 8) & 0x01)
-//		UINT64 Reserved2 : 1;
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 512-GByte region
-//		 * controlled by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PML4E_USER_MODE_EXECUTE_BIT                              10
-//#define EPT_PML4E_USER_MODE_EXECUTE_FLAG                             0x400
-//#define EPT_PML4E_USER_MODE_EXECUTE_MASK                             0x01
-//#define EPT_PML4E_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
-//		UINT64 Reserved3 : 1;
-//
-//		/**
-//		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_PML4E_PAGE_FRAME_NUMBER_BIT                              12
-//#define EPT_PML4E_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
-//#define EPT_PML4E_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
-//#define EPT_PML4E_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved4 : 16;
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PML4E;
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bits 2:0] EPT paging-structure memory type:
+		 * - 0 = Uncacheable (UC)
+		 * - 6 = Write-back (WB)
+		 * Other values are reserved.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 MemoryType : 3;
+#define EPT_POINTER_MEMORY_TYPE_BIT                                  0
+#define EPT_POINTER_MEMORY_TYPE_FLAG                                 0x07
+#define EPT_POINTER_MEMORY_TYPE_MASK                                 0x07
+#define EPT_POINTER_MEMORY_TYPE(_)                                   (((_) >> 0) & 0x07)
 
-///**
-// * @brief Format of an EPT Page-Directory-Pointer-Table Entry (PDPTE) that Maps a 1-GByte Page
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 1-GByte page referenced by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PDPTE_1GB_READ_ACCESS_BIT                                0
-//#define EPT_PDPTE_1GB_READ_ACCESS_FLAG                               0x01
-//#define EPT_PDPTE_1GB_READ_ACCESS_MASK                               0x01
-//#define EPT_PDPTE_1GB_READ_ACCESS(_)                                 (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 1-GByte page referenced by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PDPTE_1GB_WRITE_ACCESS_BIT                               1
-//#define EPT_PDPTE_1GB_WRITE_ACCESS_FLAG                              0x02
-//#define EPT_PDPTE_1GB_WRITE_ACCESS_MASK                              0x01
-//#define EPT_PDPTE_1GB_WRITE_ACCESS(_)                                (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 1-GByte page controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 1-GByte page controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PDPTE_1GB_EXECUTE_ACCESS_BIT                             2
-//#define EPT_PDPTE_1GB_EXECUTE_ACCESS_FLAG                            0x04
-//#define EPT_PDPTE_1GB_EXECUTE_ACCESS_MASK                            0x01
-//#define EPT_PDPTE_1GB_EXECUTE_ACCESS(_)                              (((_) >> 2) & 0x01)
-//
-//		/**
-//		 * [Bits 5:3] EPT memory type for this 1-GByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 MemoryType : 3;
-//#define EPT_PDPTE_1GB_MEMORY_TYPE_BIT                                3
-//#define EPT_PDPTE_1GB_MEMORY_TYPE_FLAG                               0x38
-//#define EPT_PDPTE_1GB_MEMORY_TYPE_MASK                               0x07
-//#define EPT_PDPTE_1GB_MEMORY_TYPE(_)                                 (((_) >> 3) & 0x07)
-//
-//		/**
-//		 * [Bit 6] Ignore PAT memory type for this 1-GByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 IgnorePat : 1;
-//#define EPT_PDPTE_1GB_IGNORE_PAT_BIT                                 6
-//#define EPT_PDPTE_1GB_IGNORE_PAT_FLAG                                0x40
-//#define EPT_PDPTE_1GB_IGNORE_PAT_MASK                                0x01
-//#define EPT_PDPTE_1GB_IGNORE_PAT(_)                                  (((_) >> 6) & 0x01)
-//
-//		/**
-//		 * [Bit 7] Must be 1 (otherwise, this entry references an EPT page directory).
-//		 */
-//		UINT64 LargePage : 1;
-//#define EPT_PDPTE_1GB_LARGE_PAGE_BIT                                 7
-//#define EPT_PDPTE_1GB_LARGE_PAGE_FLAG                                0x80
-//#define EPT_PDPTE_1GB_LARGE_PAGE_MASK                                0x01
-//#define EPT_PDPTE_1GB_LARGE_PAGE(_)                                  (((_) >> 7) & 0x01)
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 1-GByte page
-//		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PDPTE_1GB_ACCESSED_BIT                                   8
-//#define EPT_PDPTE_1GB_ACCESSED_FLAG                                  0x100
-//#define EPT_PDPTE_1GB_ACCESSED_MASK                                  0x01
-//#define EPT_PDPTE_1GB_ACCESSED(_)                                    (((_) >> 8) & 0x01)
-//
-//		/**
-//		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 1-GByte page referenced
-//		 * by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Dirty : 1;
-//#define EPT_PDPTE_1GB_DIRTY_BIT                                      9
-//#define EPT_PDPTE_1GB_DIRTY_FLAG                                     0x200
-//#define EPT_PDPTE_1GB_DIRTY_MASK                                     0x01
-//#define EPT_PDPTE_1GB_DIRTY(_)                                       (((_) >> 9) & 0x01)
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 1-GByte page controlled
-//		 * by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_BIT                          10
-//#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_FLAG                         0x400
-//#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_MASK                         0x01
-//#define EPT_PDPTE_1GB_USER_MODE_EXECUTE(_)                           (((_) >> 10) & 0x01)
-//		UINT64 Reserved1 : 19;
-//
-//		/**
-//		 * [Bits 47:30] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 18;
-//#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_BIT                          30
-//#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_FLAG                         0xFFFFC0000000
-//#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_MASK                         0x3FFFF
-//#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER(_)                           (((_) >> 30) & 0x3FFFF)
-//		UINT64 Reserved2 : 9;
-//
-//		/**
-//		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
-//		 * guest paging structures used to access the 1-GByte page controlled by this entry (see Section 28.3.3.2). If that control
-//		 * is 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 VerifyGuestPaging : 1;
-//#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_BIT                        57
-//#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_FLAG                       0x200000000000000
-//#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_MASK                       0x01
-//#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING(_)                         (((_) >> 57) & 0x01)
-//
-//		/**
-//		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
-//		 * may update the 1-GByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 PagingWriteAccess : 1;
-//#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_BIT                        58
-//#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_FLAG                       0x400000000000000
-//#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_MASK                       0x01
-//#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS(_)                         (((_) >> 58) & 0x01)
-//		UINT64 Reserved3 : 1;
-//
-//		/**
-//		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
-//		 * to guest-physical addresses in the 1-GByte page mapped by this entry (see Section 28.3.3.2)
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 SupervisorShadowStack : 1;
-//#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_BIT                    60
-//#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_FLAG                   0x1000000000000000
-//#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_MASK                   0x01
-//#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK(_)                     (((_) >> 60) & 0x01)
-//		UINT64 Reserved4 : 2;
-//
-//		/**
-//		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
-//		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
-//		 * 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
-//		 */
-//		UINT64 SuppressVe : 1;
-//#define EPT_PDPTE_1GB_SUPPRESS_VE_BIT                                63
-//#define EPT_PDPTE_1GB_SUPPRESS_VE_FLAG                               0x8000000000000000
-//#define EPT_PDPTE_1GB_SUPPRESS_VE_MASK                               0x01
-//#define EPT_PDPTE_1GB_SUPPRESS_VE(_)                                 (((_) >> 63) & 0x01)
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PDPTE_1GB;
-//
-///**
-// * @brief Format of an EPT Page-Directory-Pointer-Table Entry (PDPTE) that References an EPT Page Directory
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 1-GByte region controlled by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PDPTE_READ_ACCESS_BIT                                    0
-//#define EPT_PDPTE_READ_ACCESS_FLAG                                   0x01
-//#define EPT_PDPTE_READ_ACCESS_MASK                                   0x01
-//#define EPT_PDPTE_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 1-GByte region controlled by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PDPTE_WRITE_ACCESS_BIT                                   1
-//#define EPT_PDPTE_WRITE_ACCESS_FLAG                                  0x02
-//#define EPT_PDPTE_WRITE_ACCESS_MASK                                  0x01
-//#define EPT_PDPTE_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 1-GByte region controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 1-GByte region controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PDPTE_EXECUTE_ACCESS_BIT                                 2
-//#define EPT_PDPTE_EXECUTE_ACCESS_FLAG                                0x04
-//#define EPT_PDPTE_EXECUTE_ACCESS_MASK                                0x01
-//#define EPT_PDPTE_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
-//		UINT64 Reserved1 : 5;
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 1-GByte region
-//		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PDPTE_ACCESSED_BIT                                       8
-//#define EPT_PDPTE_ACCESSED_FLAG                                      0x100
-//#define EPT_PDPTE_ACCESSED_MASK                                      0x01
-//#define EPT_PDPTE_ACCESSED(_)                                        (((_) >> 8) & 0x01)
-//		UINT64 Reserved2 : 1;
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 1-GByte region controlled
-//		 * by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PDPTE_USER_MODE_EXECUTE_BIT                              10
-//#define EPT_PDPTE_USER_MODE_EXECUTE_FLAG                             0x400
-//#define EPT_PDPTE_USER_MODE_EXECUTE_MASK                             0x01
-//#define EPT_PDPTE_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
-//		UINT64 Reserved3 : 1;
-//
-//		/**
-//		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_PDPTE_PAGE_FRAME_NUMBER_BIT                              12
-//#define EPT_PDPTE_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
-//#define EPT_PDPTE_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
-//#define EPT_PDPTE_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved4 : 16;
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PDPTE;
-//
-///**
-// * @brief Format of an EPT Page-Directory Entry (PDE) that Maps a 2-MByte Page
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 2-MByte page referenced by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PDE_2MB_READ_ACCESS_BIT                                  0
-//#define EPT_PDE_2MB_READ_ACCESS_FLAG                                 0x01
-//#define EPT_PDE_2MB_READ_ACCESS_MASK                                 0x01
-//#define EPT_PDE_2MB_READ_ACCESS(_)                                   (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 2-MByte page referenced by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PDE_2MB_WRITE_ACCESS_BIT                                 1
-//#define EPT_PDE_2MB_WRITE_ACCESS_FLAG                                0x02
-//#define EPT_PDE_2MB_WRITE_ACCESS_MASK                                0x01
-//#define EPT_PDE_2MB_WRITE_ACCESS(_)                                  (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 2-MByte page controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 2-MByte page controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PDE_2MB_EXECUTE_ACCESS_BIT                               2
-//#define EPT_PDE_2MB_EXECUTE_ACCESS_FLAG                              0x04
-//#define EPT_PDE_2MB_EXECUTE_ACCESS_MASK                              0x01
-//#define EPT_PDE_2MB_EXECUTE_ACCESS(_)                                (((_) >> 2) & 0x01)
-//
-//		/**
-//		 * [Bits 5:3] EPT memory type for this 2-MByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 MemoryType : 3;
-//#define EPT_PDE_2MB_MEMORY_TYPE_BIT                                  3
-//#define EPT_PDE_2MB_MEMORY_TYPE_FLAG                                 0x38
-//#define EPT_PDE_2MB_MEMORY_TYPE_MASK                                 0x07
-//#define EPT_PDE_2MB_MEMORY_TYPE(_)                                   (((_) >> 3) & 0x07)
-//
-//		/**
-//		 * [Bit 6] Ignore PAT memory type for this 2-MByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 IgnorePat : 1;
-//#define EPT_PDE_2MB_IGNORE_PAT_BIT                                   6
-//#define EPT_PDE_2MB_IGNORE_PAT_FLAG                                  0x40
-//#define EPT_PDE_2MB_IGNORE_PAT_MASK                                  0x01
-//#define EPT_PDE_2MB_IGNORE_PAT(_)                                    (((_) >> 6) & 0x01)
-//
-//		/**
-//		 * [Bit 7] Must be 1 (otherwise, this entry references an EPT page table).
-//		 */
-//		UINT64 LargePage : 1;
-//#define EPT_PDE_2MB_LARGE_PAGE_BIT                                   7
-//#define EPT_PDE_2MB_LARGE_PAGE_FLAG                                  0x80
-//#define EPT_PDE_2MB_LARGE_PAGE_MASK                                  0x01
-//#define EPT_PDE_2MB_LARGE_PAGE(_)                                    (((_) >> 7) & 0x01)
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 2-MByte page
-//		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PDE_2MB_ACCESSED_BIT                                     8
-//#define EPT_PDE_2MB_ACCESSED_FLAG                                    0x100
-//#define EPT_PDE_2MB_ACCESSED_MASK                                    0x01
-//#define EPT_PDE_2MB_ACCESSED(_)                                      (((_) >> 8) & 0x01)
-//
-//		/**
-//		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 2-MByte page referenced
-//		 * by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Dirty : 1;
-//#define EPT_PDE_2MB_DIRTY_BIT                                        9
-//#define EPT_PDE_2MB_DIRTY_FLAG                                       0x200
-//#define EPT_PDE_2MB_DIRTY_MASK                                       0x01
-//#define EPT_PDE_2MB_DIRTY(_)                                         (((_) >> 9) & 0x01)
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 2-MByte page controlled
-//		 * by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PDE_2MB_USER_MODE_EXECUTE_BIT                            10
-//#define EPT_PDE_2MB_USER_MODE_EXECUTE_FLAG                           0x400
-//#define EPT_PDE_2MB_USER_MODE_EXECUTE_MASK                           0x01
-//#define EPT_PDE_2MB_USER_MODE_EXECUTE(_)                             (((_) >> 10) & 0x01)
-//		UINT64 Reserved1 : 10;
-//
-//		/**
-//		 * [Bits 47:21] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 27;
-//#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_BIT                            21
-//#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFE00000
-//#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_MASK                           0x7FFFFFF
-//#define EPT_PDE_2MB_PAGE_FRAME_NUMBER(_)                             (((_) >> 21) & 0x7FFFFFF)
-//		UINT64 Reserved2 : 9;
-//
-//		/**
-//		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
-//		 * guest paging structures used to access the 2-MByte page controlled by this entry (see Section 28.3.3.2). If that control
-//		 * is 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 VerifyGuestPaging : 1;
-//#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_BIT                          57
-//#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_FLAG                         0x200000000000000
-//#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_MASK                         0x01
-//#define EPT_PDE_2MB_VERIFY_GUEST_PAGING(_)                           (((_) >> 57) & 0x01)
-//
-//		/**
-//		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
-//		 * may update the 2-MByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 PagingWriteAccess : 1;
-//#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_BIT                          58
-//#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_FLAG                         0x400000000000000
-//#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_MASK                         0x01
-//#define EPT_PDE_2MB_PAGING_WRITE_ACCESS(_)                           (((_) >> 58) & 0x01)
-//		UINT64 Reserved3 : 1;
-//
-//		/**
-//		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
-//		 * to guest-physical addresses in the 2-MByte page mapped by this entry (see Section 28.3.3.2)
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 SupervisorShadowStack : 1;
-//#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_BIT                      60
-//#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_FLAG                     0x1000000000000000
-//#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_MASK                     0x01
-//#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK(_)                       (((_) >> 60) & 0x01)
-//		UINT64 Reserved4 : 2;
-//
-//		/**
-//		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
-//		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
-//		 * 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
-//		 */
-//		UINT64 SuppressVe : 1;
-//#define EPT_PDE_2MB_SUPPRESS_VE_BIT                                  63
-//#define EPT_PDE_2MB_SUPPRESS_VE_FLAG                                 0x8000000000000000
-//#define EPT_PDE_2MB_SUPPRESS_VE_MASK                                 0x01
-//#define EPT_PDE_2MB_SUPPRESS_VE(_)                                   (((_) >> 63) & 0x01)
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PDE_2MB;
-//
-///**
-// * @brief Format of an EPT Page-Directory Entry (PDE) that References an EPT Page Table
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 2-MByte region controlled by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PDE_READ_ACCESS_BIT                                      0
-//#define EPT_PDE_READ_ACCESS_FLAG                                     0x01
-//#define EPT_PDE_READ_ACCESS_MASK                                     0x01
-//#define EPT_PDE_READ_ACCESS(_)                                       (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 2-MByte region controlled by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PDE_WRITE_ACCESS_BIT                                     1
-//#define EPT_PDE_WRITE_ACCESS_FLAG                                    0x02
-//#define EPT_PDE_WRITE_ACCESS_MASK                                    0x01
-//#define EPT_PDE_WRITE_ACCESS(_)                                      (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 2-MByte region controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 2-MByte region controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PDE_EXECUTE_ACCESS_BIT                                   2
-//#define EPT_PDE_EXECUTE_ACCESS_FLAG                                  0x04
-//#define EPT_PDE_EXECUTE_ACCESS_MASK                                  0x01
-//#define EPT_PDE_EXECUTE_ACCESS(_)                                    (((_) >> 2) & 0x01)
-//		UINT64 Reserved1 : 5;
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 2-MByte region
-//		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PDE_ACCESSED_BIT                                         8
-//#define EPT_PDE_ACCESSED_FLAG                                        0x100
-//#define EPT_PDE_ACCESSED_MASK                                        0x01
-//#define EPT_PDE_ACCESSED(_)                                          (((_) >> 8) & 0x01)
-//		UINT64 Reserved2 : 1;
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 2-MByte region controlled
-//		 * by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PDE_USER_MODE_EXECUTE_BIT                                10
-//#define EPT_PDE_USER_MODE_EXECUTE_FLAG                               0x400
-//#define EPT_PDE_USER_MODE_EXECUTE_MASK                               0x01
-//#define EPT_PDE_USER_MODE_EXECUTE(_)                                 (((_) >> 10) & 0x01)
-//		UINT64 Reserved3 : 1;
-//
-//		/**
-//		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page table referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_PDE_PAGE_FRAME_NUMBER_BIT                                12
-//#define EPT_PDE_PAGE_FRAME_NUMBER_FLAG                               0xFFFFFFFFF000
-//#define EPT_PDE_PAGE_FRAME_NUMBER_MASK                               0xFFFFFFFFF
-//#define EPT_PDE_PAGE_FRAME_NUMBER(_)                                 (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved4 : 16;
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PDE;
-//
-///**
-// * @brief Format of an EPT Page-Table Entry that Maps a 4-KByte Page
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bit 0] Read access; indicates whether reads are allowed from the 4-KByte page referenced by this entry.
-//		 */
-//		UINT64 ReadAccess : 1;
-//#define EPT_PTE_READ_ACCESS_BIT                                      0
-//#define EPT_PTE_READ_ACCESS_FLAG                                     0x01
-//#define EPT_PTE_READ_ACCESS_MASK                                     0x01
-//#define EPT_PTE_READ_ACCESS(_)                                       (((_) >> 0) & 0x01)
-//
-//		/**
-//		 * [Bit 1] Write access; indicates whether writes are allowed from the 4-KByte page referenced by this entry.
-//		 */
-//		UINT64 WriteAccess : 1;
-//#define EPT_PTE_WRITE_ACCESS_BIT                                     1
-//#define EPT_PTE_WRITE_ACCESS_FLAG                                    0x02
-//#define EPT_PTE_WRITE_ACCESS_MASK                                    0x01
-//#define EPT_PTE_WRITE_ACCESS(_)                                      (((_) >> 1) & 0x01)
-//
-//		/**
-//		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
-//		 * instruction fetches are allowed from the 4-KByte page controlled by this entry.
-//		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
-//		 * allowed from supervisor-mode linear addresses in the 4-KByte page controlled by this entry.
-//		 */
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_PTE_EXECUTE_ACCESS_BIT                                   2
-//#define EPT_PTE_EXECUTE_ACCESS_FLAG                                  0x04
-//#define EPT_PTE_EXECUTE_ACCESS_MASK                                  0x01
-//#define EPT_PTE_EXECUTE_ACCESS(_)                                    (((_) >> 2) & 0x01)
-//
-//		/**
-//		 * [Bits 5:3] EPT memory type for this 4-KByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 MemoryType : 3;
-//#define EPT_PTE_MEMORY_TYPE_BIT                                      3
-//#define EPT_PTE_MEMORY_TYPE_FLAG                                     0x38
-//#define EPT_PTE_MEMORY_TYPE_MASK                                     0x07
-//#define EPT_PTE_MEMORY_TYPE(_)                                       (((_) >> 3) & 0x07)
-//
-//		/**
-//		 * [Bit 6] Ignore PAT memory type for this 4-KByte page.
-//		 *
-//		 * @see Vol3C[28.2.6(EPT and memory Typing)]
-//		 */
-//		UINT64 IgnorePat : 1;
-//#define EPT_PTE_IGNORE_PAT_BIT                                       6
-//#define EPT_PTE_IGNORE_PAT_FLAG                                      0x40
-//#define EPT_PTE_IGNORE_PAT_MASK                                      0x01
-//#define EPT_PTE_IGNORE_PAT(_)                                        (((_) >> 6) & 0x01)
-//		UINT64 Reserved1 : 1;
-//
-//		/**
-//		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 4-KByte page
-//		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Accessed : 1;
-//#define EPT_PTE_ACCESSED_BIT                                         8
-//#define EPT_PTE_ACCESSED_FLAG                                        0x100
-//#define EPT_PTE_ACCESSED_MASK                                        0x01
-//#define EPT_PTE_ACCESSED(_)                                          (((_) >> 8) & 0x01)
-//
-//		/**
-//		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 4-KByte page referenced
-//		 * by this entry. Ignored if bit 6 of EPTP is 0.
-//		 *
-//		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
-//		 */
-//		UINT64 Dirty : 1;
-//#define EPT_PTE_DIRTY_BIT                                            9
-//#define EPT_PTE_DIRTY_FLAG                                           0x200
-//#define EPT_PTE_DIRTY_MASK                                           0x01
-//#define EPT_PTE_DIRTY(_)                                             (((_) >> 9) & 0x01)
-//
-//		/**
-//		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
-//		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 4-KByte page controlled
-//		 * by this entry. If that control is 0, this bit is ignored.
-//		 */
-//		UINT64 UserModeExecute : 1;
-//#define EPT_PTE_USER_MODE_EXECUTE_BIT                                10
-//#define EPT_PTE_USER_MODE_EXECUTE_FLAG                               0x400
-//#define EPT_PTE_USER_MODE_EXECUTE_MASK                               0x01
-//#define EPT_PTE_USER_MODE_EXECUTE(_)                                 (((_) >> 10) & 0x01)
-//		UINT64 Reserved2 : 1;
-//
-//		/**
-//		 * [Bits 47:12] Physical address of the 4-KByte page referenced by this entry.
-//		 */
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_PTE_PAGE_FRAME_NUMBER_BIT                                12
-//#define EPT_PTE_PAGE_FRAME_NUMBER_FLAG                               0xFFFFFFFFF000
-//#define EPT_PTE_PAGE_FRAME_NUMBER_MASK                               0xFFFFFFFFF
-//#define EPT_PTE_PAGE_FRAME_NUMBER(_)                                 (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved3 : 9;
-//
-//		/**
-//		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
-//		 * guest paging structures used to access the 4-KByte page controlled by this entry (see Section 28.3.3.2). If that control
-//		 * is 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 VerifyGuestPaging : 1;
-//#define EPT_PTE_VERIFY_GUEST_PAGING_BIT                              57
-//#define EPT_PTE_VERIFY_GUEST_PAGING_FLAG                             0x200000000000000
-//#define EPT_PTE_VERIFY_GUEST_PAGING_MASK                             0x01
-//#define EPT_PTE_VERIFY_GUEST_PAGING(_)                               (((_) >> 57) & 0x01)
-//
-//		/**
-//		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
-//		 * may update the 4-KByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 PagingWriteAccess : 1;
-//#define EPT_PTE_PAGING_WRITE_ACCESS_BIT                              58
-//#define EPT_PTE_PAGING_WRITE_ACCESS_FLAG                             0x400000000000000
-//#define EPT_PTE_PAGING_WRITE_ACCESS_MASK                             0x01
-//#define EPT_PTE_PAGING_WRITE_ACCESS(_)                               (((_) >> 58) & 0x01)
-//		UINT64 Reserved4 : 1;
-//
-//		/**
-//		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
-//		 * to guest-physical addresses in the 4-KByte page mapped by this entry (see Section 28.3.3.2)
-//		 *
-//		 * @see Vol3C[28.3.3.2(EPT Violations)]
-//		 */
-//		UINT64 SupervisorShadowStack : 1;
-//#define EPT_PTE_SUPERVISOR_SHADOW_STACK_BIT                          60
-//#define EPT_PTE_SUPERVISOR_SHADOW_STACK_FLAG                         0x1000000000000000
-//#define EPT_PTE_SUPERVISOR_SHADOW_STACK_MASK                         0x01
-//#define EPT_PTE_SUPERVISOR_SHADOW_STACK(_)                           (((_) >> 60) & 0x01)
-//
-//		/**
-//		 * [Bit 61] Sub-page write permissions. If the "sub-page write permissions for EPT" VM-execution control is 1, writes to
-//		 * individual 128-byte regions of the 4-KByte page referenced by this entry may be allowed even if the page would normally
-//		 * not be writable (see Section 28.3.4). If "sub-page write permissions for EPT" VM-execution control is 0, this bit is
-//		 * ignored.
-//		 *
-//		 * @see Vol3C[28.3.4(Sub-Page Write Permissions)]
-//		 */
-//		UINT64 SubPageWritePermissions : 1;
-//#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_BIT                       61
-//#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_FLAG                      0x2000000000000000
-//#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_MASK                      0x01
-//#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS(_)                        (((_) >> 61) & 0x01)
-//		UINT64 Reserved5 : 1;
-//
-//		/**
-//		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
-//		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
-//		 * 0, this bit is ignored.
-//		 *
-//		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
-//		 */
-//		UINT64 SuppressVe : 1;
-//#define EPT_PTE_SUPPRESS_VE_BIT                                      63
-//#define EPT_PTE_SUPPRESS_VE_FLAG                                     0x8000000000000000
-//#define EPT_PTE_SUPPRESS_VE_MASK                                     0x01
-//#define EPT_PTE_SUPPRESS_VE(_)                                       (((_) >> 63) & 0x01)
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_PTE;
-//
-///**
-// * @brief Format of a common EPT Entry
-// */
-//typedef union
-//{
-//	struct
-//	{
-//		UINT64 ReadAccess : 1;
-//#define EPT_ENTRY_READ_ACCESS_BIT                                    0
-//#define EPT_ENTRY_READ_ACCESS_FLAG                                   0x01
-//#define EPT_ENTRY_READ_ACCESS_MASK                                   0x01
-//#define EPT_ENTRY_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
-//		UINT64 WriteAccess : 1;
-//#define EPT_ENTRY_WRITE_ACCESS_BIT                                   1
-//#define EPT_ENTRY_WRITE_ACCESS_FLAG                                  0x02
-//#define EPT_ENTRY_WRITE_ACCESS_MASK                                  0x01
-//#define EPT_ENTRY_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
-//		UINT64 ExecuteAccess : 1;
-//#define EPT_ENTRY_EXECUTE_ACCESS_BIT                                 2
-//#define EPT_ENTRY_EXECUTE_ACCESS_FLAG                                0x04
-//#define EPT_ENTRY_EXECUTE_ACCESS_MASK                                0x01
-//#define EPT_ENTRY_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
-//		UINT64 MemoryType : 3;
-//#define EPT_ENTRY_MEMORY_TYPE_BIT                                    3
-//#define EPT_ENTRY_MEMORY_TYPE_FLAG                                   0x38
-//#define EPT_ENTRY_MEMORY_TYPE_MASK                                   0x07
-//#define EPT_ENTRY_MEMORY_TYPE(_)                                     (((_) >> 3) & 0x07)
-//		UINT64 IgnorePat : 1;
-//#define EPT_ENTRY_IGNORE_PAT_BIT                                     6
-//#define EPT_ENTRY_IGNORE_PAT_FLAG                                    0x40
-//#define EPT_ENTRY_IGNORE_PAT_MASK                                    0x01
-//#define EPT_ENTRY_IGNORE_PAT(_)                                      (((_) >> 6) & 0x01)
-//		UINT64 LargePage : 1;
-//#define EPT_ENTRY_LARGE_PAGE_BIT                                     7
-//#define EPT_ENTRY_LARGE_PAGE_FLAG                                    0x80
-//#define EPT_ENTRY_LARGE_PAGE_MASK                                    0x01
-//#define EPT_ENTRY_LARGE_PAGE(_)                                      (((_) >> 7) & 0x01)
-//		UINT64 Accessed : 1;
-//#define EPT_ENTRY_ACCESSED_BIT                                       8
-//#define EPT_ENTRY_ACCESSED_FLAG                                      0x100
-//#define EPT_ENTRY_ACCESSED_MASK                                      0x01
-//#define EPT_ENTRY_ACCESSED(_)                                        (((_) >> 8) & 0x01)
-//		UINT64 Dirty : 1;
-//#define EPT_ENTRY_DIRTY_BIT                                          9
-//#define EPT_ENTRY_DIRTY_FLAG                                         0x200
-//#define EPT_ENTRY_DIRTY_MASK                                         0x01
-//#define EPT_ENTRY_DIRTY(_)                                           (((_) >> 9) & 0x01)
-//		UINT64 UserModeExecute : 1;
-//#define EPT_ENTRY_USER_MODE_EXECUTE_BIT                              10
-//#define EPT_ENTRY_USER_MODE_EXECUTE_FLAG                             0x400
-//#define EPT_ENTRY_USER_MODE_EXECUTE_MASK                             0x01
-//#define EPT_ENTRY_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
-//		UINT64 Reserved1 : 1;
-//		UINT64 PageFrameNumber : 36;
-//#define EPT_ENTRY_PAGE_FRAME_NUMBER_BIT                              12
-//#define EPT_ENTRY_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
-//#define EPT_ENTRY_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
-//#define EPT_ENTRY_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
-//		UINT64 Reserved2 : 15;
-//		UINT64 SuppressVe : 1;
-//#define EPT_ENTRY_SUPPRESS_VE_BIT                                    63
-//#define EPT_ENTRY_SUPPRESS_VE_FLAG                                   0x8000000000000000
-//#define EPT_ENTRY_SUPPRESS_VE_MASK                                   0x01
-//#define EPT_ENTRY_SUPPRESS_VE(_)                                     (((_) >> 63) & 0x01)
-//	};
-//
-//	UINT64 AsUInt;
-//} EPT_ENTRY;
+		/**
+		 * [Bits 5:3] This value is 1 less than the EPT page-walk length.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 PageWalkLength : 3;
+#define EPT_POINTER_PAGE_WALK_LENGTH_BIT                             3
+#define EPT_POINTER_PAGE_WALK_LENGTH_FLAG                            0x38
+#define EPT_POINTER_PAGE_WALK_LENGTH_MASK                            0x07
+#define EPT_POINTER_PAGE_WALK_LENGTH(_)                              (((_) >> 3) & 0x07)
+#define EPT_PAGE_WALK_LENGTH_4                                       0x00000003
+
+		/**
+		 * [Bit 6] Setting this control to 1 enables accessed and dirty flags for EPT.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 EnableAccessAndDirtyFlags : 1;
+#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_BIT                6
+#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_FLAG               0x40
+#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS_MASK               0x01
+#define EPT_POINTER_ENABLE_ACCESS_AND_DIRTY_FLAGS(_)                 (((_) >> 6) & 0x01)
+
+		/**
+		 * [Bit 7] Setting this control to 1 enables enforcement of access rights for supervisor shadow-stack pages.
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 EnableSupervisorShadowStackPages : 1;
+#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_BIT         7
+#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_FLAG        0x80
+#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES_MASK        0x01
+#define EPT_POINTER_ENABLE_SUPERVISOR_SHADOW_STACK_PAGES(_)          (((_) >> 7) & 0x01)
+		UINT64 Reserved1 : 4;
+
+		/**
+		 * [Bits 47:12] Bits N-1:12 of the physical address of the 4-KByte aligned EPT PML4 table.
+		 */
+		UINT64 PageFrameNumber : 36;
+#define EPT_POINTER_PAGE_FRAME_NUMBER_BIT                            12
+#define EPT_POINTER_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFFFF000
+#define EPT_POINTER_PAGE_FRAME_NUMBER_MASK                           0xFFFFFFFFF
+#define EPT_POINTER_PAGE_FRAME_NUMBER(_)                             (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved2 : 16;
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_POINTER;
+
+/**
+ * @brief Format of an EPT PML4 Entry (PML4E) that References an EPT Page-Directory-Pointer Table
+ *
+ * A 4-KByte naturally aligned EPT PML4 table is located at the physical address specified in bits 51:12 of the
+ * extended-page-table pointer (EPTP), a VM-execution control field. An EPT PML4 table comprises 512 64-bit entries (EPT
+ * PML4Es). An EPT PML4E is selected using the physical address defined as follows:
+ * - Bits 63:52 are all 0.
+ * - Bits 51:12 are from the EPTP.
+ * - Bits 11:3 are bits 47:39 of the guest-physical address.
+ * - Bits 2:0 are all 0.
+ * Because an EPT PML4E is identified using bits 47:39 of the guest-physical address, it controls access to a 512- GByte
+ * region of the guest-physical-address space.
+ *
+ * @see Vol3C[24.6.11(Extended-Page-Table Pointer (EPTP)]
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 512-GByte region controlled by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PML4E_READ_ACCESS_BIT                                    0
+#define EPT_PML4E_READ_ACCESS_FLAG                                   0x01
+#define EPT_PML4E_READ_ACCESS_MASK                                   0x01
+#define EPT_PML4E_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 512-GByte region controlled by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PML4E_WRITE_ACCESS_BIT                                   1
+#define EPT_PML4E_WRITE_ACCESS_FLAG                                  0x02
+#define EPT_PML4E_WRITE_ACCESS_MASK                                  0x01
+#define EPT_PML4E_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 512-GByte region controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 512-GByte region controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PML4E_EXECUTE_ACCESS_BIT                                 2
+#define EPT_PML4E_EXECUTE_ACCESS_FLAG                                0x04
+#define EPT_PML4E_EXECUTE_ACCESS_MASK                                0x01
+#define EPT_PML4E_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
+		UINT64 Reserved1 : 5;
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 512-GByte region
+		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PML4E_ACCESSED_BIT                                       8
+#define EPT_PML4E_ACCESSED_FLAG                                      0x100
+#define EPT_PML4E_ACCESSED_MASK                                      0x01
+#define EPT_PML4E_ACCESSED(_)                                        (((_) >> 8) & 0x01)
+		UINT64 Reserved2 : 1;
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 512-GByte region
+		 * controlled by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PML4E_USER_MODE_EXECUTE_BIT                              10
+#define EPT_PML4E_USER_MODE_EXECUTE_FLAG                             0x400
+#define EPT_PML4E_USER_MODE_EXECUTE_MASK                             0x01
+#define EPT_PML4E_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
+		UINT64 Reserved3 : 1;
+
+		/**
+		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 36;
+#define EPT_PML4E_PAGE_FRAME_NUMBER_BIT                              12
+#define EPT_PML4E_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
+#define EPT_PML4E_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
+#define EPT_PML4E_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved4 : 16;
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PML4E;
+
+/**
+ * @brief Format of an EPT Page-Directory-Pointer-Table Entry (PDPTE) that Maps a 1-GByte Page
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 1-GByte page referenced by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PDPTE_1GB_READ_ACCESS_BIT                                0
+#define EPT_PDPTE_1GB_READ_ACCESS_FLAG                               0x01
+#define EPT_PDPTE_1GB_READ_ACCESS_MASK                               0x01
+#define EPT_PDPTE_1GB_READ_ACCESS(_)                                 (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 1-GByte page referenced by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PDPTE_1GB_WRITE_ACCESS_BIT                               1
+#define EPT_PDPTE_1GB_WRITE_ACCESS_FLAG                              0x02
+#define EPT_PDPTE_1GB_WRITE_ACCESS_MASK                              0x01
+#define EPT_PDPTE_1GB_WRITE_ACCESS(_)                                (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 1-GByte page controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 1-GByte page controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PDPTE_1GB_EXECUTE_ACCESS_BIT                             2
+#define EPT_PDPTE_1GB_EXECUTE_ACCESS_FLAG                            0x04
+#define EPT_PDPTE_1GB_EXECUTE_ACCESS_MASK                            0x01
+#define EPT_PDPTE_1GB_EXECUTE_ACCESS(_)                              (((_) >> 2) & 0x01)
+
+		/**
+		 * [Bits 5:3] EPT memory type for this 1-GByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 MemoryType : 3;
+#define EPT_PDPTE_1GB_MEMORY_TYPE_BIT                                3
+#define EPT_PDPTE_1GB_MEMORY_TYPE_FLAG                               0x38
+#define EPT_PDPTE_1GB_MEMORY_TYPE_MASK                               0x07
+#define EPT_PDPTE_1GB_MEMORY_TYPE(_)                                 (((_) >> 3) & 0x07)
+
+		/**
+		 * [Bit 6] Ignore PAT memory type for this 1-GByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 IgnorePat : 1;
+#define EPT_PDPTE_1GB_IGNORE_PAT_BIT                                 6
+#define EPT_PDPTE_1GB_IGNORE_PAT_FLAG                                0x40
+#define EPT_PDPTE_1GB_IGNORE_PAT_MASK                                0x01
+#define EPT_PDPTE_1GB_IGNORE_PAT(_)                                  (((_) >> 6) & 0x01)
+
+		/**
+		 * [Bit 7] Must be 1 (otherwise, this entry references an EPT page directory).
+		 */
+		UINT64 LargePage : 1;
+#define EPT_PDPTE_1GB_LARGE_PAGE_BIT                                 7
+#define EPT_PDPTE_1GB_LARGE_PAGE_FLAG                                0x80
+#define EPT_PDPTE_1GB_LARGE_PAGE_MASK                                0x01
+#define EPT_PDPTE_1GB_LARGE_PAGE(_)                                  (((_) >> 7) & 0x01)
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 1-GByte page
+		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PDPTE_1GB_ACCESSED_BIT                                   8
+#define EPT_PDPTE_1GB_ACCESSED_FLAG                                  0x100
+#define EPT_PDPTE_1GB_ACCESSED_MASK                                  0x01
+#define EPT_PDPTE_1GB_ACCESSED(_)                                    (((_) >> 8) & 0x01)
+
+		/**
+		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 1-GByte page referenced
+		 * by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Dirty : 1;
+#define EPT_PDPTE_1GB_DIRTY_BIT                                      9
+#define EPT_PDPTE_1GB_DIRTY_FLAG                                     0x200
+#define EPT_PDPTE_1GB_DIRTY_MASK                                     0x01
+#define EPT_PDPTE_1GB_DIRTY(_)                                       (((_) >> 9) & 0x01)
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 1-GByte page controlled
+		 * by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_BIT                          10
+#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_FLAG                         0x400
+#define EPT_PDPTE_1GB_USER_MODE_EXECUTE_MASK                         0x01
+#define EPT_PDPTE_1GB_USER_MODE_EXECUTE(_)                           (((_) >> 10) & 0x01)
+		UINT64 Reserved1 : 19;
+
+		/**
+		 * [Bits 47:30] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 18;
+#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_BIT                          30
+#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_FLAG                         0xFFFFC0000000
+#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER_MASK                         0x3FFFF
+#define EPT_PDPTE_1GB_PAGE_FRAME_NUMBER(_)                           (((_) >> 30) & 0x3FFFF)
+		UINT64 Reserved2 : 9;
+
+		/**
+		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
+		 * guest paging structures used to access the 1-GByte page controlled by this entry (see Section 28.3.3.2). If that control
+		 * is 0, this bit is ignored.
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 VerifyGuestPaging : 1;
+#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_BIT                        57
+#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_FLAG                       0x200000000000000
+#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING_MASK                       0x01
+#define EPT_PDPTE_1GB_VERIFY_GUEST_PAGING(_)                         (((_) >> 57) & 0x01)
+
+		/**
+		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
+		 * may update the 1-GByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 PagingWriteAccess : 1;
+#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_BIT                        58
+#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_FLAG                       0x400000000000000
+#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS_MASK                       0x01
+#define EPT_PDPTE_1GB_PAGING_WRITE_ACCESS(_)                         (((_) >> 58) & 0x01)
+		UINT64 Reserved3 : 1;
+
+		/**
+		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
+		 * to guest-physical addresses in the 1-GByte page mapped by this entry (see Section 28.3.3.2)
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 SupervisorShadowStack : 1;
+#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_BIT                    60
+#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_FLAG                   0x1000000000000000
+#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK_MASK                   0x01
+#define EPT_PDPTE_1GB_SUPERVISOR_SHADOW_STACK(_)                     (((_) >> 60) & 0x01)
+		UINT64 Reserved4 : 2;
+
+		/**
+		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
+		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
+		 * 0, this bit is ignored.
+		 *
+		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
+		 */
+		UINT64 SuppressVe : 1;
+#define EPT_PDPTE_1GB_SUPPRESS_VE_BIT                                63
+#define EPT_PDPTE_1GB_SUPPRESS_VE_FLAG                               0x8000000000000000
+#define EPT_PDPTE_1GB_SUPPRESS_VE_MASK                               0x01
+#define EPT_PDPTE_1GB_SUPPRESS_VE(_)                                 (((_) >> 63) & 0x01)
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PDPTE_1GB;
+
+/**
+ * @brief Format of an EPT Page-Directory-Pointer-Table Entry (PDPTE) that References an EPT Page Directory
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 1-GByte region controlled by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PDPTE_READ_ACCESS_BIT                                    0
+#define EPT_PDPTE_READ_ACCESS_FLAG                                   0x01
+#define EPT_PDPTE_READ_ACCESS_MASK                                   0x01
+#define EPT_PDPTE_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 1-GByte region controlled by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PDPTE_WRITE_ACCESS_BIT                                   1
+#define EPT_PDPTE_WRITE_ACCESS_FLAG                                  0x02
+#define EPT_PDPTE_WRITE_ACCESS_MASK                                  0x01
+#define EPT_PDPTE_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 1-GByte region controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 1-GByte region controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PDPTE_EXECUTE_ACCESS_BIT                                 2
+#define EPT_PDPTE_EXECUTE_ACCESS_FLAG                                0x04
+#define EPT_PDPTE_EXECUTE_ACCESS_MASK                                0x01
+#define EPT_PDPTE_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
+		UINT64 Reserved1 : 5;
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 1-GByte region
+		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PDPTE_ACCESSED_BIT                                       8
+#define EPT_PDPTE_ACCESSED_FLAG                                      0x100
+#define EPT_PDPTE_ACCESSED_MASK                                      0x01
+#define EPT_PDPTE_ACCESSED(_)                                        (((_) >> 8) & 0x01)
+		UINT64 Reserved2 : 1;
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 1-GByte region controlled
+		 * by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PDPTE_USER_MODE_EXECUTE_BIT                              10
+#define EPT_PDPTE_USER_MODE_EXECUTE_FLAG                             0x400
+#define EPT_PDPTE_USER_MODE_EXECUTE_MASK                             0x01
+#define EPT_PDPTE_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
+		UINT64 Reserved3 : 1;
+
+		/**
+		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 36;
+#define EPT_PDPTE_PAGE_FRAME_NUMBER_BIT                              12
+#define EPT_PDPTE_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
+#define EPT_PDPTE_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
+#define EPT_PDPTE_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved4 : 16;
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PDPTE;
+
+/**
+ * @brief Format of an EPT Page-Directory Entry (PDE) that Maps a 2-MByte Page
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 2-MByte page referenced by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PDE_2MB_READ_ACCESS_BIT                                  0
+#define EPT_PDE_2MB_READ_ACCESS_FLAG                                 0x01
+#define EPT_PDE_2MB_READ_ACCESS_MASK                                 0x01
+#define EPT_PDE_2MB_READ_ACCESS(_)                                   (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 2-MByte page referenced by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PDE_2MB_WRITE_ACCESS_BIT                                 1
+#define EPT_PDE_2MB_WRITE_ACCESS_FLAG                                0x02
+#define EPT_PDE_2MB_WRITE_ACCESS_MASK                                0x01
+#define EPT_PDE_2MB_WRITE_ACCESS(_)                                  (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 2-MByte page controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 2-MByte page controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PDE_2MB_EXECUTE_ACCESS_BIT                               2
+#define EPT_PDE_2MB_EXECUTE_ACCESS_FLAG                              0x04
+#define EPT_PDE_2MB_EXECUTE_ACCESS_MASK                              0x01
+#define EPT_PDE_2MB_EXECUTE_ACCESS(_)                                (((_) >> 2) & 0x01)
+
+		/**
+		 * [Bits 5:3] EPT memory type for this 2-MByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 MemoryType : 3;
+#define EPT_PDE_2MB_MEMORY_TYPE_BIT                                  3
+#define EPT_PDE_2MB_MEMORY_TYPE_FLAG                                 0x38
+#define EPT_PDE_2MB_MEMORY_TYPE_MASK                                 0x07
+#define EPT_PDE_2MB_MEMORY_TYPE(_)                                   (((_) >> 3) & 0x07)
+
+		/**
+		 * [Bit 6] Ignore PAT memory type for this 2-MByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 IgnorePat : 1;
+#define EPT_PDE_2MB_IGNORE_PAT_BIT                                   6
+#define EPT_PDE_2MB_IGNORE_PAT_FLAG                                  0x40
+#define EPT_PDE_2MB_IGNORE_PAT_MASK                                  0x01
+#define EPT_PDE_2MB_IGNORE_PAT(_)                                    (((_) >> 6) & 0x01)
+
+		/**
+		 * [Bit 7] Must be 1 (otherwise, this entry references an EPT page table).
+		 */
+		UINT64 LargePage : 1;
+#define EPT_PDE_2MB_LARGE_PAGE_BIT                                   7
+#define EPT_PDE_2MB_LARGE_PAGE_FLAG                                  0x80
+#define EPT_PDE_2MB_LARGE_PAGE_MASK                                  0x01
+#define EPT_PDE_2MB_LARGE_PAGE(_)                                    (((_) >> 7) & 0x01)
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 2-MByte page
+		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PDE_2MB_ACCESSED_BIT                                     8
+#define EPT_PDE_2MB_ACCESSED_FLAG                                    0x100
+#define EPT_PDE_2MB_ACCESSED_MASK                                    0x01
+#define EPT_PDE_2MB_ACCESSED(_)                                      (((_) >> 8) & 0x01)
+
+		/**
+		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 2-MByte page referenced
+		 * by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Dirty : 1;
+#define EPT_PDE_2MB_DIRTY_BIT                                        9
+#define EPT_PDE_2MB_DIRTY_FLAG                                       0x200
+#define EPT_PDE_2MB_DIRTY_MASK                                       0x01
+#define EPT_PDE_2MB_DIRTY(_)                                         (((_) >> 9) & 0x01)
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 2-MByte page controlled
+		 * by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PDE_2MB_USER_MODE_EXECUTE_BIT                            10
+#define EPT_PDE_2MB_USER_MODE_EXECUTE_FLAG                           0x400
+#define EPT_PDE_2MB_USER_MODE_EXECUTE_MASK                           0x01
+#define EPT_PDE_2MB_USER_MODE_EXECUTE(_)                             (((_) >> 10) & 0x01)
+		UINT64 Reserved1 : 10;
+
+		/**
+		 * [Bits 47:21] Physical address of 4-KByte aligned EPT page-directory-pointer table referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 27;
+#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_BIT                            21
+#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFE00000
+#define EPT_PDE_2MB_PAGE_FRAME_NUMBER_MASK                           0x7FFFFFF
+#define EPT_PDE_2MB_PAGE_FRAME_NUMBER(_)                             (((_) >> 21) & 0x7FFFFFF)
+		UINT64 Reserved2 : 9;
+
+		/**
+		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
+		 * guest paging structures used to access the 2-MByte page controlled by this entry (see Section 28.3.3.2). If that control
+		 * is 0, this bit is ignored.
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 VerifyGuestPaging : 1;
+#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_BIT                          57
+#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_FLAG                         0x200000000000000
+#define EPT_PDE_2MB_VERIFY_GUEST_PAGING_MASK                         0x01
+#define EPT_PDE_2MB_VERIFY_GUEST_PAGING(_)                           (((_) >> 57) & 0x01)
+
+		/**
+		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
+		 * may update the 2-MByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 PagingWriteAccess : 1;
+#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_BIT                          58
+#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_FLAG                         0x400000000000000
+#define EPT_PDE_2MB_PAGING_WRITE_ACCESS_MASK                         0x01
+#define EPT_PDE_2MB_PAGING_WRITE_ACCESS(_)                           (((_) >> 58) & 0x01)
+		UINT64 Reserved3 : 1;
+
+		/**
+		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
+		 * to guest-physical addresses in the 2-MByte page mapped by this entry (see Section 28.3.3.2)
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 SupervisorShadowStack : 1;
+#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_BIT                      60
+#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_FLAG                     0x1000000000000000
+#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK_MASK                     0x01
+#define EPT_PDE_2MB_SUPERVISOR_SHADOW_STACK(_)                       (((_) >> 60) & 0x01)
+		UINT64 Reserved4 : 2;
+
+		/**
+		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
+		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
+		 * 0, this bit is ignored.
+		 *
+		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
+		 */
+		UINT64 SuppressVe : 1;
+#define EPT_PDE_2MB_SUPPRESS_VE_BIT                                  63
+#define EPT_PDE_2MB_SUPPRESS_VE_FLAG                                 0x8000000000000000
+#define EPT_PDE_2MB_SUPPRESS_VE_MASK                                 0x01
+#define EPT_PDE_2MB_SUPPRESS_VE(_)                                   (((_) >> 63) & 0x01)
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PDE_2MB;
+
+/**
+ * @brief Format of an EPT Page-Directory Entry (PDE) that References an EPT Page Table
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 2-MByte region controlled by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PDE_READ_ACCESS_BIT                                      0
+#define EPT_PDE_READ_ACCESS_FLAG                                     0x01
+#define EPT_PDE_READ_ACCESS_MASK                                     0x01
+#define EPT_PDE_READ_ACCESS(_)                                       (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 2-MByte region controlled by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PDE_WRITE_ACCESS_BIT                                     1
+#define EPT_PDE_WRITE_ACCESS_FLAG                                    0x02
+#define EPT_PDE_WRITE_ACCESS_MASK                                    0x01
+#define EPT_PDE_WRITE_ACCESS(_)                                      (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 2-MByte region controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 2-MByte region controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PDE_EXECUTE_ACCESS_BIT                                   2
+#define EPT_PDE_EXECUTE_ACCESS_FLAG                                  0x04
+#define EPT_PDE_EXECUTE_ACCESS_MASK                                  0x01
+#define EPT_PDE_EXECUTE_ACCESS(_)                                    (((_) >> 2) & 0x01)
+		UINT64 Reserved1 : 5;
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 2-MByte region
+		 * controlled by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PDE_ACCESSED_BIT                                         8
+#define EPT_PDE_ACCESSED_FLAG                                        0x100
+#define EPT_PDE_ACCESSED_MASK                                        0x01
+#define EPT_PDE_ACCESSED(_)                                          (((_) >> 8) & 0x01)
+		UINT64 Reserved2 : 1;
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 2-MByte region controlled
+		 * by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PDE_USER_MODE_EXECUTE_BIT                                10
+#define EPT_PDE_USER_MODE_EXECUTE_FLAG                               0x400
+#define EPT_PDE_USER_MODE_EXECUTE_MASK                               0x01
+#define EPT_PDE_USER_MODE_EXECUTE(_)                                 (((_) >> 10) & 0x01)
+		UINT64 Reserved3 : 1;
+
+		/**
+		 * [Bits 47:12] Physical address of 4-KByte aligned EPT page table referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 36;
+#define EPT_PDE_PAGE_FRAME_NUMBER_BIT                                12
+#define EPT_PDE_PAGE_FRAME_NUMBER_FLAG                               0xFFFFFFFFF000
+#define EPT_PDE_PAGE_FRAME_NUMBER_MASK                               0xFFFFFFFFF
+#define EPT_PDE_PAGE_FRAME_NUMBER(_)                                 (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved4 : 16;
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PDE;
+
+/**
+ * @brief Format of an EPT Page-Table Entry that Maps a 4-KByte Page
+ */
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bit 0] Read access; indicates whether reads are allowed from the 4-KByte page referenced by this entry.
+		 */
+		UINT64 ReadAccess : 1;
+#define EPT_PTE_READ_ACCESS_BIT                                      0
+#define EPT_PTE_READ_ACCESS_FLAG                                     0x01
+#define EPT_PTE_READ_ACCESS_MASK                                     0x01
+#define EPT_PTE_READ_ACCESS(_)                                       (((_) >> 0) & 0x01)
+
+		/**
+		 * [Bit 1] Write access; indicates whether writes are allowed from the 4-KByte page referenced by this entry.
+		 */
+		UINT64 WriteAccess : 1;
+#define EPT_PTE_WRITE_ACCESS_BIT                                     1
+#define EPT_PTE_WRITE_ACCESS_FLAG                                    0x02
+#define EPT_PTE_WRITE_ACCESS_MASK                                    0x01
+#define EPT_PTE_WRITE_ACCESS(_)                                      (((_) >> 1) & 0x01)
+
+		/**
+		 * [Bit 2] If the "mode-based execute control for EPT" VM-execution control is 0, execute access; indicates whether
+		 * instruction fetches are allowed from the 4-KByte page controlled by this entry.
+		 * If that control is 1, execute access for supervisor-mode linear addresses; indicates whether instruction fetches are
+		 * allowed from supervisor-mode linear addresses in the 4-KByte page controlled by this entry.
+		 */
+		UINT64 ExecuteAccess : 1;
+#define EPT_PTE_EXECUTE_ACCESS_BIT                                   2
+#define EPT_PTE_EXECUTE_ACCESS_FLAG                                  0x04
+#define EPT_PTE_EXECUTE_ACCESS_MASK                                  0x01
+#define EPT_PTE_EXECUTE_ACCESS(_)                                    (((_) >> 2) & 0x01)
+
+		/**
+		 * [Bits 5:3] EPT memory type for this 4-KByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 MemoryType : 3;
+#define EPT_PTE_MEMORY_TYPE_BIT                                      3
+#define EPT_PTE_MEMORY_TYPE_FLAG                                     0x38
+#define EPT_PTE_MEMORY_TYPE_MASK                                     0x07
+#define EPT_PTE_MEMORY_TYPE(_)                                       (((_) >> 3) & 0x07)
+
+		/**
+		 * [Bit 6] Ignore PAT memory type for this 4-KByte page.
+		 *
+		 * @see Vol3C[28.2.6(EPT and memory Typing)]
+		 */
+		UINT64 IgnorePat : 1;
+#define EPT_PTE_IGNORE_PAT_BIT                                       6
+#define EPT_PTE_IGNORE_PAT_FLAG                                      0x40
+#define EPT_PTE_IGNORE_PAT_MASK                                      0x01
+#define EPT_PTE_IGNORE_PAT(_)                                        (((_) >> 6) & 0x01)
+		UINT64 Reserved1 : 1;
+
+		/**
+		 * [Bit 8] If bit 6 of EPTP is 1, accessed flag for EPT; indicates whether software has accessed the 4-KByte page
+		 * referenced by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Accessed : 1;
+#define EPT_PTE_ACCESSED_BIT                                         8
+#define EPT_PTE_ACCESSED_FLAG                                        0x100
+#define EPT_PTE_ACCESSED_MASK                                        0x01
+#define EPT_PTE_ACCESSED(_)                                          (((_) >> 8) & 0x01)
+
+		/**
+		 * [Bit 9] If bit 6 of EPTP is 1, dirty flag for EPT; indicates whether software has written to the 4-KByte page referenced
+		 * by this entry. Ignored if bit 6 of EPTP is 0.
+		 *
+		 * @see Vol3C[28.2.4(Accessed and Dirty Flags for EPT)]
+		 */
+		UINT64 Dirty : 1;
+#define EPT_PTE_DIRTY_BIT                                            9
+#define EPT_PTE_DIRTY_FLAG                                           0x200
+#define EPT_PTE_DIRTY_MASK                                           0x01
+#define EPT_PTE_DIRTY(_)                                             (((_) >> 9) & 0x01)
+
+		/**
+		 * [Bit 10] Execute access for user-mode linear addresses. If the "mode-based execute control for EPT" VM-execution control
+		 * is 1, indicates whether instruction fetches are allowed from user-mode linear addresses in the 4-KByte page controlled
+		 * by this entry. If that control is 0, this bit is ignored.
+		 */
+		UINT64 UserModeExecute : 1;
+#define EPT_PTE_USER_MODE_EXECUTE_BIT                                10
+#define EPT_PTE_USER_MODE_EXECUTE_FLAG                               0x400
+#define EPT_PTE_USER_MODE_EXECUTE_MASK                               0x01
+#define EPT_PTE_USER_MODE_EXECUTE(_)                                 (((_) >> 10) & 0x01)
+		UINT64 Reserved2 : 1;
+
+		/**
+		 * [Bits 47:12] Physical address of the 4-KByte page referenced by this entry.
+		 */
+		UINT64 PageFrameNumber : 36;
+#define EPT_PTE_PAGE_FRAME_NUMBER_BIT                                12
+#define EPT_PTE_PAGE_FRAME_NUMBER_FLAG                               0xFFFFFFFFF000
+#define EPT_PTE_PAGE_FRAME_NUMBER_MASK                               0xFFFFFFFFF
+#define EPT_PTE_PAGE_FRAME_NUMBER(_)                                 (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved3 : 9;
+
+		/**
+		 * [Bit 57] Verify guest paging. If the "guest-paging verification" VM-execution control is 1, indicates limits on the
+		 * guest paging structures used to access the 4-KByte page controlled by this entry (see Section 28.3.3.2). If that control
+		 * is 0, this bit is ignored.
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 VerifyGuestPaging : 1;
+#define EPT_PTE_VERIFY_GUEST_PAGING_BIT                              57
+#define EPT_PTE_VERIFY_GUEST_PAGING_FLAG                             0x200000000000000
+#define EPT_PTE_VERIFY_GUEST_PAGING_MASK                             0x01
+#define EPT_PTE_VERIFY_GUEST_PAGING(_)                               (((_) >> 57) & 0x01)
+
+		/**
+		 * [Bit 58] Paging-write access. If the "EPT paging-write control" VM-execution control is 1, indicates that guest paging
+		 * may update the 4-KByte page controlled by this entry (see Section 28.3.3.2). If that control is 0, this bit is ignored
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 PagingWriteAccess : 1;
+#define EPT_PTE_PAGING_WRITE_ACCESS_BIT                              58
+#define EPT_PTE_PAGING_WRITE_ACCESS_FLAG                             0x400000000000000
+#define EPT_PTE_PAGING_WRITE_ACCESS_MASK                             0x01
+#define EPT_PTE_PAGING_WRITE_ACCESS(_)                               (((_) >> 58) & 0x01)
+		UINT64 Reserved4 : 1;
+
+		/**
+		 * [Bit 60] Supervisor shadow stack. If bit 7 of EPTP is 1, indicates whether supervisor shadow stack accesses are allowed
+		 * to guest-physical addresses in the 4-KByte page mapped by this entry (see Section 28.3.3.2)
+		 *
+		 * @see Vol3C[28.3.3.2(EPT Violations)]
+		 */
+		UINT64 SupervisorShadowStack : 1;
+#define EPT_PTE_SUPERVISOR_SHADOW_STACK_BIT                          60
+#define EPT_PTE_SUPERVISOR_SHADOW_STACK_FLAG                         0x1000000000000000
+#define EPT_PTE_SUPERVISOR_SHADOW_STACK_MASK                         0x01
+#define EPT_PTE_SUPERVISOR_SHADOW_STACK(_)                           (((_) >> 60) & 0x01)
+
+		/**
+		 * [Bit 61] Sub-page write permissions. If the "sub-page write permissions for EPT" VM-execution control is 1, writes to
+		 * individual 128-byte regions of the 4-KByte page referenced by this entry may be allowed even if the page would normally
+		 * not be writable (see Section 28.3.4). If "sub-page write permissions for EPT" VM-execution control is 0, this bit is
+		 * ignored.
+		 *
+		 * @see Vol3C[28.3.4(Sub-Page Write Permissions)]
+		 */
+		UINT64 SubPageWritePermissions : 1;
+#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_BIT                       61
+#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_FLAG                      0x2000000000000000
+#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS_MASK                      0x01
+#define EPT_PTE_SUB_PAGE_WRITE_PERMISSIONS(_)                        (((_) >> 61) & 0x01)
+		UINT64 Reserved5 : 1;
+
+		/**
+		 * [Bit 63] Suppress \#VE. If the "EPT-violation \#VE" VM-execution control is 1, EPT violations caused by accesses to this
+		 * page are convertible to virtualization exceptions only if this bit is 0. If "EPT-violation \#VE" VMexecution control is
+		 * 0, this bit is ignored.
+		 *
+		 * @see Vol3C[25.5.6.1(Convertible EPT Violations)]
+		 */
+		UINT64 SuppressVe : 1;
+#define EPT_PTE_SUPPRESS_VE_BIT                                      63
+#define EPT_PTE_SUPPRESS_VE_FLAG                                     0x8000000000000000
+#define EPT_PTE_SUPPRESS_VE_MASK                                     0x01
+#define EPT_PTE_SUPPRESS_VE(_)                                       (((_) >> 63) & 0x01)
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_PTE;
+
+/**
+ * @brief Format of a common EPT Entry
+ */
+typedef union
+{
+	struct
+	{
+		UINT64 ReadAccess : 1;
+#define EPT_ENTRY_READ_ACCESS_BIT                                    0
+#define EPT_ENTRY_READ_ACCESS_FLAG                                   0x01
+#define EPT_ENTRY_READ_ACCESS_MASK                                   0x01
+#define EPT_ENTRY_READ_ACCESS(_)                                     (((_) >> 0) & 0x01)
+		UINT64 WriteAccess : 1;
+#define EPT_ENTRY_WRITE_ACCESS_BIT                                   1
+#define EPT_ENTRY_WRITE_ACCESS_FLAG                                  0x02
+#define EPT_ENTRY_WRITE_ACCESS_MASK                                  0x01
+#define EPT_ENTRY_WRITE_ACCESS(_)                                    (((_) >> 1) & 0x01)
+		UINT64 ExecuteAccess : 1;
+#define EPT_ENTRY_EXECUTE_ACCESS_BIT                                 2
+#define EPT_ENTRY_EXECUTE_ACCESS_FLAG                                0x04
+#define EPT_ENTRY_EXECUTE_ACCESS_MASK                                0x01
+#define EPT_ENTRY_EXECUTE_ACCESS(_)                                  (((_) >> 2) & 0x01)
+		UINT64 MemoryType : 3;
+#define EPT_ENTRY_MEMORY_TYPE_BIT                                    3
+#define EPT_ENTRY_MEMORY_TYPE_FLAG                                   0x38
+#define EPT_ENTRY_MEMORY_TYPE_MASK                                   0x07
+#define EPT_ENTRY_MEMORY_TYPE(_)                                     (((_) >> 3) & 0x07)
+		UINT64 IgnorePat : 1;
+#define EPT_ENTRY_IGNORE_PAT_BIT                                     6
+#define EPT_ENTRY_IGNORE_PAT_FLAG                                    0x40
+#define EPT_ENTRY_IGNORE_PAT_MASK                                    0x01
+#define EPT_ENTRY_IGNORE_PAT(_)                                      (((_) >> 6) & 0x01)
+		UINT64 LargePage : 1;
+#define EPT_ENTRY_LARGE_PAGE_BIT                                     7
+#define EPT_ENTRY_LARGE_PAGE_FLAG                                    0x80
+#define EPT_ENTRY_LARGE_PAGE_MASK                                    0x01
+#define EPT_ENTRY_LARGE_PAGE(_)                                      (((_) >> 7) & 0x01)
+		UINT64 Accessed : 1;
+#define EPT_ENTRY_ACCESSED_BIT                                       8
+#define EPT_ENTRY_ACCESSED_FLAG                                      0x100
+#define EPT_ENTRY_ACCESSED_MASK                                      0x01
+#define EPT_ENTRY_ACCESSED(_)                                        (((_) >> 8) & 0x01)
+		UINT64 Dirty : 1;
+#define EPT_ENTRY_DIRTY_BIT                                          9
+#define EPT_ENTRY_DIRTY_FLAG                                         0x200
+#define EPT_ENTRY_DIRTY_MASK                                         0x01
+#define EPT_ENTRY_DIRTY(_)                                           (((_) >> 9) & 0x01)
+		UINT64 UserModeExecute : 1;
+#define EPT_ENTRY_USER_MODE_EXECUTE_BIT                              10
+#define EPT_ENTRY_USER_MODE_EXECUTE_FLAG                             0x400
+#define EPT_ENTRY_USER_MODE_EXECUTE_MASK                             0x01
+#define EPT_ENTRY_USER_MODE_EXECUTE(_)                               (((_) >> 10) & 0x01)
+		UINT64 Reserved1 : 1;
+		UINT64 PageFrameNumber : 36;
+#define EPT_ENTRY_PAGE_FRAME_NUMBER_BIT                              12
+#define EPT_ENTRY_PAGE_FRAME_NUMBER_FLAG                             0xFFFFFFFFF000
+#define EPT_ENTRY_PAGE_FRAME_NUMBER_MASK                             0xFFFFFFFFF
+#define EPT_ENTRY_PAGE_FRAME_NUMBER(_)                               (((_) >> 12) & 0xFFFFFFFFF)
+		UINT64 Reserved2 : 15;
+		UINT64 SuppressVe : 1;
+#define EPT_ENTRY_SUPPRESS_VE_BIT                                    63
+#define EPT_ENTRY_SUPPRESS_VE_FLAG                                   0x8000000000000000
+#define EPT_ENTRY_SUPPRESS_VE_MASK                                   0x01
+#define EPT_ENTRY_SUPPRESS_VE(_)                                     (((_) >> 63) & 0x01)
+	}Fields;
+
+	UINT64 AsUInt;
+} EPT_ENTRY;
 
 /**
  * @defgroup EPT_TABLE_LEVEL \

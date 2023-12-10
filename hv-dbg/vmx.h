@@ -1,14 +1,13 @@
 #ifndef VMX_H
 #define VMX_H
 
-#include "common.h"
 #include "vmx.h"
 #include "driver.h"
-#include "ept.h"
+#include "ia32.h"
 
 typedef struct _IPI_CALL_CONTEXT
 {
-	PEPTP eptp;
+	EPT_POINTER* eptp;
 	PVOID guest_stack;
 
 }IPI_CALL_CONTEXT, * PIPI_CALL_CONTEXT;

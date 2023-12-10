@@ -5,9 +5,10 @@
 #include "encode.h"
 #include "arch.h"
 
-VMCS_GUEST_STATE_FIELDS   guest_state_fields = { 0 };
-VMCS_HOST_STATE_FIELDS    host_state_fields = { 0 };
+VMCS_GUEST_STATE_FIELDS guest_state_fields = { 0 };
+VMCS_HOST_STATE_FIELDS host_state_fields = { 0 };
 VMCS_CONTROL_STATE_FIELDS control_state_fields = { 0 };
+VMCS_EXIT_STATE_FIELDS exit_state_fields = { 0 };
 
 STATIC
 BOOLEAN
@@ -81,8 +82,8 @@ VmcsWriteSelectors(
 
         __vmx_vmwrite(guest_state_fields.word_state.es_selector + SegmentRegisters * 2, Selector);
         __vmx_vmwrite(guest_state_fields.dword_state.es_limit + SegmentRegisters * 2, segment_selector.LIMIT);
-        __vmx_vmwrite(GUEST_ES_AR_BYTES + SegmentRegisters * 2, access_rights);
-        __vmx_vmwrite(GUEST_ES_BASE + SegmentRegisters * 2, segment_selector.BASE);
+        __vmx_vmwrite(guest_state_fields.dword_state.es_access_rights + SegmentRegisters * 2, access_rights);
+        __vmx_vmwrite(guest_state_fields.natural_state.es_base + SegmentRegisters * 2, segment_selector.BASE);
 }
 
 STATIC
@@ -93,7 +94,7 @@ VmcsWriteHostStateFields(
 {
         SEGMENT_SELECTOR selector = { 0 };
         GetSegmentDescriptor(&selector, __readtr(), (PUCHAR)__readgdtbase());
-        __vmx_vmwrite(HOST_TR_BASE, selector.BASE);
+        __vmx_vmwrite(host_state_fields.natural_state.tr_base, selector.BASE);
 
         __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
         __vmx_vmwrite(host_state_fields.word_state.cs_selector, __readcs() & 0xF8);
@@ -113,12 +114,12 @@ VmcsWriteHostStateFields(
         __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
 
-        __vmx_vmwrite(HOST_FS_BASE, __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(HOST_GS_BASE, __readmsr(MSR_GS_BASE));
-
-        __vmx_vmwrite(HOST_IA32_SYSENTER_CS, __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(HOST_IA32_SYSENTER_EIP, __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(HOST_IA32_SYSENTER_ESP, __readmsr(MSR_IA32_SYSENTER_ESP));
+        __vmx_vmwrite(host_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
+        __vmx_vmwrite(host_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
+        
+        __vmx_vmwrite(host_state_fields.dword_state.ia32_sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
+        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_eip, __readmsr(MSR_IA32_SYSENTER_EIP));
+        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_esp, __readmsr(MSR_IA32_SYSENTER_ESP));
 }
 
 STATIC
@@ -128,9 +129,6 @@ VmcsWriteGuestStateFields(
 )
 {
         __vmx_vmwrite(guest_state_fields.qword_state.vmcs_link_pointer, ~0ull);
-
-        __vmx_vmwrite(GUEST_IA32_DEBUGCTL_HIGH, __readmsr(MSR_IA32_DEBUGCTL) >> 32);
-        __vmx_vmwrite(guest_state_fields.qword_state.debug_control, __readmsr(MSR_IA32_DEBUGCTL) & 0xFFFFFFFF);
 
         VmcsWriteSelectors(__readgdtbase(), ES, __reades());
         VmcsWriteSelectors(__readgdtbase(), CS, __readcs());
@@ -178,7 +176,7 @@ VmcsWriteControlStateFields(
         proc_ctls.ActivateSecondaryControls = TRUE;
         proc_ctls.UseMsrBitmaps = TRUE;
 
-        __vmx_vmwrite(CPU_BASED_VM_EXEC_CONTROL,
+        __vmx_vmwrite(control_state_fields.dword_state.processor_based_vm_execution_controls,
                 AdjustMsrControl((UINT32)proc_ctls.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS));
 
         /*
@@ -189,7 +187,7 @@ VmcsWriteControlStateFields(
         proc_ctls2.EnableInvpcid = TRUE;
         proc_ctls2.EnableXsaves = TRUE;
 
-        __vmx_vmwrite(SECONDARY_VM_EXEC_CONTROL,
+        __vmx_vmwrite(control_state_fields.dword_state.secondary_processor_based_vm_execution_controls,
                 AdjustMsrControl((UINT32)proc_ctls2.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS2));
 
         /*
@@ -197,7 +195,7 @@ VmcsWriteControlStateFields(
         */
         IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls = { 0 };
 
-        __vmx_vmwrite(PIN_BASED_VM_EXEC_CONTROL,
+        __vmx_vmwrite(control_state_fields.dword_state.pin_based_vm_execution_controls,
                 AdjustMsrControl((UINT32)pin_ctls.AsUInt, MSR_IA32_VMX_PINBASED_CTLS));
 
         /*
@@ -207,7 +205,7 @@ VmcsWriteControlStateFields(
         exit_ctls.AcknowledgeInterruptOnExit = TRUE;
         exit_ctls.HostAddressSpaceSize = TRUE;
 
-        __vmx_vmwrite(VM_EXIT_CONTROLS,
+        __vmx_vmwrite(control_state_fields.dword_state.vmexit_controls,
                 AdjustMsrControl((UINT32)exit_ctls.AsUInt, MSR_IA32_VMX_EXIT_CTLS));
 
         /*
@@ -215,11 +213,51 @@ VmcsWriteControlStateFields(
         */
         IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls = { 0 };
         entry_ctls.Ia32EModeGuest = TRUE;
-
-        __vmx_vmwrite(VM_ENTRY_CONTROLS,
+        
+        __vmx_vmwrite(control_state_fields.dword_state.vmentry_controls,
                 AdjustMsrControl((UINT32)entry_ctls.AsUInt, MSR_IA32_VMX_ENTRY_CTLS));
 
         __vmx_vmwrite(control_state_fields.qword_state.msr_bitmap_address, GuestState->msr_bitmap_pa);
+}
+
+UINT32
+VmcsReadInstructionErrorCode()
+{
+        UINT32 code = 0;
+        __vmx_vmread(exit_state_fields.dword_state.instruction_error, &code);
+        return code;
+}
+
+UINT32 
+VmcsReadInstructionLength()
+{
+        UINT32 length = 0;
+        __vmx_vmread(exit_state_fields.dword_state.instruction_length, &length);
+        return length;
+}
+
+UINT64 
+VmcsReadExitInstructionRip()
+{
+        UINT64 rip = 0;
+        __vmx_vmread(guest_state_fields.natural_state.rip, &rip);
+        return rip;
+}
+
+UINT32
+VmcsReadExitReason()
+{
+        UINT32 reason = 0;
+        __vmx_vmread(exit_state_fields.dword_state.reason, &reason);
+        return reason;
+}
+
+VOID 
+VmcsWriteGuestRip(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(guest_state_fields.natural_state.rip, NewValue);
 }
 
 NTSTATUS
@@ -231,6 +269,7 @@ SetupVmcs(
         EncodeVmcsControlStateFields(&control_state_fields);
         EncodeVmcsGuestStateFields(&guest_state_fields);
         EncodeVmcsHostStateFields(&host_state_fields);
+        EncodeVmcsExitStateFields(&exit_state_fields);
 
         if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK)
         {
@@ -240,9 +279,7 @@ SetupVmcs(
 
         if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK)
         {
-                ULONG64 error_code = 0;
-                __vmx_vmread(VM_INSTRUCTION_ERROR, &error_code);
-                DEBUG_ERROR("vmptrld failed with status: %x", (ULONG)error_code);
+                DEBUG_ERROR("vmptrld failed with status: %lx", VmcsReadInstructionErrorCode());
                 return STATUS_ABANDONED;
         }
 
