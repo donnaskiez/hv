@@ -503,7 +503,6 @@ typedef struct _GUEST_CONTEXT
         M128A Xmm3;
         M128A Xmm4;
         M128A Xmm5;
-        CHAR padding[10];
         ULONG64 rax; // 0x00         // NOT VALID FOR SVM
         ULONG64 rcx;
         ULONG64 rdx; // 0x10

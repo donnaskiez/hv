@@ -29,16 +29,21 @@ DeviceCreate(
 {
         UNREFERENCED_PARAMETER(DeviceObject);
 
-        PIPI_CALL_CONTEXT context =
-                ExAllocatePool2(POOL_FLAG_NON_PAGED, KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
+        NTSTATUS status = STATUS_ABANDONED;
+        PIPI_CALL_CONTEXT context = NULL;
+        PEPTP pept = NULL;
+
+        context = ExAllocatePool2(POOL_FLAG_NON_PAGED, 
+                KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT), POOLTAG);
 
         if (!context)
                 return STATUS_ABANDONED;
 
-        PEPTP pept = InitializeEptp();
+        status = InitializeEptp(&pept);
 
-        if (!pept)
+        if (!NT_SUCCESS(status))
         {
+                DEBUG_ERROR("Failed to initialise EPT");
                 ExFreePoolWithTag(context, POOLTAG);
                 goto end;
         }
@@ -50,15 +55,10 @@ DeviceCreate(
         }
 
         InitiateVmx(context);
+        BroadcastVmxInitiation(context);
 
-        __try
-        {
-                BroadcastVmxInitiation(context);
-        }
-        __except (GetExceptionCode())
-        {
-        }
 end:
+
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
 }

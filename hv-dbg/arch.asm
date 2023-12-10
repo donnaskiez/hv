@@ -15,8 +15,6 @@ PUBLIC __readrflags
 PUBLIC __readmsr
 PUBLIC __writemsr
 
-PUBLIC __vmx_enable
-PUBLIC __vmx_invept
 PUBLIC __vmx_terminate
 
 PUBLIC SaveStateAndVirtualizeCore
@@ -61,7 +59,7 @@ VmexitHandler PROC
 	; vmovups allows us to store them in an unaligned address
 	; which is not ideal and should be fixed.
 
-	sub     rsp, 70h
+	sub     rsp, 60h
 
 	vmovups  xmmword ptr [rsp +  0h], xmm0
 	vmovups  xmmword ptr [rsp + 10h], xmm1
@@ -77,7 +75,7 @@ VmexitHandler PROC
 
 	; allocate some space for the shadow stack
 
-	sub	rsp, 28h
+	sub	rsp, 20h
 
 	; call our vm exit dispatcher
 
@@ -85,7 +83,7 @@ VmexitHandler PROC
 
 	; increment stack pointer to free our shadow stack space	
 
-	add	rsp, 28h	
+	add	rsp, 20h	
 
 	; restore our saved floating point registers back
 
@@ -98,7 +96,7 @@ VmexitHandler PROC
 
 	; increment stack pointer since we've restored the floating point registers
 	
-        add     rsp, 70h
+        add     rsp, 60h
 
 	; pop the general purpose registers back
 
@@ -118,8 +116,6 @@ VmexitHandler PROC
 	pop r13
 	pop r14
 	pop r15
-	
-	sub rsp, 0100h
 			
 	; resume execution 
 
@@ -177,40 +173,6 @@ VmxRestoreState PROC
 	RET
 	
 VmxRestoreState ENDP
-
-__vmx_enable PROC PUBLIC
-
-	PUSH RAX			    ; Save the state
-	
-	XOR RAX, RAX			; Clear the RAX
-	MOV RAX, CR4
-
-	OR RAX,02000h	    	; Set the 14th bit
-	MOV CR4, RAX
-	
-	POP RAX			     	; Restore the state
-	RET
-
-__vmx_enable ENDP
-
-__vmx_invept PROC PUBLIC
-
-	INVEPT  RCX, OWORD PTR [RDX]
-	JZ FailedWithStatus
-	JC Failed
-	XOR     RAX, RAX
-
-	RET
-
-FailedWithStatus:    
-	MOV     RAX, VMX_ERROR_CODE_FAILED_WITH_STATUS
-	RET
-
-Failed:   
-	MOV     RAX, VMX_ERROR_CODE_FAILED
-	RET
-
-__vmx_invept ENDP
 
 __vmx_terminate PROC PUBLIC
 

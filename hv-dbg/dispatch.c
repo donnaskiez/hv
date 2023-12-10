@@ -146,14 +146,10 @@ VmExitDispatcher(
 {
         UINT64 additional_rip_offset = 0;
         ULONG exit_reason = 0;
-        ULONG exit_qualification = 0;
         UINT64 current_rip = 0;
         ULONG exit_instruction_length = 0;
-        UINT64 increment_size = 0;
-        ZyanStatus status = ZYAN_STATUS_ACCESS_DENIED;
 
         __vmx_vmread(VM_EXIT_REASON, &exit_reason);
-        __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
         __vmx_vmread(GUEST_RIP, &current_rip);
         __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
 
@@ -175,11 +171,14 @@ VmExitDispatcher(
         * exit-inducing instructions - saving us 1 vm exit (2 minus 1 = 1).
         */
 
-        status = HandleFutureInstructions(
+#pragma warning(push)
+#pragma warning(disable:6387)
+        HandleFutureInstructions(
                 (PVOID)(current_rip + exit_instruction_length),
                 Context,
                 &additional_rip_offset
         );
+#pragma warning(pop)
 
         ResumeToNextInstruction(additional_rip_offset);
 }

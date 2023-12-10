@@ -2,182 +2,151 @@
 #include "vmx.h"
 #include "ept.h"
 
-PEPTP
-InitializeEptp()
+#define NUM_PAGES 100
+
+NTSTATUS
+InitializeEptp(
+        _Out_ PEPTP* EptPointer
+)
 {
-        PAGED_CODE();
+        PEPT_PML4E pml4 = NULL;
+        PEPT_PDPTE pdpt = NULL;
+        PEPT_PDE pd = NULL;
+        PEPT_PTE pt = NULL;
+        PEPTP ept_pointer = NULL;
+        UINT64 guest_virtual = NULL;
 
-        //
-        // Allocate EPTP
-        //
-        PEPTP EPTPointer = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE, POOLTAG);
+        *EptPointer = NULL;
 
-        if (!EPTPointer)
+        ept_pointer = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+
+        if (!ept_pointer)
+                return STATUS_MEMORY_NOT_ALLOCATED;
+
+        /*
+        * For whatever reason we need to zero out the allocations even though ExAllocatePool2
+        * is meant to zero them out for us. If we don't zero them out it produces a page fault
+        */
+        RtlZeroMemory(ept_pointer, PAGE_SIZE);
+
+        pml4 = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+
+        if (!pml4)
         {
-                return NULL;
+                ExFreePoolWithTag(ept_pointer, POOLTAG);
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
-        RtlZeroMemory(EPTPointer, PAGE_SIZE);
 
-        //
-        // Allocate EPT PML4
-        //
-        PEPT_PML4E EptPml4 = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE, POOLTAG);
-        if (!EptPml4)
+        RtlZeroMemory(pml4, PAGE_SIZE);
+
+        pdpt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+
+        if (!pdpt)
         {
-                ExFreePoolWithTag(EPTPointer, POOLTAG);
-                return NULL;
+                ExFreePoolWithTag(pml4, POOLTAG);
+                ExFreePoolWithTag(ept_pointer, POOLTAG);
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
-        RtlZeroMemory(EptPml4, PAGE_SIZE);
 
-        //
-        // Allocate EPT Page-Directory-Pointer-Table
-        //
-        PEPT_PDPTE EptPdpt = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE, POOLTAG);
-        if (!EptPdpt)
+        RtlZeroMemory(pdpt, PAGE_SIZE);
+
+        pd = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+
+        if (!pd)
         {
-                ExFreePoolWithTag(EptPml4, POOLTAG);
-                ExFreePoolWithTag(EPTPointer, POOLTAG);
-                return NULL;
+                ExFreePoolWithTag(pdpt, POOLTAG);
+                ExFreePoolWithTag(pml4, POOLTAG);
+                ExFreePoolWithTag(ept_pointer, POOLTAG);
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
-        RtlZeroMemory(EptPdpt, PAGE_SIZE);
 
-        //
-        // Allocate EPT Page-Directory
-        //
-        PEPT_PDE EptPd = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE, POOLTAG);
+        RtlZeroMemory(pd, PAGE_SIZE);
 
-        if (!EptPd)
+        pt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+
+        if (!pt)
         {
-                ExFreePoolWithTag(EptPdpt, POOLTAG);
-                ExFreePoolWithTag(EptPml4, POOLTAG);
-                ExFreePoolWithTag(EPTPointer, POOLTAG);
-                return NULL;
+                ExFreePoolWithTag(pd, POOLTAG);
+                ExFreePoolWithTag(pdpt, POOLTAG);
+                ExFreePoolWithTag(pml4, POOLTAG);
+                ExFreePoolWithTag(ept_pointer, POOLTAG);
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
-        RtlZeroMemory(EptPd, PAGE_SIZE);
 
-        //
-        // Allocate EPT Page-Table
-        //
-        PEPT_PTE EptPt = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE, POOLTAG);
+        RtlZeroMemory(pt, PAGE_SIZE);
 
-        if (!EptPt)
-        {
-                ExFreePoolWithTag(EptPd, POOLTAG);
-                ExFreePoolWithTag(EptPdpt, POOLTAG);
-                ExFreePoolWithTag(EptPml4, POOLTAG);
-                ExFreePoolWithTag(EPTPointer, POOLTAG);
-                return NULL;
-        }
-        RtlZeroMemory(EptPt, PAGE_SIZE);
-
-        //
-        // Setup PT by allocating two pages Continuously
-        // We allocate two pages because we need 1 page for our RIP to start and 1 page for RSP 1 + 1 = 2
-        //
-        const int PagesToAllocate = 100;
-
-        UINT64 guest_virtual = ExAllocatePoolWithTag(NonPagedPool, PagesToAllocate * PAGE_SIZE, POOLTAG);
+        guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED, NUM_PAGES * PAGE_SIZE, POOLTAG);
 
         if (!guest_virtual)
-                return NULL;
-
-        RtlZeroMemory(guest_virtual, PagesToAllocate * PAGE_SIZE);
-
-        for (size_t i = 0; i < PagesToAllocate; i++)
         {
-                EptPt[i].Fields.AccessedFlag = 0;
-                EptPt[i].Fields.DirtyFlag = 0;
-                EptPt[i].Fields.EPTMemoryType = 6;
-                EptPt[i].Fields.Execute = 1;
-                EptPt[i].Fields.ExecuteForUserMode = 0;
-                EptPt[i].Fields.IgnorePAT = 0;
-                EptPt[i].Fields.PhysicalAddress = MmGetPhysicalAddress(guest_virtual + (i * PAGE_SIZE)).QuadPart / PAGE_SIZE;
-                EptPt[i].Fields.Read = 1;
-                EptPt[i].Fields.SuppressVE = 0;
-                EptPt[i].Fields.Write = 1;
+                ExFreePoolWithTag(pt, POOLTAG);
+                ExFreePoolWithTag(pd, POOLTAG);
+                ExFreePoolWithTag(pdpt, POOLTAG);
+                ExFreePoolWithTag(pml4, POOLTAG);
+                ExFreePoolWithTag(ept_pointer, POOLTAG);
+                return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
-        //
-        // Setting up PDE
-        //
-        EptPd->Fields.Accessed = 0;
-        EptPd->Fields.Execute = 1;
-        EptPd->Fields.ExecuteForUserMode = 0;
-        EptPd->Fields.Ignored1 = 0;
-        EptPd->Fields.Ignored2 = 0;
-        EptPd->Fields.Ignored3 = 0;
-        EptPd->Fields.PhysicalAddress = MmGetPhysicalAddress(EptPt).QuadPart / PAGE_SIZE;
-        EptPd->Fields.Read = 1;
-        EptPd->Fields.Reserved1 = 0;
-        EptPd->Fields.Reserved2 = 0;
-        EptPd->Fields.Write = 1;
+        RtlZeroMemory(guest_virtual, PAGE_SIZE);
 
-        //
-        // Setting up PDPTE
-        //
-        EptPdpt->Fields.Accessed = 0;
-        EptPdpt->Fields.Execute = 1;
-        EptPdpt->Fields.ExecuteForUserMode = 0;
-        EptPdpt->Fields.Ignored1 = 0;
-        EptPdpt->Fields.Ignored2 = 0;
-        EptPdpt->Fields.Ignored3 = 0;
-        EptPdpt->Fields.PhysicalAddress = MmGetPhysicalAddress(EptPd).QuadPart / PAGE_SIZE;
-        EptPdpt->Fields.Read = 1;
-        EptPdpt->Fields.Reserved1 = 0;
-        EptPdpt->Fields.Reserved2 = 0;
-        EptPdpt->Fields.Write = 1;
+        for (SIZE_T index = 0; index < NUM_PAGES; index++)
+        {
+                pt[index].Fields.AccessedFlag = 0;
+                pt[index].Fields.DirtyFlag = 0;
+                pt[index].Fields.EPTMemoryType = 6;
+                pt[index].Fields.Execute = 1;
+                pt[index].Fields.ExecuteForUserMode = 0;
+                pt[index].Fields.IgnorePAT = 0;
+                pt[index].Fields.PhysicalAddress = MmGetPhysicalAddress(guest_virtual + (index * PAGE_SIZE)).QuadPart / PAGE_SIZE;
+                pt[index].Fields.Read = 1;
+                pt[index].Fields.SuppressVE = 0;
+                pt[index].Fields.Write = 1;
+        }
 
-        //
-        // Setting up PML4E
-        //
-        EptPml4->Fields.Accessed = 0;
-        EptPml4->Fields.Execute = 1;
-        EptPml4->Fields.ExecuteForUserMode = 0;
-        EptPml4->Fields.Ignored1 = 0;
-        EptPml4->Fields.Ignored2 = 0;
-        EptPml4->Fields.Ignored3 = 0;
-        EptPml4->Fields.PhysicalAddress = MmGetPhysicalAddress(EptPdpt).QuadPart / PAGE_SIZE;
-        EptPml4->Fields.Read = 1;
-        EptPml4->Fields.Reserved1 = 0;
-        EptPml4->Fields.Reserved2 = 0;
-        EptPml4->Fields.Write = 1;
+        pd->Fields.Accessed = 0;
+        pd->Fields.Execute = 1;
+        pd->Fields.ExecuteForUserMode = 0;
+        pd->Fields.Ignored1 = 0;
+        pd->Fields.Ignored2 = 0;
+        pd->Fields.Ignored3 = 0;
+        pd->Fields.PhysicalAddress = MmGetPhysicalAddress(pt).QuadPart / PAGE_SIZE;
+        pd->Fields.Read = 1;
+        pd->Fields.Reserved1 = 0;
+        pd->Fields.Reserved2 = 0;
+        pd->Fields.Write = 1;
 
-        //
-        // Setting up EPTP
-        //
-        EPTPointer->Fields.DirtyAndAceessEnabled = 1;
-        EPTPointer->Fields.MemoryType = 6; // 6 = Write-back (WB)
-        EPTPointer->Fields.PageWalkLength = 3; // 4 (tables walked) - 1 = 3
-        EPTPointer->Fields.PML4Address = MmGetPhysicalAddress(EptPml4).QuadPart / PAGE_SIZE;
-        EPTPointer->Fields.Reserved1 = 0;
-        EPTPointer->Fields.Reserved2 = 0;
+        pdpt->Fields.Accessed = 0;
+        pdpt->Fields.Execute = 1;
+        pdpt->Fields.ExecuteForUserMode = 0;
+        pdpt->Fields.Ignored1 = 0;
+        pdpt->Fields.Ignored2 = 0;
+        pdpt->Fields.Ignored3 = 0;
+        pdpt->Fields.PhysicalAddress = MmGetPhysicalAddress(pd).QuadPart / PAGE_SIZE;
+        pdpt->Fields.Read = 1;
+        pdpt->Fields.Reserved1 = 0;
+        pdpt->Fields.Reserved2 = 0;
+        pdpt->Fields.Write = 1;
 
-        DbgPrint("[*] Extended Page Table Pointer allocated at %llx", EPTPointer);
+        pml4->Fields.Accessed = 0;
+        pml4->Fields.Execute = 1;
+        pml4->Fields.ExecuteForUserMode = 0;
+        pml4->Fields.Ignored1 = 0;
+        pml4->Fields.Ignored2 = 0;
+        pml4->Fields.Ignored3 = 0;
+        pml4->Fields.PhysicalAddress = MmGetPhysicalAddress(pdpt).QuadPart / PAGE_SIZE;
+        pml4->Fields.Read = 1;
+        pml4->Fields.Reserved1 = 0;
+        pml4->Fields.Reserved2 = 0;
+        pml4->Fields.Write = 1;
 
-        return EPTPointer;
+        ept_pointer->Fields.DirtyAndAceessEnabled = 1;
+        ept_pointer->Fields.MemoryType = 6;
+        ept_pointer->Fields.PageWalkLength = 3;
+        ept_pointer->Fields.PML4Address = MmGetPhysicalAddress(pml4).QuadPart / PAGE_SIZE;
+        ept_pointer->Fields.Reserved1 = 0;
+        ept_pointer->Fields.Reserved2 = 0;
+
+        *EptPointer = ept_pointer;
+
+        return STATUS_SUCCESS;
 }
-
-//unsigned char
-//InveptWrapper(UINT32 Type, INVEPT_DESC* Descriptor)
-//{
-//        if (!Descriptor)
-//        {
-//                static INVEPT_DESC zero_descriptor = { 0 };
-//                Descriptor = &zero_descriptor;
-//        }
-//
-//        return AsmPerformInvept(Type, Descriptor);
-//}
-//
-//unsigned char
-//InveptAllContexts()
-//{
-//        return InveptWrapper(ALL_CONTEXTS, NULL);
-//}
-//
-//unsigned char
-//InveptSingleContext(EPTP EptPointer)
-//{
-//        INVEPT_DESC Descriptor = { EptPointer, 0 };
-//        return InveptWrapper(SINGLE_CONTEXT, &Descriptor);
-//}

@@ -16,8 +16,10 @@ typedef union _EPTP {
         }Fields;
 }EPTP, * PEPTP;
 
-PEPTP
-InitializeEptp();
+NTSTATUS
+InitializeEptp(
+        _Out_ PEPTP* EptPointer
+);
 
 // See Table 28-1. 
 typedef union _EPT_PML4E {
