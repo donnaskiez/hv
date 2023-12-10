@@ -27,4 +27,44 @@ VmcsWriteGuestRip(
 UINT32
 VmcsReadExitReason();
 
+VOID
+VmcsWriteGuestCr0(
+        _In_ UINT64 NewValue
+);
+
+VOID
+VmcsWriteGuestCr0ReadShadow(
+        _In_ UINT64 NewValue
+);
+
+VOID
+VmcsWriteGuestCr3(
+        _In_ UINT64 NewValue
+);
+
+VOID
+VmcsWriteGuestCr4(
+        _In_ UINT64 NewValue
+);
+
+VOID
+VmcsWriteGuestCr4ReadShadow(
+        _In_ UINT64 NewValue
+);
+
+UINT64
+VmcsReadGuestRsp();
+
+UINT32
+VmcsReadExitQualification();
+
+UINT64
+VmcsReadGuestCr0();
+
+UINT64
+VmcsReadGuestCr3();
+
+UINT64
+VmcsReadGuestCr4();
+
 #endif

@@ -21,71 +21,138 @@ VmResumeInstruction()
 }
 
 STATIC
+UINT64
+RetrieveValueInContextRegister(
+        _In_ PGUEST_CONTEXT Context,
+        _In_ UINT32 Register
+)
+{
+        switch (Register)
+        {
+        case VMX_EXIT_QUALIFICATION_GENREG_RAX: { return Context->rax; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RCX: { return Context->rcx; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RDX: { return Context->rdx; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RBX: { return Context->rbx; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RSP: { return Context->rsp; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RBP: { return Context->rbp; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RSI: { return Context->rsi; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RDI: { return Context->rdi; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R8:  { return Context->r8; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R9:  { return Context->r9; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R10: { return Context->r10; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R11: { return Context->r11; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R12: { return Context->r12; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R13: { return Context->r13; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R14: { return Context->r14; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R15: { return Context->r15; }
+        default: { return 0; }
+        }
+}
+
+STATIC
+VOID
+WriteValueInContextRegister(
+        _In_ PGUEST_CONTEXT Context,
+        _In_ UINT32 Register,
+        _In_ UINT64 Value
+)
+{
+        switch (Register)
+        {
+        case VMX_EXIT_QUALIFICATION_GENREG_RAX: { Context->rax = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RCX: { Context->rcx = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RDX: { Context->rdx = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RBX: { Context->rbx = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RSP: { Context->rsp = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RBP: { Context->rbp = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RSI: { Context->rsi = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_RDI: { Context->rdi = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R8:  { Context->r8 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R9:  { Context->r9 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R10: { Context->r10 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R11: { Context->r11 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R12: { Context->r12 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R13: { Context->r13 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R14: { Context->r14 = Value; return; }
+        case VMX_EXIT_QUALIFICATION_GENREG_R15: { Context->r15 = Value; return; }
+        default: { return; }
+        }
+}
+
+/*
+* Write the value of the designated general purpose register into the designated control register
+*/
+STATIC
+VOID
+DispatchExitReasonMovToCr(
+        _In_ PMOV_CR_QUALIFICATION Qualification,
+        _In_ PGUEST_CONTEXT Context
+)
+{
+        UINT64 value = RetrieveValueInContextRegister(Context, Qualification->Fields.Register);
+
+        switch (Qualification->Fields.ControlRegister)
+        {
+        case CONTROL_REGISTER_0: { VmcsWriteGuestCr0(value); VmcsWriteGuestCr0ReadShadow(value); break; }
+        case CONTROL_REGISTER_3: { VmcsWriteGuestCr3((value & ~(1ull << 63))); break; }
+        case CONTROL_REGISTER_4: { VmcsWriteGuestCr4(value); VmcsWriteGuestCr4ReadShadow(value); break; }
+        default: { break; }
+        }
+}
+
+/*
+* Write the value of the designated control register in the designated general purpose register
+*/
+STATIC
+VOID
+DispatchExitReasonMovFromCr(
+        _In_ PMOV_CR_QUALIFICATION Qualification,
+        _In_ PGUEST_CONTEXT Context
+)
+{
+        switch (Qualification->Fields.ControlRegister)
+        {
+        case CONTROL_REGISTER_0: { 
+                WriteValueInContextRegister(Context, Qualification->Fields.Register, VmcsReadGuestCr0()); break; }
+        case CONTROL_REGISTER_3: { 
+                WriteValueInContextRegister(Context, Qualification->Fields.Register, VmcsReadGuestCr3()); break; }
+        case CONTROL_REGISTER_4: { 
+                WriteValueInContextRegister(Context, Qualification->Fields.Register, VmcsReadGuestCr4()); break; }
+        default: { break; }
+        }
+}
+
+/*
+* Table 27-3: Bits 11:8 tell us which register was used.
+* 
+* For MOV CR, the general-purpose register:
+* 0 = RAX
+* 1 = RCX
+* 2 = RDX
+* 3 = RBX
+* 4 = RSP
+* 5 = RBP
+* 6 = RSI
+* 7 = RDI
+* 8–15 represent R8–R15, respectively (used only on processors that support Intel 64 architecture)
+*/
+STATIC
 VOID
 DispatchExitReasonControlRegisterAccess(
         _In_ PGUEST_CONTEXT Context
 )
 {
-        INT64 rsp = 0;
-        ULONG exit_qualification = 0;
+        MOV_CR_QUALIFICATION qualification = { 0 };
 
-        __vmx_vmread(EXIT_QUALIFICATION, &exit_qualification);
+        qualification.All = VmcsReadExitQualification();
 
-        PMOV_CR_QUALIFICATION data = (PMOV_CR_QUALIFICATION)&exit_qualification;
-        PUINT64 register_ptr = (PUINT64)&Context->rax + data->Fields.Register;
-
-        if (data->Fields.Register == 4)
+        switch (qualification.Fields.AccessType)
         {
-                __vmx_vmread(GUEST_RSP, &rsp);
-                *register_ptr = rsp;
-        }
-
-        switch (data->Fields.AccessType)
-        {
-        case TYPE_MOV_TO_CR:
-        {
-                switch (data->Fields.ControlRegister)
-                {
-                case 0:
-                        __vmx_vmwrite(GUEST_CR0, *register_ptr);
-                        __vmx_vmwrite(CR0_READ_SHADOW, *register_ptr);
-                        break;
-                case 3:
-                        __vmx_vmwrite(GUEST_CR3, (*register_ptr & ~(1ULL << 63)));
-                        break;
-                case 4:
-                        __vmx_vmwrite(GUEST_CR4, *register_ptr);
-                        __vmx_vmwrite(CR4_READ_SHADOW, *register_ptr);
-                        break;
-                default:
-                        DEBUG_LOG("Register not supported.");
-                        break;
-                }
-        }
-        break;
-
-        case TYPE_MOV_FROM_CR:
-        {
-                switch (data->Fields.ControlRegister)
-                {
-                case 0:
-                        __vmx_vmread(GUEST_CR0, register_ptr);
-                        break;
-                case 3:
-                        __vmx_vmread(GUEST_CR3, register_ptr);
-                        break;
-                case 4:
-                        __vmx_vmread(GUEST_CR4, register_ptr);
-                        break;
-                default:
-                        DEBUG_LOG("Register not supported.");
-                        break;
-                }
-        }
-        break;
-
-        default:
-                break;
+        case TYPE_MOV_TO_CR: { DispatchExitReasonMovToCr(&qualification, Context); break; }
+        case TYPE_MOV_FROM_CR: { DispatchExitReasonMovFromCr(&qualification, Context); break; }
+        case TYPE_CLTS: { DEBUG_LOG("CLTS instruction"); break; }
+        case TYPE_LMSW: { DEBUG_LOG("LMSW instruction"); break; }
+        default: { break; }
         }
 }
 
@@ -151,11 +218,13 @@ VmExitDispatcher(
 
 #pragma warning(push)
 #pragma warning(disable:6387)
+
         HandleFutureInstructions(
                 (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
                 Context,
                 &additional_rip_offset
         );
+
 #pragma warning(pop)
 
         ResumeToNextInstruction(additional_rip_offset);

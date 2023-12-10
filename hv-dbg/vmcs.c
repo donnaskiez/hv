@@ -220,46 +220,6 @@ VmcsWriteControlStateFields(
         __vmx_vmwrite(control_state_fields.qword_state.msr_bitmap_address, GuestState->msr_bitmap_pa);
 }
 
-UINT32
-VmcsReadInstructionErrorCode()
-{
-        UINT32 code = 0;
-        __vmx_vmread(exit_state_fields.dword_state.instruction_error, &code);
-        return code;
-}
-
-UINT32 
-VmcsReadInstructionLength()
-{
-        UINT32 length = 0;
-        __vmx_vmread(exit_state_fields.dword_state.instruction_length, &length);
-        return length;
-}
-
-UINT64 
-VmcsReadExitInstructionRip()
-{
-        UINT64 rip = 0;
-        __vmx_vmread(guest_state_fields.natural_state.rip, &rip);
-        return rip;
-}
-
-UINT32
-VmcsReadExitReason()
-{
-        UINT32 reason = 0;
-        __vmx_vmread(exit_state_fields.dword_state.reason, &reason);
-        return reason;
-}
-
-VOID 
-VmcsWriteGuestRip(
-        _In_ UINT64 NewValue
-)
-{
-        __vmx_vmwrite(guest_state_fields.natural_state.rip, NewValue);
-}
-
 NTSTATUS
 SetupVmcs(
         _In_ PVIRTUAL_MACHINE_STATE GuestState,
@@ -288,4 +248,124 @@ SetupVmcs(
         VmcsWriteHostStateFields(GuestState);
 
         return STATUS_SUCCESS;
+}
+
+UINT32
+VmcsReadInstructionErrorCode()
+{
+        UINT32 code = 0;
+        __vmx_vmread(exit_state_fields.dword_state.instruction_error, &code);
+        return code;
+}
+
+UINT32
+VmcsReadInstructionLength()
+{
+        UINT32 length = 0;
+        __vmx_vmread(exit_state_fields.dword_state.instruction_length, &length);
+        return length;
+}
+
+UINT64
+VmcsReadExitInstructionRip()
+{
+        UINT64 rip = 0;
+        __vmx_vmread(guest_state_fields.natural_state.rip, &rip);
+        return rip;
+}
+
+UINT32
+VmcsReadExitReason()
+{
+        UINT32 reason = 0;
+        __vmx_vmread(exit_state_fields.dword_state.reason, &reason);
+        return reason;
+}
+
+VOID
+VmcsWriteGuestRip(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(guest_state_fields.natural_state.rip, NewValue);
+}
+
+VOID
+VmcsWriteGuestCr0(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(guest_state_fields.natural_state.cr0, NewValue);
+}
+
+VOID
+VmcsWriteGuestCr0ReadShadow(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(control_state_fields.natural_state.cr0_read_shadow, NewValue);
+}
+
+VOID
+VmcsWriteGuestCr3(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(guest_state_fields.natural_state.cr3, NewValue);
+}
+
+VOID
+VmcsWriteGuestCr4(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(guest_state_fields.natural_state.cr4, NewValue);
+}
+
+VOID
+VmcsWriteGuestCr4ReadShadow(
+        _In_ UINT64 NewValue
+)
+{
+        __vmx_vmwrite(control_state_fields.natural_state.cr4_read_shadow, NewValue);
+}
+
+UINT64
+VmcsReadGuestRsp()
+{
+        UINT64 rsp = 0;
+        __vmx_vmread(guest_state_fields.natural_state.rsp, &rsp);
+        return rsp;
+}
+
+UINT32
+VmcsReadExitQualification()
+{
+        UINT32 exit_qualification = 0;
+        __vmx_vmread(exit_state_fields.natural_state.exit_qualification, &exit_qualification);
+        return exit_qualification;
+}
+
+UINT64
+VmcsReadGuestCr0()
+{
+        UINT64 cr0 = 0;
+        __vmx_vmread(guest_state_fields.natural_state.cr0, &cr0);
+        return cr0;
+}
+
+UINT64
+VmcsReadGuestCr3()
+{
+        UINT64 cr3 = 0;
+        __vmx_vmread(guest_state_fields.natural_state.cr3, &cr3);
+        return cr3;
+}
+
+UINT64
+VmcsReadGuestCr4()
+{
+        UINT64 cr4 = 0;
+        __vmx_vmread(guest_state_fields.natural_state.cr4, &cr4);
+        return cr4;
 }
