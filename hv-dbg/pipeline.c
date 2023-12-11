@@ -95,17 +95,18 @@ CheckForExitingInstruction(
 {
 	switch (Instruction->mnemonic)
 	{
-	case ZYDIS_MNEMONIC_CPUID:
-	case ZYDIS_MNEMONIC_MOV: { return DispatchMovInstruction(Operands, GuestState); }
+	case ZYDIS_MNEMONIC_CPUID: { DEBUG_LOG("next instruction CPUID"); return ZYAN_STATUS_FAILED; }
+	case ZYDIS_MNEMONIC_MOV: { DEBUG_LOG("Next instruction MOV"); return DispatchMovInstruction(Operands, GuestState); }
 
 			       /*
 			       * Since we simply passthrough any RDMSR / WRMSR instructions we can simply
 			       * return success which will increment the rip by the size of the respective
 			       * instruction.
 			       */
-	case ZYDIS_MNEMONIC_RDMSR: { return ZYAN_STATUS_SUCCESS; }
-	case ZYDIS_MNEMONIC_WRMSR: { return ZYAN_STATUS_SUCCESS; }
-	case ZYDIS_MNEMONIC_INVD: { __wbinvd(); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_RDMSR: { DEBUG_LOG("Next instruction RDMSR"); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_WRMSR: { DEBUG_LOG("Next instruction WRMSR"); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_INVD: { DEBUG_LOG("Next instruction INVD"); __wbinvd(); return ZYAN_STATUS_SUCCESS; }
+	case ZYDIS_MNEMONIC_WBINVD: { DEBUG_LOG("Next instruction WBINVD"); __wbinvd(); return ZYAN_STATUS_SUCCESS; }
 	}
 
 	return ZYAN_STATUS_FAILED;

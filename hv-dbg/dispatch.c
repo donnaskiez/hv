@@ -128,6 +128,31 @@ DispatchExitReasonMovFromCr(
 }
 
 /*
+* CLTS instruction clears the Task-Switched flag in CR0
+* 
+* https://www.felixcloutier.com/x86/clts
+* 
+* The CLTS instruction causes a VM exit if the bits in position 3 (corresponding to CR0.TS) are set in both 
+* the CR0 guest/host mask and the CR0 read shadow.
+*/
+STATIC
+VOID
+DispatchExitReasonCLTS(
+        _In_ PMOV_CR_QUALIFICATION Qualification,
+        _In_ PGUEST_CONTEXT Context
+)
+{
+        DEBUG_LOG("Dispatching CLTS instruction");
+
+        CR0 cr0 = { 0 };
+        cr0.AsUInt = VmcsReadGuestCr0();
+        cr0.Fields.TaskSwitched = FALSE;
+
+        VmcsWriteGuestCr0(cr0.AsUInt);
+        VmcsWriteGuestCr0ReadShadow(cr0.AsUInt);
+}
+
+/*
 * Table 27-3: Bits 11:8 tell us which register was used.
 * 
 * For MOV CR, the general-purpose register:
@@ -162,7 +187,7 @@ DispatchExitReasonControlRegisterAccess(
         {
         case TYPE_MOV_TO_CR: { DispatchExitReasonMovToCr(&qualification, Context); break; }
         case TYPE_MOV_FROM_CR: { DispatchExitReasonMovFromCr(&qualification, Context); break; }
-        case TYPE_CLTS: { DEBUG_LOG("CLTS instruction"); break; }
+        case TYPE_CLTS: { DispatchExitReasonCLTS(&qualification, Context); break; }
         case TYPE_LMSW: { DEBUG_LOG("LMSW instruction"); break; }
         default: { break; }
         }

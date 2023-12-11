@@ -175,6 +175,8 @@ VmcsWriteControlStateFields(
         IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls = { 0 };
         proc_ctls.ActivateSecondaryControls = TRUE;
         proc_ctls.UseMsrBitmaps = TRUE;
+        proc_ctls.Cr3LoadExiting = TRUE;
+        proc_ctls.Cr3StoreExiting = TRUE;
 
         __vmx_vmwrite(control_state_fields.dword_state.processor_based_vm_execution_controls,
                 AdjustMsrControl((UINT32)proc_ctls.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS));

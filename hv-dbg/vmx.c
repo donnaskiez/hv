@@ -165,7 +165,9 @@ STATIC
 BOOLEAN
 AllocateVmmState()
 {
-        vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0), POOLTAG);
+        vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, 
+                sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0), POOLTAG);
+
         return vmm_state != NULL ? TRUE : FALSE;
 }
 
@@ -260,7 +262,7 @@ VirtualizeCore(
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
-        DEBUG_ERROR("VMLAUNCH Error : 0x%llx", VmcsReadInstructionErrorCode());
+        DEBUG_ERROR("vmlaunch failed with status %lx", VmcsReadInstructionErrorCode());
 }
 
 STATIC

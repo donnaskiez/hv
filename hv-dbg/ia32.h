@@ -250,7 +250,7 @@ typedef union
 #define CR0_PAGING_ENABLE_MASK                                       0x01
 #define CR0_PAGING_ENABLE(_)                                         (((_) >> 31) & 0x01)
 		UINT64 Reserved4 : 32;
-	};
+	}Fields;
 
 	UINT64 AsUInt;
 } CR0;
