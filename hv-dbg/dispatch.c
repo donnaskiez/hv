@@ -17,7 +17,12 @@ VOID
 VmResumeInstruction()
 {
         __vmx_vmresume();
-        DEBUG_ERROR("VMRESUME Error : 0x%lx", VmcsReadInstructionErrorCode());
+
+        /*
+        * As always if vmresume succeeds guest execution will continue and we won't reach here
+        * since the next execution of host code will be the exit handler rip.
+        */
+        DEBUG_ERROR("vmresume failed with status: %lx", VmcsReadInstructionErrorCode());
 }
 
 STATIC
@@ -135,6 +140,13 @@ DispatchExitReasonMovFromCr(
 * 6 = RSI
 * 7 = RDI
 * 8–15 represent R8–R15, respectively (used only on processors that support Intel 64 architecture)
+* 
+* Bits 3:0 tell us which control register is the subject of this exit:
+* 
+* 0 = CR0
+* 3 = CR3
+* 4 = CR4
+* 8 = CR8
 */
 STATIC
 VOID
@@ -172,14 +184,37 @@ DispatchExitReasonCPUID(
         _In_ PGUEST_CONTEXT GuestState
 )
 {
-        INT32 cpuid_result[4];
 
-        __cpuidex(cpuid_result, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
 
-        GuestState->rax = cpuid_result[0];
-        GuestState->rbx = cpuid_result[1];
-        GuestState->rcx = cpuid_result[2];
-        GuestState->rdx = cpuid_result[3];
+        /*
+        * If its the first time performing the CPUID instruction from root mode, perform the
+        * instruction and store the result in state->cache.cpuid.value. Then assign the result
+        * to the designated registers. Once we have the result cached, set the active flag to true
+        * to ensure all future CPUID vm exits simply retrieve the cached result.
+        * 
+        * Due to the frequent access to our VMM state structure, it should always remain cached. 
+        * 
+        * TODO: ensure each cache entry is word size aligned.
+        */
+        if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
+        {
+                GuestState->rax = state->cache.cpuid.value[0];
+                GuestState->rbx = state->cache.cpuid.value[1];
+                GuestState->rcx = state->cache.cpuid.value[2];
+                GuestState->rdx = state->cache.cpuid.value[3];
+        }
+        else
+        {
+                __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+
+                GuestState->rax = state->cache.cpuid.value[0];
+                GuestState->rbx = state->cache.cpuid.value[1];
+                GuestState->rcx = state->cache.cpuid.value[2];
+                GuestState->rdx = state->cache.cpuid.value[3];
+
+                InterlockedExchange(&state->cache.cpuid.active, TRUE);
+        }
 }
 
 STATIC

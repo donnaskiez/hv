@@ -169,6 +169,15 @@ AllocateVmmState()
         return vmm_state != NULL ? TRUE : FALSE;
 }
 
+STATIC
+VOID
+InitiateVmmCache(
+        _In_ UINT32 Core
+)
+{
+        vmm_state[Core].cache.cpuid.active = FALSE;
+}
+
 NTSTATUS
 InitiateVmx(
         _In_ PIPI_CALL_CONTEXT Context
@@ -210,9 +219,9 @@ InitiateVmx(
                         return STATUS_MEMORY_NOT_ALLOCATED;;
                 }
 
-                vmm_state[core].vmm_stack = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
+                vmm_state[core].vmm_stack_va = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
 
-                if (!vmm_state[core].vmm_stack)
+                if (!vmm_state[core].vmm_stack_va)
                 {
                         DEBUG_LOG("Error in allocating VMM Stack.");
                         return STATUS_MEMORY_NOT_ALLOCATED;;
@@ -229,6 +238,8 @@ InitiateVmx(
                 RtlSecureZeroMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
 
                 vmm_state[core].msr_bitmap_pa = MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va).QuadPart;
+
+                InitiateVmmCache(core);
         }
 }
 
@@ -273,8 +284,8 @@ TerminateVmx(
         if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
                 MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va, PAGE_SIZE);
 
-        if (vmm_state[proc_num].vmm_stack)
-                ExFreePoolWithTag(vmm_state[proc_num].vmm_stack, POOLTAG);
+        if (vmm_state[proc_num].vmm_stack_va)
+                ExFreePoolWithTag(vmm_state[proc_num].vmm_stack_va, POOLTAG);
 
         DEBUG_LOG("Terminated VMX on processor index: %lx", proc_num);
 }

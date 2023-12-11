@@ -111,7 +111,7 @@ VmcsWriteHostStateFields(
         __vmx_vmwrite(host_state_fields.natural_state.gdtr_base, __readgdtbase());
         __vmx_vmwrite(host_state_fields.natural_state.idtr_base, __readidtbase());
 
-        __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack + VMM_STACK_SIZE - 1);
+        __vmx_vmwrite(host_state_fields.natural_state.rsp, GuestState->vmm_stack_va + VMM_STACK_SIZE - 1);
         __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
 
         __vmx_vmwrite(host_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));

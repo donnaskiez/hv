@@ -1,3 +1,6 @@
+
+; custom intrinsic functions
+
 PUBLIC __readcs
 PUBLIC __readds
 PUBLIC __reades
@@ -11,22 +14,22 @@ PUBLIC __readidtbase
 PUBLIC __getgdtlimit
 PUBLIC __getidtlimit
 PUBLIC __readrflags
-
 PUBLIC __readmsr
 PUBLIC __writemsr
 
-PUBLIC __vmx_terminate
+; standard vmm handler functions
 
 PUBLIC SaveStateAndVirtualizeCore
 PUBLIC VmexitHandler
 PUBLIC VmxRestoreState
 
+; extern functions
+
 EXTERN VmExitDispatcher:PROC
 EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
 
-EXTERN stack_pointer_to_return:QWORD
-EXTERN base_pointer_to_return:QWORD
+; vmm status error codes
 
 VMX_ERROR_CODE_SUCCESS              = 0
 VMX_ERROR_CODE_FAILED_WITH_STATUS   = 1
@@ -173,32 +176,6 @@ VmxRestoreState PROC
 	RET
 	
 VmxRestoreState ENDP
-
-__vmx_terminate PROC PUBLIC
-
-	VMXOFF  ; turn it off before existing
-	
-	MOV RSP, stack_pointer_to_return
-	MOV RBP, base_pointer_to_return
-	
-	; make rsp point to a correct return point
-	ADD RSP, 8
-	
-	; return True
-
-	XOR RAX, RAX
-	MOV RAX, 1
-	
-	; return section
-	
-	MOV     RBX, [RSP+28h+8h]
-	MOV     RSI, [RSP+28h+10h]
-	ADD     RSP, 020h
-	POP     RDI
-	
-	RET
-	
-__vmx_terminate ENDP 
 
 __readgdtbase PROC
 
