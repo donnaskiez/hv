@@ -5,10 +5,7 @@
 #include "vmx.h"
 
 NTSTATUS
-SetupVmcs(
-        _In_ PVIRTUAL_MACHINE_STATE GuestState,
-        _In_ PVOID StackPointer
-);
+SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer);
 
 UINT32
 VmcsReadInstructionErrorCode();
@@ -20,37 +17,25 @@ UINT64
 VmcsReadExitInstructionRip();
 
 VOID
-VmcsWriteGuestRip(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestRip(_In_ UINT64 NewValue);
 
 UINT32
 VmcsReadExitReason();
 
 VOID
-VmcsWriteGuestCr0(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestCr0(_In_ UINT64 NewValue);
 
 VOID
-VmcsWriteGuestCr0ReadShadow(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestCr0ReadShadow(_In_ UINT64 NewValue);
 
 VOID
-VmcsWriteGuestCr3(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestCr3(_In_ UINT64 NewValue);
 
 VOID
-VmcsWriteGuestCr4(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestCr4(_In_ UINT64 NewValue);
 
 VOID
-VmcsWriteGuestCr4ReadShadow(
-        _In_ UINT64 NewValue
-);
+VmcsWriteGuestCr4ReadShadow(_In_ UINT64 NewValue);
 
 UINT64
 VmcsReadGuestRsp();

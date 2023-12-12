@@ -4,11 +4,13 @@
 #include <wdf.h>
 #include <wdm.h>
 
-#define DEBUG_LOG(fmt, ...)   DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[+] " fmt "\n", ##__VA_ARGS__)
-#define DEBUG_ERROR(fmt, ...) DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[-] " fmt "\n", ##__VA_ARGS__)
+#define DEBUG_LOG(fmt, ...) \
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[+] " fmt "\n", ##__VA_ARGS__)
+#define DEBUG_ERROR(fmt, ...) \
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[-] " fmt "\n", ##__VA_ARGS__)
 
 #define STATIC static
-#define VOID void
+#define VOID   void
 #define INLINE inline
 #define EXTERN extern
 
@@ -26,7 +28,7 @@ extern ULONG64 __readrflags(VOID);
 
 #define VMX_OK          0 /* all ok */
 #define VMX_UNSUPPORTED 1 /* VT unsupported or disabled on 1+ cores */
-#define VMX_INUSE 
+#define VMX_INUSE
 
 //
 // VMX Memory
@@ -150,9 +152,9 @@ extern ULONG64 __readrflags(VOID);
 
 #define POOL_TAG_VMM 'vmmm'
 
-#define VMX_OK                  0 /* all ok */
+#define VMX_OK          0 /* all ok */
 #define VMX_UNSUPPORTED 1 /* VT unsupported or disabled on 1+ cores */
-#define VMX_INUSE 2
+#define VMX_INUSE       2
 
 #define MSR_APIC_BASE            0x01B
 #define MSR_IA32_FEATURE_CONTROL 0x03A
@@ -176,14 +178,14 @@ extern ULONG64 __readrflags(VOID);
 #define MSR_IA32_VMX_TRUE_ENTRY_CTLS     0x490
 #define MSR_IA32_VMX_VMFUNC              0x491
 
-#define CPU_BASED_CTL2_ENABLE_EPT						0x2
-#define CPU_BASED_CTL2_RDTSCP							0x8
-#define CPU_BASED_CTL2_ENABLE_VPID						0x20
-#define CPU_BASED_CTL2_UNRESTRICTED_GUEST				0x80
-#define CPU_BASED_CTL2_VIRTUAL_INTERRUPT_DELIVERY		0x200
-#define CPU_BASED_CTL2_ENABLE_INVPCID					0x1000
-#define CPU_BASED_CTL2_ENABLE_VMFUNC					0x2000
-#define CPU_BASED_CTL2_ENABLE_XSAVE_XRSTORS				0x100000
+#define CPU_BASED_CTL2_ENABLE_EPT                 0x2
+#define CPU_BASED_CTL2_RDTSCP                     0x8
+#define CPU_BASED_CTL2_ENABLE_VPID                0x20
+#define CPU_BASED_CTL2_UNRESTRICTED_GUEST         0x80
+#define CPU_BASED_CTL2_VIRTUAL_INTERRUPT_DELIVERY 0x200
+#define CPU_BASED_CTL2_ENABLE_INVPCID             0x1000
+#define CPU_BASED_CTL2_ENABLE_VMFUNC              0x2000
+#define CPU_BASED_CTL2_ENABLE_XSAVE_XRSTORS       0x100000
 
 #define MSR_IA32_SYSENTER_CS  0x174
 #define MSR_IA32_SYSENTER_ESP 0x175
@@ -197,15 +199,15 @@ extern ULONG64 __readrflags(VOID);
 #define MSR_SHADOW_GS_BASE 0xC0000102 // SwapGS GS shadow
 
 // CPUID RCX(s) - Based on Hyper-V
-#define HYPERV_CPUID_VENDOR_AND_MAX_FUNCTIONS   0x40000000
-#define HYPERV_CPUID_INTERFACE                  0x40000001
-#define HYPERV_CPUID_VERSION                    0x40000002
-#define HYPERV_CPUID_FEATURES                   0x40000003
-#define HYPERV_CPUID_ENLIGHTMENT_INFO           0x40000004
-#define HYPERV_CPUID_IMPLEMENT_LIMITS           0x40000005
-#define HYPERV_HYPERVISOR_PRESENT_BIT           0x80000000
-#define HYPERV_CPUID_MIN                        0x40000005
-#define HYPERV_CPUID_MAX                        0x4000ffff
+#define HYPERV_CPUID_VENDOR_AND_MAX_FUNCTIONS 0x40000000
+#define HYPERV_CPUID_INTERFACE                0x40000001
+#define HYPERV_CPUID_VERSION                  0x40000002
+#define HYPERV_CPUID_FEATURES                 0x40000003
+#define HYPERV_CPUID_ENLIGHTMENT_INFO         0x40000004
+#define HYPERV_CPUID_IMPLEMENT_LIMITS         0x40000005
+#define HYPERV_HYPERVISOR_PRESENT_BIT         0x80000000
+#define HYPERV_CPUID_MIN                      0x40000005
+#define HYPERV_CPUID_MAX                      0x4000ffff
 
 #define DPL_USER   3
 #define DPL_SYSTEM 0
@@ -222,7 +224,7 @@ typedef struct _CPUID
         int ebx;
         int ecx;
         int edx;
-} CPUID, * PCPUID;
+} CPUID, *PCPUID;
 
 //
 // Structures
@@ -241,7 +243,7 @@ typedef union _IA32_FEATURE_CONTROL_MSR
                 ULONG64 Reserved3a : 16;        //
                 ULONG64 Reserved3b : 32;        // [16-63]
         } bits;
-} IA32_FEATURE_CONTROL_MSR, * PIA32_FEATURE_CONTROL_MSR;
+} IA32_FEATURE_CONTROL_MSR, *PIA32_FEATURE_CONTROL_MSR;
 
 typedef union _IA32_VMX_BASIC_MSR
 {
@@ -260,7 +262,7 @@ typedef union _IA32_VMX_BASIC_MSR
                 ULONG32 VmxCapabilityHint : 1;    // [55]
                 ULONG32 Reserved3 : 8;            // [56-63]
         } bits;
-} IA32_VMX_BASIC_MSR, * PIA32_VMX_BASIC_MSR;
+} IA32_VMX_BASIC_MSR, *PIA32_VMX_BASIC_MSR;
 
 typedef union _MSR
 {
@@ -271,7 +273,7 @@ typedef union _MSR
         };
 
         ULONG64 Content;
-} MSR, * PMSR;
+} MSR, *PMSR;
 
 typedef union SEGMENT_ATTRIBUTES
 {
@@ -328,7 +330,7 @@ typedef union _CR4
 
         UINT64 bit_address;
 
-} CR4, * PCR4;
+} CR4, *PCR4;
 
 typedef struct SEGMENT_SELECTOR
 {
@@ -336,7 +338,7 @@ typedef struct SEGMENT_SELECTOR
         SEGMENT_ATTRIBUTES ATTRIBUTES;
         ULONG32            LIMIT;
         ULONG64            BASE;
-} SEGMENT_SELECTOR, * PSEGMENT_SELECTOR;
+} SEGMENT_SELECTOR, *PSEGMENT_SELECTOR;
 
 typedef struct _SEGMENT_DESCRIPTOR
 {
@@ -346,7 +348,7 @@ typedef struct _SEGMENT_DESCRIPTOR
         UCHAR  ATTR0;
         UCHAR  LIMIT1ATTR1;
         UCHAR  BASE2;
-} SEGMENT_DESCRIPTOR, * PSEGMENT_DESCRIPTOR;
+} SEGMENT_DESCRIPTOR, *PSEGMENT_DESCRIPTOR;
 
 enum SEGREGS
 {
@@ -362,12 +364,12 @@ enum SEGREGS
 
 typedef struct _GUEST_CONTEXT
 {
-        M128A Xmm0;
-        M128A Xmm1;
-        M128A Xmm2;
-        M128A Xmm3;
-        M128A Xmm4;
-        M128A Xmm5;
+        M128A   Xmm0;
+        M128A   Xmm1;
+        M128A   Xmm2;
+        M128A   Xmm3;
+        M128A   Xmm4;
+        M128A   Xmm5;
         ULONG64 rax; // 0x00         // NOT VALID FOR SVM
         ULONG64 rcx;
         ULONG64 rdx; // 0x10
@@ -384,7 +386,7 @@ typedef struct _GUEST_CONTEXT
         ULONG64 r13;
         ULONG64 r14; // 0x70
         ULONG64 r15;
-} GUEST_CONTEXT, * PGUEST_CONTEXT;
+} GUEST_CONTEXT, *PGUEST_CONTEXT;
 
 typedef union _RFLAGS
 {
@@ -441,7 +443,7 @@ typedef struct _NATURAL_STATE
         UINT64 sysenter_esp;
         UINT64 sysenter_eip;
 
-} NATURAL_STATE, * PNATURAL_STATE;
+} NATURAL_STATE, *PNATURAL_STATE;
 
 typedef struct _QWORD_BIT_STATE
 {
@@ -455,7 +457,7 @@ typedef struct _QWORD_BIT_STATE
         UINT64 pdpte2;
         UINT64 pdpte3;
 
-} QWORD_BIT_STATE, * PQWORD_BIT_STATE;
+} QWORD_BIT_STATE, *PQWORD_BIT_STATE;
 
 typedef struct _DWORD_BIT_STATE
 {
@@ -483,7 +485,7 @@ typedef struct _DWORD_BIT_STATE
         UINT32 sysenter_cs;
         UINT32 vmx_preemption_timer_value;
 
-} DWORD_BIT_STATE, * PDWORD_BIT_STATE;
+} DWORD_BIT_STATE, *PDWORD_BIT_STATE;
 
 typedef struct _WORD_BIT_STATE
 {
@@ -498,7 +500,7 @@ typedef struct _WORD_BIT_STATE
         UINT16 interrupt_status;
         UINT16 pml_index;
 
-} WORD_BIT_STATE, * PWORD_BIT_STATE;
+} WORD_BIT_STATE, *PWORD_BIT_STATE;
 
 typedef struct _VMCS_GUEST_STATE_FIELDS
 {
@@ -507,7 +509,7 @@ typedef struct _VMCS_GUEST_STATE_FIELDS
         DWORD_BIT_STATE dword_state;
         WORD_BIT_STATE  word_state;
 
-} VMCS_GUEST_STATE_FIELDS, * PVMCS_GUEST_STATE_FIELDS;
+} VMCS_GUEST_STATE_FIELDS, *PVMCS_GUEST_STATE_FIELDS;
 
 /*
  * Host state area
@@ -522,7 +524,7 @@ typedef struct _HOST_WORD_BIT_STATE
         UINT16 gs_selector;
         UINT16 tr_selector;
 
-} HOST_WORD_BIT_STATE, * PHOST_WORD_BIT_STATE;
+} HOST_WORD_BIT_STATE, *PHOST_WORD_BIT_STATE;
 
 typedef struct _HOST_NATURAL_BIT_STATE
 {
@@ -539,7 +541,7 @@ typedef struct _HOST_NATURAL_BIT_STATE
         UINT64 ia32_sysenter_esp;
         UINT64 ia32_sysenter_eip;
 
-} HOST_NATURAL_BIT_STATE, * PHOST_NATURAL_BIT_STATE;
+} HOST_NATURAL_BIT_STATE, *PHOST_NATURAL_BIT_STATE;
 
 typedef struct _HOST_QWORD_BIT_STATE
 {
@@ -547,22 +549,22 @@ typedef struct _HOST_QWORD_BIT_STATE
         UINT64 efer;
         UINT64 ia32_perf_global_ctrl;
 
-}HOST_QWORD_BIT_STATE, *PHOST_QWORD_BIT_STATE;
+} HOST_QWORD_BIT_STATE, *PHOST_QWORD_BIT_STATE;
 
 typedef struct _HOST_DWORD_BIT_STATE
 {
         UINT32 ia32_sysenter_cs;
 
-} HOST_DWORD_BIT_STATE, * PHOST_DWORD_BIT_STATE;
+} HOST_DWORD_BIT_STATE, *PHOST_DWORD_BIT_STATE;
 
 typedef struct _VMCS_HOST_STATE_FIELDS
 {
-        HOST_WORD_BIT_STATE word_state;
-        HOST_DWORD_BIT_STATE dword_state;
-        HOST_QWORD_BIT_STATE qword_state;
+        HOST_WORD_BIT_STATE    word_state;
+        HOST_DWORD_BIT_STATE   dword_state;
+        HOST_QWORD_BIT_STATE   qword_state;
         HOST_NATURAL_BIT_STATE natural_state;
 
-} VMCS_HOST_STATE_FIELDS, * PVMCS_HOST_STATE_FIELDS;
+} VMCS_HOST_STATE_FIELDS, *PVMCS_HOST_STATE_FIELDS;
 
 typedef struct _CONTROL_QWORD_BIT_STATE
 {
@@ -592,7 +594,7 @@ typedef struct _CONTROL_QWORD_BIT_STATE
         UINT64 encls_exiting_bitmap;
         UINT64 tsc_multiplier;
 
-} CONTROL_QWORD_BIT_STATE, * PCONTROL_QWORD_BIT_STATE;
+} CONTROL_QWORD_BIT_STATE, *PCONTROL_QWORD_BIT_STATE;
 
 typedef struct _CONTROL_DWORD_BIT_STATE
 {
@@ -615,7 +617,7 @@ typedef struct _CONTROL_DWORD_BIT_STATE
         UINT32 ple_gap;
         UINT32 ple_window;
 
-} CONTROL_DWORD_BIT_STATE, * PCONTROL_DWORD_BIT_STATE;
+} CONTROL_DWORD_BIT_STATE, *PCONTROL_DWORD_BIT_STATE;
 
 typedef struct _CONTROL_WORD_BIT_STATE
 {
@@ -623,7 +625,7 @@ typedef struct _CONTROL_WORD_BIT_STATE
         UINT16 posted_interrupt_notification_vector;
         UINT16 eptp_index;
 
-} CONTROL_WORD_BIT_STATE, * PCONTROL_WORD_BIT_STATE;
+} CONTROL_WORD_BIT_STATE, *PCONTROL_WORD_BIT_STATE;
 
 typedef struct _CONTROL_NATURAL_BIT_STATE
 {
@@ -636,7 +638,7 @@ typedef struct _CONTROL_NATURAL_BIT_STATE
         UINT64 cr3_target_value_2;
         UINT64 cr3_target_value_3;
 
-} CONTROL_NATURAL_BIT_STATE, * PCONTROL_NATURAL_BIT_STATE;
+} CONTROL_NATURAL_BIT_STATE, *PCONTROL_NATURAL_BIT_STATE;
 
 typedef struct _VMCS_CONTROL_STATE_FIELDS
 {
@@ -645,7 +647,7 @@ typedef struct _VMCS_CONTROL_STATE_FIELDS
         CONTROL_QWORD_BIT_STATE   qword_state;
         CONTROL_NATURAL_BIT_STATE natural_state;
 
-} VMCS_CONTROL_STATE_FIELDS, * PVMCS_CONTROL_STATE_FIELDS;
+} VMCS_CONTROL_STATE_FIELDS, *PVMCS_CONTROL_STATE_FIELDS;
 
 typedef struct _VM_EXIT_NATURAL_STATE
 {
@@ -656,13 +658,13 @@ typedef struct _VM_EXIT_NATURAL_STATE
         UINT64 io_rip;
         UINT64 guest_linear_address;
 
-}VM_EXIT_NATURAL_STATE, *PVM_EXIT_NATURAL_STATE;
+} VM_EXIT_NATURAL_STATE, *PVM_EXIT_NATURAL_STATE;
 
 typedef struct _VM_EXIT_QWORD_STATE
 {
         UINT64 guest_physical_address;
 
-}VM_EXIT_QWORD_STATE, *PVM_EXIT_QWORD_STATE;
+} VM_EXIT_QWORD_STATE, *PVM_EXIT_QWORD_STATE;
 
 typedef struct _VM_EXIT_DWORD_STATE
 {
@@ -675,22 +677,22 @@ typedef struct _VM_EXIT_DWORD_STATE
         UINT32 instruction_length;
         UINT32 instruction_info;
 
-}VM_EXIT_DWORD_STATE, *PVM_EXIT_DWORD_STATE;
+} VM_EXIT_DWORD_STATE, *PVM_EXIT_DWORD_STATE;
 
 typedef struct _VM_EXIT_WORD_STATE
 {
         UINT16 reserved;
 
-}VM_EXIT_WORD_STATE, *PVM_EXIT_WORD_STATE;
+} VM_EXIT_WORD_STATE, *PVM_EXIT_WORD_STATE;
 
-typedef struct _VMCS_EXIT_STATE_FIELDS 
+typedef struct _VMCS_EXIT_STATE_FIELDS
 {
-        VM_EXIT_WORD_STATE word_state;
-        VM_EXIT_DWORD_STATE dword_state;
-        VM_EXIT_QWORD_STATE qword_state;
+        VM_EXIT_WORD_STATE    word_state;
+        VM_EXIT_DWORD_STATE   dword_state;
+        VM_EXIT_QWORD_STATE   qword_state;
         VM_EXIT_NATURAL_STATE natural_state;
 
-}VMCS_EXIT_STATE_FIELDS, *PVMCS_EXIT_STATE_FIELDS;
+} VMCS_EXIT_STATE_FIELDS, *PVMCS_EXIT_STATE_FIELDS;
 
 /*
  * 24.11.2
@@ -709,7 +711,7 @@ typedef union _VMCS_ENCODING
 
         UINT32 address;
 
-} VMCS_ENCODING, * PVMCS_ENCODING;
+} VMCS_ENCODING, *PVMCS_ENCODING;
 
 typedef enum _VMCS_ACCESS_TYPE
 {
@@ -720,18 +722,18 @@ typedef enum _VMCS_ACCESS_TYPE
 
 typedef enum _VMCS_TYPE
 {
-        VMCS_TYPE_CONTROL = 0,
+        VMCS_TYPE_CONTROL          = 0,
         VMCS_TYPE_EXIT_INFORMATION = 1,
-        VMCS_TYPE_GUEST_STATE = 2,
-        VMCS_TYPE_HOST_STATE = 3
+        VMCS_TYPE_GUEST_STATE      = 2,
+        VMCS_TYPE_HOST_STATE       = 3
 
 } VMCS_TYPE;
 
 typedef enum _VMCS_WIDTH
 {
-        VMCS_WIDTH_16 = 0,
-        VMCS_WIDTH_64 = 1,
-        VMCS_WIDTH_32 = 2,
+        VMCS_WIDTH_16      = 0,
+        VMCS_WIDTH_64      = 1,
+        VMCS_WIDTH_32      = 2,
         VMCS_WIDTH_NATURAL = 3
 
 } VMCS_WIDTH;
@@ -750,141 +752,141 @@ typedef union _MOV_CR_QUALIFICATION
                 ULONG LMSWSourceData : 16;
                 ULONG Reserved3;
         } Fields;
-} MOV_CR_QUALIFICATION, * PMOV_CR_QUALIFICATION;
+} MOV_CR_QUALIFICATION, *PMOV_CR_QUALIFICATION;
 
 enum VMCS_FIELDS
 {
-        GUEST_ES_SELECTOR = 0x00000800,
-        GUEST_CS_SELECTOR = 0x00000802,
-        GUEST_SS_SELECTOR = 0x00000804,
-        GUEST_DS_SELECTOR = 0x00000806,
-        GUEST_FS_SELECTOR = 0x00000808,
-        GUEST_GS_SELECTOR = 0x0000080a,
-        GUEST_LDTR_SELECTOR = 0x0000080c,
-        GUEST_TR_SELECTOR = 0x0000080e,
-        HOST_ES_SELECTOR = 0x00000c00,
-        HOST_CS_SELECTOR = 0x00000c02,
-        HOST_SS_SELECTOR = 0x00000c04,
-        HOST_DS_SELECTOR = 0x00000c06,
-        HOST_FS_SELECTOR = 0x00000c08,
-        HOST_GS_SELECTOR = 0x00000c0a,
-        HOST_TR_SELECTOR = 0x00000c0c,
-        IO_BITMAP_A = 0x00002000,
-        IO_BITMAP_A_HIGH = 0x00002001,
-        IO_BITMAP_B = 0x00002002,
-        IO_BITMAP_B_HIGH = 0x00002003,
-        MSR_BITMAP = 0x00002004,
-        MSR_BITMAP_HIGH = 0x00002005,
-        VM_EXIT_MSR_STORE_ADDR = 0x00002006,
-        VM_EXIT_MSR_STORE_ADDR_HIGH = 0x00002007,
-        VM_EXIT_MSR_LOAD_ADDR = 0x00002008,
-        VM_EXIT_MSR_LOAD_ADDR_HIGH = 0x00002009,
-        VM_ENTRY_MSR_LOAD_ADDR = 0x0000200a,
-        VM_ENTRY_MSR_LOAD_ADDR_HIGH = 0x0000200b,
-        TSC_OFFSET = 0x00002010,
-        TSC_OFFSET_HIGH = 0x00002011,
-        VIRTUAL_APIC_PAGE_ADDR = 0x00002012,
-        VIRTUAL_APIC_PAGE_ADDR_HIGH = 0x00002013,
-        VMFUNC_CONTROLS = 0x00002018,
-        VMFUNC_CONTROLS_HIGH = 0x00002019,
-        EPT_POINTER_HIGH = 0x0000201B,
-        EPTP_LIST = 0x00002024,
-        EPTP_LIST_HIGH = 0x00002025,
-        GUEST_PHYSICAL_ADDRESS = 0x2400,
-        GUEST_PHYSICAL_ADDRESS_HIGH = 0x2401,
-        VMCS_LINK_POINTER = 0x00002800,
-        VMCS_LINK_POINTER_HIGH = 0x00002801,
-        GUEST_IA32_DEBUGCTL = 0x00002802,
-        GUEST_IA32_DEBUGCTL_HIGH = 0x00002803,
-        PIN_BASED_VM_EXEC_CONTROL = 0x00004000,
-        CPU_BASED_VM_EXEC_CONTROL = 0x00004002,
-        EXCEPTION_BITMAP = 0x00004004,
-        PAGE_FAULT_ERROR_CODE_MASK = 0x00004006,
-        PAGE_FAULT_ERROR_CODE_MATCH = 0x00004008,
-        CR3_TARGET_COUNT = 0x0000400a,
-        VM_EXIT_CONTROLS = 0x0000400c,
-        VM_EXIT_MSR_STORE_COUNT = 0x0000400e,
-        VM_EXIT_MSR_LOAD_COUNT = 0x00004010,
-        VM_ENTRY_CONTROLS = 0x00004012,
-        VM_ENTRY_MSR_LOAD_COUNT = 0x00004014,
-        VM_ENTRY_INTR_INFO_FIELD = 0x00004016,
+        GUEST_ES_SELECTOR             = 0x00000800,
+        GUEST_CS_SELECTOR             = 0x00000802,
+        GUEST_SS_SELECTOR             = 0x00000804,
+        GUEST_DS_SELECTOR             = 0x00000806,
+        GUEST_FS_SELECTOR             = 0x00000808,
+        GUEST_GS_SELECTOR             = 0x0000080a,
+        GUEST_LDTR_SELECTOR           = 0x0000080c,
+        GUEST_TR_SELECTOR             = 0x0000080e,
+        HOST_ES_SELECTOR              = 0x00000c00,
+        HOST_CS_SELECTOR              = 0x00000c02,
+        HOST_SS_SELECTOR              = 0x00000c04,
+        HOST_DS_SELECTOR              = 0x00000c06,
+        HOST_FS_SELECTOR              = 0x00000c08,
+        HOST_GS_SELECTOR              = 0x00000c0a,
+        HOST_TR_SELECTOR              = 0x00000c0c,
+        IO_BITMAP_A                   = 0x00002000,
+        IO_BITMAP_A_HIGH              = 0x00002001,
+        IO_BITMAP_B                   = 0x00002002,
+        IO_BITMAP_B_HIGH              = 0x00002003,
+        MSR_BITMAP                    = 0x00002004,
+        MSR_BITMAP_HIGH               = 0x00002005,
+        VM_EXIT_MSR_STORE_ADDR        = 0x00002006,
+        VM_EXIT_MSR_STORE_ADDR_HIGH   = 0x00002007,
+        VM_EXIT_MSR_LOAD_ADDR         = 0x00002008,
+        VM_EXIT_MSR_LOAD_ADDR_HIGH    = 0x00002009,
+        VM_ENTRY_MSR_LOAD_ADDR        = 0x0000200a,
+        VM_ENTRY_MSR_LOAD_ADDR_HIGH   = 0x0000200b,
+        TSC_OFFSET                    = 0x00002010,
+        TSC_OFFSET_HIGH               = 0x00002011,
+        VIRTUAL_APIC_PAGE_ADDR        = 0x00002012,
+        VIRTUAL_APIC_PAGE_ADDR_HIGH   = 0x00002013,
+        VMFUNC_CONTROLS               = 0x00002018,
+        VMFUNC_CONTROLS_HIGH          = 0x00002019,
+        EPT_POINTER_HIGH              = 0x0000201B,
+        EPTP_LIST                     = 0x00002024,
+        EPTP_LIST_HIGH                = 0x00002025,
+        GUEST_PHYSICAL_ADDRESS        = 0x2400,
+        GUEST_PHYSICAL_ADDRESS_HIGH   = 0x2401,
+        VMCS_LINK_POINTER             = 0x00002800,
+        VMCS_LINK_POINTER_HIGH        = 0x00002801,
+        GUEST_IA32_DEBUGCTL           = 0x00002802,
+        GUEST_IA32_DEBUGCTL_HIGH      = 0x00002803,
+        PIN_BASED_VM_EXEC_CONTROL     = 0x00004000,
+        CPU_BASED_VM_EXEC_CONTROL     = 0x00004002,
+        EXCEPTION_BITMAP              = 0x00004004,
+        PAGE_FAULT_ERROR_CODE_MASK    = 0x00004006,
+        PAGE_FAULT_ERROR_CODE_MATCH   = 0x00004008,
+        CR3_TARGET_COUNT              = 0x0000400a,
+        VM_EXIT_CONTROLS              = 0x0000400c,
+        VM_EXIT_MSR_STORE_COUNT       = 0x0000400e,
+        VM_EXIT_MSR_LOAD_COUNT        = 0x00004010,
+        VM_ENTRY_CONTROLS             = 0x00004012,
+        VM_ENTRY_MSR_LOAD_COUNT       = 0x00004014,
+        VM_ENTRY_INTR_INFO_FIELD      = 0x00004016,
         VM_ENTRY_EXCEPTION_ERROR_CODE = 0x00004018,
-        VM_ENTRY_INSTRUCTION_LEN = 0x0000401a,
-        TPR_THRESHOLD = 0x0000401c,
-        SECONDARY_VM_EXEC_CONTROL = 0x0000401e,
-        VM_INSTRUCTION_ERROR = 0x00004400,
-        VM_EXIT_REASON = 0x00004402,
-        VM_EXIT_INTR_INFO = 0x00004404,
-        VM_EXIT_INTR_ERROR_CODE = 0x00004406,
-        IDT_VECTORING_INFO_FIELD = 0x00004408,
-        IDT_VECTORING_ERROR_CODE = 0x0000440a,
-        VM_EXIT_INSTRUCTION_LEN = 0x0000440c,
-        VMX_INSTRUCTION_INFO = 0x0000440e,
-        GUEST_ES_LIMIT = 0x00004800,
-        GUEST_CS_LIMIT = 0x00004802,
-        GUEST_SS_LIMIT = 0x00004804,
-        GUEST_DS_LIMIT = 0x00004806,
-        GUEST_FS_LIMIT = 0x00004808,
-        GUEST_GS_LIMIT = 0x0000480a,
-        GUEST_LDTR_LIMIT = 0x0000480c,
-        GUEST_TR_LIMIT = 0x0000480e,
-        GUEST_GDTR_LIMIT = 0x00004810,
-        GUEST_IDTR_LIMIT = 0x00004812,
-        GUEST_ES_AR_BYTES = 0x00004814,
-        GUEST_CS_AR_BYTES = 0x00004816,
-        GUEST_SS_AR_BYTES = 0x00004818,
-        GUEST_DS_AR_BYTES = 0x0000481a,
-        GUEST_FS_AR_BYTES = 0x0000481c,
-        GUEST_GS_AR_BYTES = 0x0000481e,
-        GUEST_LDTR_AR_BYTES = 0x00004820,
-        GUEST_TR_AR_BYTES = 0x00004822,
-        GUEST_INTERRUPTIBILITY_INFO = 0x00004824,
-        GUEST_ACTIVITY_STATE = 0x00004826,
-        GUEST_SM_BASE = 0x00004828,
-        GUEST_SYSENTER_CS = 0x0000482A,
-        HOST_IA32_SYSENTER_CS = 0x00004c00,
-        CR0_GUEST_HOST_MASK = 0x00006000,
-        CR4_GUEST_HOST_MASK = 0x00006002,
-        CR0_READ_SHADOW = 0x00006004,
-        CR4_READ_SHADOW = 0x00006006,
-        CR3_TARGET_VALUE0 = 0x00006008,
-        CR3_TARGET_VALUE1 = 0x0000600a,
-        CR3_TARGET_VALUE2 = 0x0000600c,
-        CR3_TARGET_VALUE3 = 0x0000600e,
-        EXIT_QUALIFICATION = 0x00006400,
-        GUEST_LINEAR_ADDRESS = 0x0000640a,
-        GUEST_CR0 = 0x00006800,
-        GUEST_CR3 = 0x00006802,
-        GUEST_CR4 = 0x00006804,
-        GUEST_ES_BASE = 0x00006806,
-        GUEST_CS_BASE = 0x00006808,
-        GUEST_SS_BASE = 0x0000680a,
-        GUEST_DS_BASE = 0x0000680c,
-        GUEST_FS_BASE = 0x0000680e,
-        GUEST_GS_BASE = 0x00006810,
-        GUEST_LDTR_BASE = 0x00006812,
-        GUEST_TR_BASE = 0x00006814,
-        GUEST_GDTR_BASE = 0x00006816,
-        GUEST_IDTR_BASE = 0x00006818,
-        GUEST_DR7 = 0x0000681a,
-        GUEST_RSP = 0x0000681c,
-        GUEST_RIP = 0x0000681e,
-        GUEST_RFLAGS = 0x00006820,
-        GUEST_PENDING_DBG_EXCEPTIONS = 0x00006822,
-        GUEST_SYSENTER_ESP = 0x00006824,
-        GUEST_SYSENTER_EIP = 0x00006826,
-        HOST_CR0 = 0x00006c00,
-        HOST_CR3 = 0x00006c02,
-        HOST_CR4 = 0x00006c04,
-        HOST_FS_BASE = 0x00006c06,
-        HOST_GS_BASE = 0x00006c08,
-        HOST_TR_BASE = 0x00006c0a,
-        HOST_GDTR_BASE = 0x00006c0c,
-        HOST_IDTR_BASE = 0x00006c0e,
-        HOST_IA32_SYSENTER_ESP = 0x00006c10,
-        HOST_IA32_SYSENTER_EIP = 0x00006c12,
-        HOST_RSP = 0x00006c14,
-        HOST_RIP = 0x00006c16,
+        VM_ENTRY_INSTRUCTION_LEN      = 0x0000401a,
+        TPR_THRESHOLD                 = 0x0000401c,
+        SECONDARY_VM_EXEC_CONTROL     = 0x0000401e,
+        VM_INSTRUCTION_ERROR          = 0x00004400,
+        VM_EXIT_REASON                = 0x00004402,
+        VM_EXIT_INTR_INFO             = 0x00004404,
+        VM_EXIT_INTR_ERROR_CODE       = 0x00004406,
+        IDT_VECTORING_INFO_FIELD      = 0x00004408,
+        IDT_VECTORING_ERROR_CODE      = 0x0000440a,
+        VM_EXIT_INSTRUCTION_LEN       = 0x0000440c,
+        VMX_INSTRUCTION_INFO          = 0x0000440e,
+        GUEST_ES_LIMIT                = 0x00004800,
+        GUEST_CS_LIMIT                = 0x00004802,
+        GUEST_SS_LIMIT                = 0x00004804,
+        GUEST_DS_LIMIT                = 0x00004806,
+        GUEST_FS_LIMIT                = 0x00004808,
+        GUEST_GS_LIMIT                = 0x0000480a,
+        GUEST_LDTR_LIMIT              = 0x0000480c,
+        GUEST_TR_LIMIT                = 0x0000480e,
+        GUEST_GDTR_LIMIT              = 0x00004810,
+        GUEST_IDTR_LIMIT              = 0x00004812,
+        GUEST_ES_AR_BYTES             = 0x00004814,
+        GUEST_CS_AR_BYTES             = 0x00004816,
+        GUEST_SS_AR_BYTES             = 0x00004818,
+        GUEST_DS_AR_BYTES             = 0x0000481a,
+        GUEST_FS_AR_BYTES             = 0x0000481c,
+        GUEST_GS_AR_BYTES             = 0x0000481e,
+        GUEST_LDTR_AR_BYTES           = 0x00004820,
+        GUEST_TR_AR_BYTES             = 0x00004822,
+        GUEST_INTERRUPTIBILITY_INFO   = 0x00004824,
+        GUEST_ACTIVITY_STATE          = 0x00004826,
+        GUEST_SM_BASE                 = 0x00004828,
+        GUEST_SYSENTER_CS             = 0x0000482A,
+        HOST_IA32_SYSENTER_CS         = 0x00004c00,
+        CR0_GUEST_HOST_MASK           = 0x00006000,
+        CR4_GUEST_HOST_MASK           = 0x00006002,
+        CR0_READ_SHADOW               = 0x00006004,
+        CR4_READ_SHADOW               = 0x00006006,
+        CR3_TARGET_VALUE0             = 0x00006008,
+        CR3_TARGET_VALUE1             = 0x0000600a,
+        CR3_TARGET_VALUE2             = 0x0000600c,
+        CR3_TARGET_VALUE3             = 0x0000600e,
+        EXIT_QUALIFICATION            = 0x00006400,
+        GUEST_LINEAR_ADDRESS          = 0x0000640a,
+        GUEST_CR0                     = 0x00006800,
+        GUEST_CR3                     = 0x00006802,
+        GUEST_CR4                     = 0x00006804,
+        GUEST_ES_BASE                 = 0x00006806,
+        GUEST_CS_BASE                 = 0x00006808,
+        GUEST_SS_BASE                 = 0x0000680a,
+        GUEST_DS_BASE                 = 0x0000680c,
+        GUEST_FS_BASE                 = 0x0000680e,
+        GUEST_GS_BASE                 = 0x00006810,
+        GUEST_LDTR_BASE               = 0x00006812,
+        GUEST_TR_BASE                 = 0x00006814,
+        GUEST_GDTR_BASE               = 0x00006816,
+        GUEST_IDTR_BASE               = 0x00006818,
+        GUEST_DR7                     = 0x0000681a,
+        GUEST_RSP                     = 0x0000681c,
+        GUEST_RIP                     = 0x0000681e,
+        GUEST_RFLAGS                  = 0x00006820,
+        GUEST_PENDING_DBG_EXCEPTIONS  = 0x00006822,
+        GUEST_SYSENTER_ESP            = 0x00006824,
+        GUEST_SYSENTER_EIP            = 0x00006826,
+        HOST_CR0                      = 0x00006c00,
+        HOST_CR3                      = 0x00006c02,
+        HOST_CR4                      = 0x00006c04,
+        HOST_FS_BASE                  = 0x00006c06,
+        HOST_GS_BASE                  = 0x00006c08,
+        HOST_TR_BASE                  = 0x00006c0a,
+        HOST_GDTR_BASE                = 0x00006c0c,
+        HOST_IDTR_BASE                = 0x00006c0e,
+        HOST_IA32_SYSENTER_ESP        = 0x00006c10,
+        HOST_IA32_SYSENTER_EIP        = 0x00006c12,
+        HOST_RSP                      = 0x00006c14,
+        HOST_RIP                      = 0x00006c16,
 };
 
 #define CONTROL_REGISTER_0 0

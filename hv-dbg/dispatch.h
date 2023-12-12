@@ -4,8 +4,6 @@
 #include "common.h"
 
 VOID
-VmExitDispatcher(
-        _In_ PGUEST_CONTEXT GuestState
-);
+VmExitDispatcher(_In_ PGUEST_CONTEXT GuestState);
 
 #endif
