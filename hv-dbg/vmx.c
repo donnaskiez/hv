@@ -31,7 +31,7 @@ IsVmxSupported()
 {
         CPUID cpuid = {0};
 
-        __cpuid((INT *)&cpuid, 1);
+        __cpuid((INT*)&cpuid, 1);
         if ((cpuid.ecx & (1 << 5)) == 0)
                 return FALSE;
 
@@ -75,8 +75,7 @@ hvdbgAllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         physical_max.QuadPart = MAXULONG64;
 
-        virtual_allocation =
-            MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
+        virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
         if (!virtual_allocation)
         {
@@ -97,7 +96,7 @@ hvdbgAllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
-        *(UINT64 *)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
+        *(UINT64*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
 
         GuestState->vmcs_region_pa = physical_allocation;
 
@@ -117,8 +116,7 @@ hvdbgAllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         physical_max.QuadPart = MAXULONG64;
 
-        virtual_allocation =
-            MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
+        virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
         if (!virtual_allocation)
         {
@@ -138,7 +136,7 @@ hvdbgAllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         ia32_basic_msr.bit_address = __readmsr(MSR_IA32_VMX_BASIC);
 
-        *(UINT64 *)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
+        *(UINT64*)virtual_allocation = ia32_basic_msr.bits.RevisionIdentifier;
 
         status = __vmx_on(&physical_allocation);
 
@@ -165,8 +163,7 @@ BOOLEAN
 AllocateVmmState()
 {
         vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED,
-                                    sizeof(VIRTUAL_MACHINE_STATE) *
-                                        KeQueryActiveProcessorCount(0),
+                                    sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0),
                                     POOLTAG);
 
         return vmm_state != NULL ? TRUE : FALSE;
@@ -202,9 +199,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
 
                 if (!ZYAN_SUCCESS(status))
                 {
-                        DEBUG_ERROR(
-                            "InitialiseDisassemblerState failed with status %x",
-                            status);
+                        DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
                         return STATUS_ABANDONED;
                 }
 
@@ -221,9 +216,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
                 }
 
                 vmm_state[core].vmm_stack_va =
-                    ExAllocatePool2(POOL_FLAG_NON_PAGED,
-                                    VMM_STACK_SIZE,
-                                    POOLTAG);
+                    ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
 
                 if (!vmm_state[core].vmm_stack_va)
                 {
@@ -231,8 +224,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
                         return STATUS_MEMORY_NOT_ALLOCATED;
                 }
 
-                vmm_state[core].msr_bitmap_va =
-                    MmAllocateNonCachedMemory(PAGE_SIZE);
+                vmm_state[core].msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
 
                 if (!vmm_state[core].msr_bitmap_va)
                 {
@@ -243,8 +235,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
                 RtlSecureZeroMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
 
                 vmm_state[core].msr_bitmap_pa =
-                    MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va)
-                        .QuadPart;
+                    MmGetPhysicalAddress(vmm_state[core].msr_bitmap_va).QuadPart;
 
                 InitiateVmmCache(core);
         }
@@ -253,8 +244,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
 VOID
 VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 {
-        NTSTATUS status =
-            SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
+        NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
 
         if (!NT_SUCCESS(status))
         {
@@ -265,8 +255,7 @@ VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer)
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
-        DEBUG_ERROR("vmlaunch failed with status %lx",
-                    VmcsReadInstructionErrorCode());
+        DEBUG_ERROR("vmlaunch failed with status %lx", VmcsReadInstructionErrorCode());
 }
 
 STATIC
@@ -281,17 +270,14 @@ TerminateVmx(_In_ ULONG_PTR Argument)
 
         if (MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart)
                 MmFreeContiguousMemory(
-                    MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa)
-                        .QuadPart);
+                    MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart);
 
         if (MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart)
                 MmFreeContiguousMemory(
-                    MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa)
-                        .QuadPart);
+                    MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart);
 
         if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
-                MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va,
-                                      PAGE_SIZE);
+                MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va, PAGE_SIZE);
 
         if (vmm_state[proc_num].vmm_stack_va)
                 ExFreePoolWithTag(vmm_state[proc_num].vmm_stack_va, POOLTAG);

@@ -8,8 +8,8 @@
 VOID
 ResumeToNextInstruction(_In_ UINT64 InstructionOffset)
 {
-        VmcsWriteGuestRip(VmcsReadExitInstructionRip() +
-                          VmcsReadInstructionLength() + InstructionOffset);
+        VmcsWriteGuestRip(VmcsReadExitInstructionRip() + VmcsReadInstructionLength() +
+                          InstructionOffset);
 }
 
 VOID
@@ -22,14 +22,12 @@ VmResumeInstruction()
          * won't reach here since the next execution of host code will be the
          * exit handler rip.
          */
-        DEBUG_ERROR("vmresume failed with status: %lx",
-                    VmcsReadInstructionErrorCode());
+        DEBUG_ERROR("vmresume failed with status: %lx", VmcsReadInstructionErrorCode());
 }
 
 STATIC
 UINT64
-RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
-                               _In_ UINT32         Register)
+RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
 {
         switch (Register)
         {
@@ -106,9 +104,7 @@ RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
 
 STATIC
 VOID
-WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
-                            _In_ UINT32         Register,
-                            _In_ UINT64         Value)
+WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register, _In_ UINT64 Value)
 {
         switch (Register)
         {
@@ -205,12 +201,9 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
  */
 STATIC
 VOID
-DispatchExitReasonMovToCr(_In_ PMOV_CR_QUALIFICATION Qualification,
-                          _In_ PGUEST_CONTEXT        Context)
+DispatchExitReasonMovToCr(_In_ PMOV_CR_QUALIFICATION Qualification, _In_ PGUEST_CONTEXT Context)
 {
-        UINT64 value =
-            RetrieveValueInContextRegister(Context,
-                                           Qualification->Fields.Register);
+        UINT64 value = RetrieveValueInContextRegister(Context, Qualification->Fields.Register);
 
         switch (Qualification->Fields.ControlRegister)
         {
@@ -244,25 +237,21 @@ DispatchExitReasonMovToCr(_In_ PMOV_CR_QUALIFICATION Qualification,
  */
 STATIC
 VOID
-DispatchExitReasonMovFromCr(_In_ PMOV_CR_QUALIFICATION Qualification,
-                            _In_ PGUEST_CONTEXT        Context)
+DispatchExitReasonMovFromCr(_In_ PMOV_CR_QUALIFICATION Qualification, _In_ PGUEST_CONTEXT Context)
 {
         switch (Qualification->Fields.ControlRegister)
         {
         case CONTROL_REGISTER_0:
-                WriteValueInContextRegister(Context,
-                                            Qualification->Fields.Register,
-                                            VmcsReadGuestCr0());
+                WriteValueInContextRegister(
+                    Context, Qualification->Fields.Register, VmcsReadGuestCr0());
                 break;
         case CONTROL_REGISTER_3:
-                WriteValueInContextRegister(Context,
-                                            Qualification->Fields.Register,
-                                            VmcsReadGuestCr3());
+                WriteValueInContextRegister(
+                    Context, Qualification->Fields.Register, VmcsReadGuestCr3());
                 break;
         case CONTROL_REGISTER_4:
-                WriteValueInContextRegister(Context,
-                                            Qualification->Fields.Register,
-                                            VmcsReadGuestCr4());
+                WriteValueInContextRegister(
+                    Context, Qualification->Fields.Register, VmcsReadGuestCr4());
                 break;
         default: break;
         }
@@ -279,8 +268,7 @@ DispatchExitReasonMovFromCr(_In_ PMOV_CR_QUALIFICATION Qualification,
  */
 STATIC
 VOID
-DispatchExitReasonCLTS(_In_ PMOV_CR_QUALIFICATION Qualification,
-                       _In_ PGUEST_CONTEXT        Context)
+DispatchExitReasonCLTS(_In_ PMOV_CR_QUALIFICATION Qualification, _In_ PGUEST_CONTEXT Context)
 {
         DEBUG_LOG("Dispatching CLTS instruction");
 
@@ -325,12 +313,8 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 
         switch (qualification.Fields.AccessType)
         {
-        case TYPE_MOV_TO_CR:
-                DispatchExitReasonMovToCr(&qualification, Context);
-                break;
-        case TYPE_MOV_FROM_CR:
-                DispatchExitReasonMovFromCr(&qualification, Context);
-                break;
+        case TYPE_MOV_TO_CR: DispatchExitReasonMovToCr(&qualification, Context); break;
+        case TYPE_MOV_FROM_CR: DispatchExitReasonMovFromCr(&qualification, Context); break;
         case TYPE_CLTS: DispatchExitReasonCLTS(&qualification, Context); break;
         case TYPE_LMSW: break;
         default: break;
@@ -349,8 +333,7 @@ STATIC
 VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 {
-        PVIRTUAL_MACHINE_STATE state =
-            &vmm_state[KeGetCurrentProcessorNumber()];
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
 
         /*
          * If its the first time performing the CPUID instruction from root
@@ -374,9 +357,7 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
         }
         else
         {
-                __cpuidex(state->cache.cpuid.value,
-                          (INT32)GuestState->rax,
-                          (INT32)GuestState->rcx);
+                __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
 
                 GuestState->rax = state->cache.cpuid.value[0];
                 GuestState->rbx = state->cache.cpuid.value[1];
@@ -404,9 +385,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
         case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
         case EXIT_REASON_VMCALL:
-        case EXIT_REASON_CR_ACCESS:
-                DispatchExitReasonControlRegisterAccess(Context);
-                break;
+        case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context); break;
         case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break;
         case EXIT_REASON_EPT_VIOLATION:
         default:

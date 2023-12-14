@@ -25,11 +25,10 @@ DeviceCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 
         NTSTATUS          status  = STATUS_ABANDONED;
         PIPI_CALL_CONTEXT context = NULL;
-        EPT_POINTER *     pept    = NULL;
+        EPT_POINTER*      pept    = NULL;
 
         context = ExAllocatePool2(POOL_FLAG_NON_PAGED,
-                                  KeQueryActiveProcessorCount(0) *
-                                      sizeof(IPI_CALL_CONTEXT),
+                                  KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT),
                                   POOLTAG);
 
         if (!context)

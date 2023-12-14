@@ -6,6 +6,6 @@
 #include "ia32.h"
 
 NTSTATUS
-InitializeEptp(_Out_ EPT_POINTER ** EptPointer);
+InitializeEptp(_Out_ EPT_POINTER** EptPointer);
 
 #endif

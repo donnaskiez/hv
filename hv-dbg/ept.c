@@ -5,14 +5,14 @@
 #define NUM_PAGES 100
 
 NTSTATUS
-InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
+InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 {
-        EPT_PML4E *   pml4          = NULL;
-        EPT_PDPTE *   pdpt          = NULL;
-        EPT_PDE *     pd            = NULL;
-        EPT_PTE *     pt            = NULL;
-        EPT_POINTER * ept           = NULL;
-        UINT64        guest_virtual = NULL;
+        EPT_PML4E*   pml4          = NULL;
+        EPT_PDPTE*   pdpt          = NULL;
+        EPT_PDE*     pd            = NULL;
+        EPT_PTE*     pt            = NULL;
+        EPT_POINTER* ept           = NULL;
+        UINT64       guest_virtual = NULL;
 
         *EptPointer = NULL;
 
@@ -74,9 +74,7 @@ InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
 
         RtlZeroMemory(pt, PAGE_SIZE);
 
-        guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED,
-                                        NUM_PAGES * PAGE_SIZE,
-                                        POOLTAG);
+        guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED, NUM_PAGES * PAGE_SIZE, POOLTAG);
 
         if (!guest_virtual)
         {
@@ -99,9 +97,7 @@ InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
                 pt[index].Fields.UserModeExecute = 0;
                 pt[index].Fields.IgnorePat       = 0;
                 pt[index].Fields.PageFrameNumber =
-                    MmGetPhysicalAddress(guest_virtual + (index * PAGE_SIZE))
-                        .QuadPart /
-                    PAGE_SIZE;
+                    MmGetPhysicalAddress(guest_virtual + (index * PAGE_SIZE)).QuadPart / PAGE_SIZE;
                 pt[index].Fields.ReadAccess  = 1;
                 pt[index].Fields.SuppressVe  = 0;
                 pt[index].Fields.WriteAccess = 1;
@@ -113,12 +109,11 @@ InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
         pd->Fields.Reserved1       = 0;
         pd->Fields.Reserved2       = 0;
         pd->Fields.Reserved3       = 0;
-        pd->Fields.PageFrameNumber =
-            MmGetPhysicalAddress(pt).QuadPart / PAGE_SIZE;
-        pd->Fields.ReadAccess  = 1;
-        pd->Fields.Reserved1   = 0;
-        pd->Fields.Reserved2   = 0;
-        pd->Fields.WriteAccess = 1;
+        pd->Fields.PageFrameNumber = MmGetPhysicalAddress(pt).QuadPart / PAGE_SIZE;
+        pd->Fields.ReadAccess      = 1;
+        pd->Fields.Reserved1       = 0;
+        pd->Fields.Reserved2       = 0;
+        pd->Fields.WriteAccess     = 1;
 
         pdpt->Fields.Accessed        = 0;
         pdpt->Fields.ExecuteAccess   = 1;
@@ -126,12 +121,11 @@ InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
         pdpt->Fields.Reserved1       = 0;
         pdpt->Fields.Reserved2       = 0;
         pdpt->Fields.Reserved3       = 0;
-        pdpt->Fields.PageFrameNumber =
-            MmGetPhysicalAddress(pd).QuadPart / PAGE_SIZE;
-        pdpt->Fields.ReadAccess  = 1;
-        pdpt->Fields.Reserved1   = 0;
-        pdpt->Fields.Reserved2   = 0;
-        pdpt->Fields.WriteAccess = 1;
+        pdpt->Fields.PageFrameNumber = MmGetPhysicalAddress(pd).QuadPart / PAGE_SIZE;
+        pdpt->Fields.ReadAccess      = 1;
+        pdpt->Fields.Reserved1       = 0;
+        pdpt->Fields.Reserved2       = 0;
+        pdpt->Fields.WriteAccess     = 1;
 
         pml4->Fields.Accessed        = 0;
         pml4->Fields.ExecuteAccess   = 1;
@@ -139,20 +133,18 @@ InitializeEptp(_Out_ EPT_POINTER ** EptPointer)
         pml4->Fields.Reserved1       = 0;
         pml4->Fields.Reserved2       = 0;
         pml4->Fields.Reserved3       = 0;
-        pml4->Fields.PageFrameNumber =
-            MmGetPhysicalAddress(pdpt).QuadPart / PAGE_SIZE;
-        pml4->Fields.ReadAccess  = 1;
-        pml4->Fields.Reserved1   = 0;
-        pml4->Fields.Reserved2   = 0;
-        pml4->Fields.WriteAccess = 1;
+        pml4->Fields.PageFrameNumber = MmGetPhysicalAddress(pdpt).QuadPart / PAGE_SIZE;
+        pml4->Fields.ReadAccess      = 1;
+        pml4->Fields.Reserved1       = 0;
+        pml4->Fields.Reserved2       = 0;
+        pml4->Fields.WriteAccess     = 1;
 
         ept->Fields.EnableAccessAndDirtyFlags = 1;
         ept->Fields.MemoryType                = 6;
         ept->Fields.PageWalkLength            = 3;
-        ept->Fields.PageFrameNumber =
-            MmGetPhysicalAddress(pml4).QuadPart / PAGE_SIZE;
-        ept->Fields.Reserved1 = 0;
-        ept->Fields.Reserved2 = 0;
+        ept->Fields.PageFrameNumber           = MmGetPhysicalAddress(pml4).QuadPart / PAGE_SIZE;
+        ept->Fields.Reserved1                 = 0;
+        ept->Fields.Reserved2                 = 0;
 
         *EptPointer = ept;
 

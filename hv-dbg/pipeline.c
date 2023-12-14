@@ -23,9 +23,7 @@ ZydisDecoder decoder = {0};
 ZyanStatus
 InitialiseDisassemblerState()
 {
-        return ZydisDecoderInit(&decoder,
-                                ZYDIS_MACHINE_MODE_LONG_64,
-                                ZYDIS_STACK_WIDTH_64);
+        return ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64);
 }
 
 /*
@@ -39,8 +37,7 @@ InitialiseDisassemblerState()
  */
 STATIC
 ZyanStatus
-DispatchMovInstruction(_In_ ZydisDecodedOperand * Operands,
-                       _In_ PGUEST_CONTEXT        Context)
+DispatchMovInstruction(_In_ ZydisDecodedOperand* Operands, _In_ PGUEST_CONTEXT Context)
 {
         switch (Operands[0].reg.value)
         {
@@ -122,9 +119,9 @@ DispatchMovInstruction(_In_ ZydisDecodedOperand * Operands,
 }
 
 ZyanStatus
-CheckForExitingInstruction(_In_ ZydisDecodedInstruction * Instruction,
-                           _In_ ZydisDecodedOperand *     Operands,
-                           _In_ PGUEST_CONTEXT            GuestState)
+CheckForExitingInstruction(_In_ ZydisDecodedInstruction* Instruction,
+                           _In_ ZydisDecodedOperand*     Operands,
+                           _In_ PGUEST_CONTEXT           GuestState)
 {
         switch (Instruction->mnemonic)
         {
@@ -172,9 +169,9 @@ CheckForExitingInstruction(_In_ ZydisDecodedInstruction * Instruction,
 }
 
 ZyanStatus
-DecodeInstructionAtAddress(_In_ PVOID                     Address,
-                           _In_ ZydisDecodedInstruction * Instruction,
-                           _In_ ZydisDecodedOperand *     Operands)
+DecodeInstructionAtAddress(_In_ PVOID                    Address,
+                           _In_ ZydisDecodedInstruction* Instruction,
+                           _In_ ZydisDecodedOperand*     Operands)
 {
         ZyanUSize  size   = 16;
         ZyanStatus status = ZYAN_STATUS_FAILED;
@@ -185,11 +182,7 @@ DecodeInstructionAtAddress(_In_ PVOID                     Address,
         if ((UINT64)Address <= 0xFFFF000000000000)
                 return ZYAN_STATUS_FAILED;
 
-        return ZydisDecoderDecodeFull(&decoder,
-                                      Address,
-                                      size,
-                                      Instruction,
-                                      Operands);
+        return ZydisDecoderDecodeFull(&decoder, Address, size, Instruction, Operands);
 }
 
 ZyanStatus
@@ -197,14 +190,13 @@ HandleFutureInstructions(_In_ PVOID             NextInstruction,
                          _Inout_ PGUEST_CONTEXT Context,
                          _Out_ PUINT64          RipIncrementSize)
 {
-        ZyanStatus              status = ZYAN_STATUS_FAILED;
+        ZyanStatus              status                            = ZYAN_STATUS_FAILED;
         ZydisDecodedOperand     operands[ZYDIS_MAX_OPERAND_COUNT] = {0};
         ZydisDecodedInstruction instruction                       = {0};
 
         *RipIncrementSize = 0;
 
-        status =
-            DecodeInstructionAtAddress(NextInstruction, &instruction, operands);
+        status = DecodeInstructionAtAddress(NextInstruction, &instruction, operands);
 
         if (!ZYAN_SUCCESS(status))
                 return status;

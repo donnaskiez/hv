@@ -7,8 +7,8 @@
 
 typedef struct _IPI_CALL_CONTEXT
 {
-        EPT_POINTER * eptp;
-        PVOID         guest_stack;
+        EPT_POINTER* eptp;
+        PVOID        guest_stack;
 
 } IPI_CALL_CONTEXT, *PIPI_CALL_CONTEXT;
 

@@ -13,8 +13,8 @@ AlignOperands: true
 
 AlignTrailingComments: true
 
-AllowAllArgumentsOnNextLine: false
-AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
 
 AllowShortBlocksOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
@@ -28,6 +28,9 @@ AlwaysBreakTemplateDeclarations: true #false
 
 BinPackArguments: false
 BinPackParameters: false
+
+ExperimentalAutoDetectBinPacking: false
+AllowAllParametersOfDeclarationOnNextLine: true
 
 BreakBeforeBraces: Custom
 BraceWrapping:
@@ -48,7 +51,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: AfterColon
 BreakStringLiterals: false
 
-ColumnLimit: 80
+ColumnLimit: 100
 CommentPragmas: '^begin_wpp|^end_wpp|^FUNC |^USESUFFIX |^USESUFFIX '
 
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
@@ -71,7 +74,7 @@ MacroBlockEnd: '^END_MODULE$|^END_TEST_CLASS$|^END_TEST_METHOD$'
 
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None #All
-PointerAlignment: Middle
+PointerAlignment: Left
 ReflowComments: true
 SortIncludes: false
 
@@ -100,7 +103,7 @@ StatementMacros: [
     '_Success_',
     '_Check_return_',
     '_Must_inspect_result_',
-	'_IRQL_requires_same_',
+    '_IRQL_requires_same_',
     '_IRQL_requires_',
     '_IRQL_requires_max_',
     '_IRQL_requires_min_',
