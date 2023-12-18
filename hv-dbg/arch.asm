@@ -33,29 +33,15 @@ PUBLIC AsmVmxVmcall
 ; extern functions
 
 EXTERN VmExitDispatcher:PROC
-EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
 
 EXTERN VmmReadGuestRip:PROC
 EXTERN VmmReadGuestRsp:PROC
 
-EXTERN guest_rip:QWORD
-EXTERN guest_rsp:QWORD
-
-; vmm status error codes
-
-VMX_ERROR_CODE_SUCCESS              = 0
-VMX_ERROR_CODE_FAILED_WITH_STATUS   = 1
-VMX_ERROR_CODE_FAILED               = 2
-
 .code _text
 
-VmexitHandler PROC
-	
-	; save general purpose registers
+SAVE_GP macro
 
-	push 0
-	pushfq
 	push r15
 	push r14
 	push r13
@@ -71,142 +57,131 @@ VmexitHandler PROC
 	push rbx
 	push rdx
 	push rcx
-	push rax	
+	push rax
+
+endm
+
+RESTORE_GP macro
+
+	pop rax
+	pop rcx
+	pop rdx
+	pop rbx
+	pop rbp
+	pop rbp
+	pop rsi
+	pop rdi 
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+
+endm
+
+SAVE_FP macro
+
+	sub     rsp, 60h
+
+	vmovups  xmmword ptr [rsp +  0h], xmm0
+	vmovups  xmmword ptr [rsp + 10h], xmm1
+	vmovups  xmmword ptr [rsp + 20h], xmm2
+	vmovups  xmmword ptr [rsp + 30h], xmm3
+	vmovups  xmmword ptr [rsp + 40h], xmm4
+	vmovups  xmmword ptr [rsp + 50h], xmm5
+
+endm
+
+RESTORE_FP macro
+
+        vmovups  xmm0, xmmword ptr [rsp +  0h]
+        vmovups  xmm1, xmmword ptr [rsp + 10h]
+        vmovups  xmm2, xmmword ptr [rsp + 20h]
+        vmovups  xmm3, xmmword ptr [rsp + 30h]
+        vmovups  xmm4, xmmword ptr [rsp + 40h]
+        vmovups  xmm5, xmmword ptr [rsp + 50h]
+	
+        add     rsp, 60h
+
+endm
+
+VmexitHandler PROC
+
+	push 0		; ensure the stack is aligned
+
+	pushfq		; push eflags
+
+	SAVE_GP		; save general purpose registers	
 	
 	; save floating point registers
 	; vmovups allows us to store them in an unaligned address
 	; which is not ideal and should be fixed.
 
-	; sub     rsp, 60h
-
-	; vmovups  xmmword ptr [rsp +  0h], xmm0
-	; vmovups  xmmword ptr [rsp + 10h], xmm1
-	; vmovups  xmmword ptr [rsp + 20h], xmm2
-	; vmovups  xmmword ptr [rsp + 30h], xmm3
-	; vmovups  xmmword ptr [rsp + 40h], xmm4
-	; vmovups  xmmword ptr [rsp + 50h], xmm5
+	SAVE_FP
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
 
 	mov rcx, rsp
 
-	; allocate some space for the shadow stack
+	sub	rsp, 20h		; allocate some space for the shadow stack
 
-	sub	rsp, 20h
+	CALL	VmExitDispatcher	; call our vm exit dispatcher	
 
-	; call our vm exit dispatcher
+	add	rsp, 20h		; increment stack pointer to free our shadow stack space
 
-	CALL	VmExitDispatcher
+	cmp al, 1			; check if the return value from our exit dispatcher is 1 (true)
 
-	; increment stack pointer to free our shadow stack space	
+	je ExitVmx			; jump to ExitVmx routine if we returned true
 
-	add	rsp, 20h	
-
-	cmp al, 1
-	je ExitVmx
-
-	; restore our saved floating point registers back
-
-        ; vmovups  xmm0, xmmword ptr [rsp +  0h]
-        ; vmovups  xmm1, xmmword ptr [rsp + 10h]
-        ; vmovups  xmm2, xmmword ptr [rsp + 20h]
-        ; vmovups  xmm3, xmmword ptr [rsp + 30h]
-        ; vmovups  xmm4, xmmword ptr [rsp + 40h]
-        ; vmovups  xmm5, xmmword ptr [rsp + 50h]
-
-	; increment stack pointer since we've restored the floating point registers
+	RESTORE_FP			; restore fp registers
 	
-        ; add     rsp, 60h
+	RESTORE_GP			; restore gp registers
 
-	; pop the general purpose registers back
+	popfq				; restore eflags 
 
-	pop rax
-	pop rcx
-	pop rdx
-	pop rbx
-	pop rbp
-	pop rbp
-	pop rsi
-	pop rdi 
-	pop r8
-	pop r9
-	pop r10
-	pop r11
-	pop r12
-	pop r13
-	pop r14
-	pop r15
-	popfq
-			
-	; resume execution 
-
-	jmp VmResumeInstruction
+	vmresume			; resume vmx execution
 	
 VmexitHandler ENDP
 
 ExitVmx PROC
 
-	; vmovups  xmm0, xmmword ptr [rsp +  0h]
-        ; vmovups  xmm1, xmmword ptr [rsp + 10h]
-        ; vmovups  xmm2, xmmword ptr [rsp + 20h]
-        ; vmovups  xmm3, xmmword ptr [rsp + 30h]
-        ; vmovups  xmm4, xmmword ptr [rsp + 40h]
-        ; vmovups  xmm5, xmmword ptr [rsp + 50h]
+	sub rsp, 020h       ; shadow space
+	call VmmReadGuestRsp
+	add rsp, 020h       ; remove for shadow space
 
-	; increment stack pointer since we've restored the floating point registers
-	
-        ; add     rsp, 60h
+	mov [rsp+0e8h], rax  ; now, rax contains rsp
 
-	; pop the general purpose registers back
+	sub rsp, 020h       ; shadow space
+	call VmmReadGuestRip
+	add rsp, 020h       ; remove for shadow space
 
-    sub rsp, 020h       ; shadow space
-    call VmmReadGuestRsp
-    add rsp, 020h       ; remove for shadow space
+	mov rdx, rsp        ; save current rsp
 
-    mov [rsp+088h], rax  ; now, rax contains rsp
+	mov rbx, [rsp+0e8h] ; read rsp again
 
-    sub rsp, 020h       ; shadow space
-    call VmmReadGuestRip
-    add rsp, 020h       ; remove for shadow space
+	mov rsp, rbx
 
-    mov rdx, rsp        ; save current rsp
+	push rax            ; push the return address as we changed the stack, we push
+			; it to the new stack
 
-    mov rbx, [rsp+088h] ; read rsp again
-
-    mov rsp, rbx
-
-    push rax            ; push the return address as we changed the stack, we push
-                        ; it to the new stack
-
-    mov rsp, rdx        ; restore previous rsp
+	mov rsp, rdx        ; restore previous rsp
                         
-    sub rbx,08h         ; we push sth, so we have to add (sub) +8 from previous stack
-                        ; also rbx already contains the rsp
-    mov [rsp+088h], rbx ; move the new pointer to the current stack
+	sub rbx,08h         ; we push sth, so we have to add (sub) +8 from previous stack
+			; also rbx already contains the rsp
+	mov [rsp+0e8h], rbx ; move the new pointer to the current stack
 
-	RestoreState:
+	RESTORE_FP
 
-	pop rax
-	pop rcx
-	pop rdx
-	pop rbx
-	pop rbp		         ; rsp
-	pop rbp
-	pop rsi
-	pop rdi 
-	pop r8
-	pop r9
-	pop r10
-	pop r11
-	pop r12
-	pop r13
-	pop r14
-	pop r15
+	RESTORE_GP
 
 	popfq
 
 	pop		rsp     ; restore rsp
+
 	ret             ; jump back to where we called Vmcall
 
 ExitVmx ENDP
@@ -215,25 +190,12 @@ ExitVmx ENDP
 
 SaveStateAndVirtualizeCore PROC PUBLIC
 
-	push RAX
-	push RCX
-	push RDX
-	push RBX
-	push RBP
-	push RSI
-	push RDI
-	push R8
-	push R9
-	push R10
-	push R11
-	push R12
-	push R13
-	push R14
-	push R15
-	SUB RSP, 28h
-	MOV RDX, RSP
-	CALL VirtualizeCore	
-	RET
+	SAVE_GP
+
+	sub rsp, 28h
+	mov rdx, rsp
+	call VirtualizeCore	
+	ret
 
 SaveStateAndVirtualizeCore ENDP 
 
@@ -241,24 +203,11 @@ SaveStateAndVirtualizeCore ENDP
 
 VmxRestoreState PROC
 
-	ADD RSP, 28h
-	pop R15
-	pop R14
-	pop R13
-	pop R12
-	pop R11
-	pop R10
-	pop R9
-	pop R8
-	pop RDI
-	pop RSI
-	pop RBP
-	pop RBX
-	pop RDX
-	pop RCX
-	pop RAX
+	add rsp, 28h
+
+	RESTORE_GP
 	
-	RET
+	ret
 	
 VmxRestoreState ENDP
 

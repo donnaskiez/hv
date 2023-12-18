@@ -362,12 +362,12 @@ enum SEGREGS
 
 typedef struct _GUEST_CONTEXT
 {
-        //M128A  Xmm0;
-        //M128A  Xmm1;
-        //M128A  Xmm2;
-        //M128A  Xmm3;
-        //M128A  Xmm4;
-        //M128A  Xmm5;
+        M128A  Xmm0;
+        M128A  Xmm1;
+        M128A  Xmm2;
+        M128A  Xmm3;
+        M128A  Xmm4;
+        M128A  Xmm5;
         UINT64 rax;
         UINT64 rcx;
         UINT64 rdx;

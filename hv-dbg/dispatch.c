@@ -14,19 +14,6 @@ ResumeToNextInstruction(_In_ UINT64 InstructionOffset)
                           InstructionOffset);
 }
 
-VOID
-VmResumeInstruction()
-{
-        __vmx_vmresume();
-
-        /*
-         * As always if vmresume succeeds guest execution will continue and we
-         * won't reach here since the next execution of host code will be the
-         * exit handler rip.
-         */
-        DEBUG_ERROR("vmresume failed with status: %lx", VmcsReadInstructionErrorCode());
-}
-
 STATIC
 UINT64
 RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
