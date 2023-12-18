@@ -4,9 +4,6 @@
 #include "common.h"
 #include "vmx.h"
 
-extern UINT64 guest_rip;
-extern UINT64 guest_rsp;
-
 NTSTATUS
 SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer);
 
@@ -17,7 +14,7 @@ UINT32
 VmcsReadInstructionLength();
 
 UINT64
-VmcsReadExitInstructionRip();
+VmcsReadGuestRip();
 
 VOID
 VmcsWriteGuestRip(_In_ UINT64 NewValue);
@@ -54,8 +51,5 @@ VmcsReadGuestCr3();
 
 UINT64
 VmcsReadGuestCr4();
-
-VOID
-VmcsFillVmxOffGlobals();
 
 #endif

@@ -150,13 +150,17 @@ VmexitHandler ENDP
 ExitVmx PROC
 
 	sub rsp, 020h       ; shadow space
+
 	call VmmReadGuestRsp
+
 	add rsp, 020h       ; remove for shadow space
 
 	mov [rsp+0e8h], rax  ; now, rax contains rsp
 
 	sub rsp, 020h       ; shadow space
+
 	call VmmReadGuestRip
+
 	add rsp, 020h       ; remove for shadow space
 
 	mov rdx, rsp        ; save current rsp
@@ -171,7 +175,7 @@ ExitVmx PROC
 	mov rsp, rdx        ; restore previous rsp
                         
 	sub rbx,08h         ; we push sth, so we have to add (sub) +8 from previous stack
-			; also rbx already contains the rsp
+				; also rbx already contains the rsp
 	mov [rsp+0e8h], rbx ; move the new pointer to the current stack
 
 	RESTORE_FP

@@ -8,9 +8,7 @@ EXTERN
 VOID
 VmxRestoreState();
 
-EXTERN
-UINT64
-INLINE
+EXTERN UINT64 INLINE
 SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
 
 EXTERN
@@ -55,14 +53,15 @@ __writecr0(_In_ UINT64 Value);
 EXTERN VOID
 __writecr4(_In_ UINT64 Value);
 
-extern void
-AsmReloadGdtr(void* GdtBase, unsigned long GdtLimit);
-extern void
-AsmReloadIdtr(void* GdtBase, unsigned long GdtLimit);
+EXTERN VOID
+AsmReloadGdtr(PVOID GdtBase, UINT32 GdtLimit);
+EXTERN VOID
+AsmReloadIdtr(PVOID GdtBase, UINT32 GdtLimit);
 
-extern NTSTATUS inline AsmVmxVmcall(unsigned long long VmcallNumber,
-                                    unsigned long long OptionalParam1,
-                                    unsigned long long OptionalParam2,
-                                    unsigned long long OptionalParam3);
+EXTERN NTSTATUS INLINE
+AsmVmxVmcall(UINT64 VmcallNumber,
+             UINT64 OptionalParam1,
+             UINT64 OptionalParam2,
+             UINT64 OptionalParam3);
 
 #endif

@@ -29,20 +29,29 @@ typedef struct _VMM_CACHE
 
 } VMM_CACHE, *PVMM_CACHE;
 
+/*
+ * Stores information related to exiting vmx operation
+ */
+typedef struct _EXIT_STATE
+{
+        UINT64  guest_rip;
+        UINT64  guest_rsp;
+        BOOLEAN exit_vmx;
+
+} EXIT_STATE, *PEXIT_STATE;
+
 typedef struct _VIRTUAL_MACHINE_STATE
 {
-        UINT64    vmxon_region_pa;
-        UINT64    vmxon_region_va;
-        UINT64    vmcs_region_pa;
-        UINT64    vmcs_region_va;
-        UINT64    eptp_va;
-        UINT64    vmm_stack_va;
-        UINT64    msr_bitmap_va;
-        UINT64    msr_bitmap_pa;
-        BOOLEAN   exit;
-        VMM_CACHE cache;
-        UINT64    guest_rip;
-        UINT64    guest_rsp;
+        UINT64     vmxon_region_pa;
+        UINT64     vmxon_region_va;
+        UINT64     vmcs_region_pa;
+        UINT64     vmcs_region_va;
+        UINT64     eptp_va;
+        UINT64     vmm_stack_va;
+        UINT64     msr_bitmap_va;
+        UINT64     msr_bitmap_pa;
+        VMM_CACHE  cache;
+        EXIT_STATE exit_state;
 
 } VIRTUAL_MACHINE_STATE, *PVIRTUAL_MACHINE_STATE;
 

@@ -8,10 +8,9 @@
 #include "arch.h"
 
 VOID
-ResumeToNextInstruction(_In_ UINT64 InstructionOffset)
+IncrementGuestRip(_In_ UINT64 InstructionOffset)
 {
-        VmcsWriteGuestRip(VmcsReadExitInstructionRip() + VmcsReadInstructionLength() +
-                          InstructionOffset);
+        VmcsWriteGuestRip(VmcsReadGuestRip() + VmcsReadInstructionLength() + InstructionOffset);
 }
 
 STATIC
@@ -400,23 +399,12 @@ HvRestoreRegisters()
 VOID
 DispatchVmCallTerminateVmx()
 {
-        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
-
-        __writecr3(VmcsReadGuestCr3());
-
-        ResumeToNextInstruction(0);
-
-        state->guest_rip = VmcsReadExitInstructionRip();
-        state->guest_rsp = VmcsReadGuestRsp();
-
-        InterlockedExchange(&state->exit, TRUE);
-
-        HvRestoreRegisters();
-
-        __vmx_off();
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
+        state->exit_state.exit_vmx   = TRUE;
+        // InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
-VOID
+NTSTATUS
 VmCallDispatcher(_In_ UINT64 VmCallNumber,
                  _In_ UINT64 OptionalParameter1,
                  _In_ UINT64 OptionalParameter2,
@@ -426,90 +414,28 @@ VmCallDispatcher(_In_ UINT64 VmCallNumber,
 
         switch (VmCallNumber)
         {
-        case VMCALL_TERMINATE_VMX:
-        {
-                DispatchVmCallTerminateVmx();
-                break;
+        case VMCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
         }
-        }
-}
 
-STATIC
-BOOLEAN
-CheckForKernelModeAddress(_In_ UINT64 Address)
-{
-        if (Address < 0x000007FFFFFFFFFF)
-                return FALSE;
-        else
-                return TRUE;
+        return STATUS_SUCCESS;
 }
 
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
-        //        UINT64 additional_rip_offset = 0;
-        //
-        //        switch (VmcsReadExitReason())
-        //        {
-        //        case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
-        //        case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
-        //        case EXIT_REASON_VMCALL:
-        //        case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context);
-        //        break; case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break; case
-        //        EXIT_REASON_EPT_VIOLATION: default: break;
-        //        }
-        //
-        //        /*
-        //         * Once we have processed the initial instruction causing the vmexit, we
-        //         * can translate the next instruction. Once decoded, if its a vm-exit
-        //         * causing instruction we can process that instruction and then advance
-        //         * the rip by the size of the 2 exit-inducing instructions - saving us 1
-        //         * vm exit (2 minus 1 = 1).
-        //         */
-        //
-        //        #pragma warning(push)
-        // #pragma warning(disable : 6387)
-        //
-        //        // HandleFutureInstructions(
-        //        //     (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
-        //        //     Context,
-        //        //     &additional_rip_offset);
-        //
-        // #pragma warning(pop)
-        //
-        //        ResumeToNextInstruction(0);
-        //
-        //        __writecr0(VmcsReadGuestCr0());
-        //        __writecr3(VmcsReadGuestCr3());
-        //        __writecr4(VmcsReadGuestCr4());
-        //
-        //        return TRUE;
         UINT64                 additional_rip_offset = 0;
-        PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorNumber()];
-        //{
-        //        __writecr3(VmcsReadGuestCr3());
-        //        __writecr0(VmcsReadGuestCr0());
-        //        __writecr4(VmcsReadGuestCr4());
-        //        HvRestoreRegisters();
-        //        return TRUE;
-        //}
+        PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorIndex()];
 
         switch (VmcsReadExitReason())
         {
         case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
         case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
-        case EXIT_REASON_VMCALL: 
-        {
-                VmCallDispatcher(0, 0, 0, 0);
-                if (InterlockedExchange(&state->exit, state->exit))
-                        return TRUE;
-
-                return FALSE;
+        case EXIT_REASON_VMCALL:
+                Context->rax =
+                    VmCallDispatcher(Context->rcx, Context->rdx, Context->r8, Context->r9);
                 break;
-        }
         case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context); break;
         case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break;
-        case EXIT_REASON_EPT_VIOLATION:
         default: break;
         }
 
@@ -531,10 +457,44 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 
 #pragma warning(pop)
 
-        ResumeToNextInstruction(0);
+        /*
+         * Increment our guest rip by the size of the exiting instruction since we've processed it
+         */
+        IncrementGuestRip(0);
 
-        if (InterlockedExchange(&state->exit, state->exit))
+        if (state->exit_state.exit_vmx)
+        {
+                DEBUG_LOG("Exiting VMX operation");
+
+                /*
+                 * Since vmx root operation makes use of the system cr3, we need to ensure we write
+                 * the value of the guests previous cr3 before the exit took place to ensure they
+                 * have access to the correct cr3.
+                 */
+                __writecr3(VmcsReadGuestCr3());
+
+                /*
+                 * Before we execute vmxoff, store the guests rip and rsp in our vmxoff state
+                 * structure, this will allow us to use these values in the vmxoff part of our vmx
+                 * exit handler to properly restore the stack and instruction pointer after we
+                 * execute vmxoff
+                 */
+                state->exit_state.guest_rip = VmcsReadGuestRip();
+                state->exit_state.guest_rsp = VmcsReadGuestRsp();
+
+                HvRestoreRegisters();
+
+                /*
+                Execute the vmxoff instruction, leaving vmx operation
+                */
+                __vmx_off();
+
+                /*
+                 * Return true, indicating that we are ready to leave vmx operation in our exit
+                 * handler.
+                 */
                 return TRUE;
+        }
 
         return FALSE;
 }

@@ -272,7 +272,7 @@ VmcsReadInstructionLength()
 }
 
 UINT64
-VmcsReadExitInstructionRip()
+VmcsReadGuestRip()
 {
         UINT64 rip = 0;
         __vmx_vmread(guest_state_fields.natural_state.rip, &rip);
@@ -366,11 +366,11 @@ VmcsReadGuestCr4()
 UINT64 
 VmmReadGuestRip()
 {
-        return vmm_state[KeGetCurrentProcessorIndex()].guest_rip;
+        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
 }
 
 UINT64
 VmmReadGuestRsp()
 {
-        return vmm_state[KeGetCurrentProcessorIndex()].guest_rsp;
+        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
 }
