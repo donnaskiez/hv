@@ -892,3 +892,19 @@ enum VMCS_FIELDS
 #define CONTROL_REGISTER_3 3
 #define CONTROL_REGISTER_4 4
 #define CONTROL_REGISTER_8
+
+#pragma pack(push, 1)
+typedef struct _SEGMENT_DESCRIPTOR_REGISTER
+{
+        /**
+         * Limit.
+         */
+        UINT16 limit;
+
+        /**
+         * Base Address.
+         */
+        UINT64 base_address;
+
+} SEGMENT_DESCRIPTOR_REGISTER, *PSEGMENT_DESCRIPTOR_REGISTER;
+#pragma pack(pop)

@@ -54,9 +54,7 @@ EXTERN VOID
 __writecr4(_In_ UINT64 Value);
 
 EXTERN VOID
-AsmReloadGdtr(PVOID GdtBase, UINT32 GdtLimit);
-EXTERN VOID
-AsmReloadIdtr(PVOID GdtBase, UINT32 GdtLimit);
+__lgdt(_In_ PVOID Value);
 
 EXTERN NTSTATUS INLINE
 AsmVmxVmcall(UINT64 VmcallNumber,

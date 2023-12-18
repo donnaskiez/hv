@@ -52,4 +52,22 @@ VmcsReadGuestCr3();
 UINT64
 VmcsReadGuestCr4();
 
+UINT64
+VmcsReadGuestFsBase();
+
+UINT64
+VmcsReadGuestGsBase();
+
+UINT64
+VmcsReadGuestGdtrBase();
+
+UINT32
+VmcsReadGuestGdtrLimit();
+
+UINT64
+VmcsReadGuestIdtrBase();
+
+UINT32
+VmcsReadGuestIdtrLimit();
+
 #endif

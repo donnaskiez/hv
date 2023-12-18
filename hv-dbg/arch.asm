@@ -16,12 +16,10 @@ PUBLIC __getidtlimit
 PUBLIC __readrflags
 PUBLIC __readmsr
 PUBLIC __writemsr
+PUBLIC __lgdt
 
 PUBLIC __writecr0 
 PUBLIC __writecr4
-
-PUBLIC AsmReloadGdtr
-PUBLIC AsmReloadIdtr
 
 ; standard vmm handler functions
 
@@ -379,79 +377,44 @@ __writecr4 PROC
 
 __writecr4 ENDP
 
-;------------------------------------------------------------------------
+__lgdt PROC
 
-; AsmReloadGdtr (PVOID GdtBase (rcx), ULONG GdtLimit (rdx) );
-
-AsmReloadGdtr PROC
-
-	push rcx
-
-	shl rdx, 48
-
-	push rdx
-
-	lgdt fword ptr [rsp+6]	; do not try to modify stack selector with this ;)
-
-	pop rax
-
-	pop rax
-
+	lgdt fword ptr [rcx]
+	
 	ret
 
-AsmReloadGdtr ENDP
+__lgdt ENDP
 
-;------------------------------------------------------------------------
-
-; AsmReloadIdtr (PVOID IdtBase (rcx), ULONG IdtLimit (rdx) );
-
-AsmReloadIdtr PROC
-
-	push rcx
-
-	shl rdx, 48
-
-	push rdx
-
-	lidt fword ptr [rsp+6]
-
-	pop rax
-
-	pop rax
-
-	ret
-
-AsmReloadIdtr ENDP
 
 AsmVmxVmcall PROC
     
-    ; We change r10 to HVFS Hex ASCII and r11 to VMCALL Hex ASCII and r12 to NOHYPERV Hex ASCII so we can make sure that the calling Vmcall comes
-    ; from our hypervisor and we're resposible for managing it, otherwise it has to be managed by Hyper-V
-    pushfq
+	; We change r10 to HVFS Hex ASCII and r11 to VMCALL Hex ASCII and r12 to NOHYPERV Hex ASCII so we can make sure that the calling Vmcall comes
+	; from our hypervisor and we're resposible for managing it, otherwise it has to be managed by Hyper-V
+	pushfq
 
-    push r10
+	push r10
 
-    push r11
+	push r11
 
-    push r12
+	push r12
 
-    mov r10, 48564653H          ; [HVFS]
+	mov r10, 48564653H          ; [HVFS]
 
-    mov r11, 564d43414c4cH      ; [VMCALL]
+	mov r11, 564d43414c4cH      ; [VMCALL]
 
-    mov r12, 4e4f485950455256H   ; [NOHYPERV]
+	mov r12, 4e4f485950455256H   ; [NOHYPERV]
 
-    vmcall       
+	vmcall       
                    
-    pop r12
+	pop r12
 
-    pop r11
+	pop r11
 
-    pop r10
+	pop r10
 
-    popfq
+	popfq
 
-    ret                             ; Return type is NTSTATUS and it's on RAX from the previous function, no need to change anything
+	ret                             ; Return type is NTSTATUS and it's on RAX from the previous function, no need to change anything
 
 AsmVmxVmcall ENDP
 

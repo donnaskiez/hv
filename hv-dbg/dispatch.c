@@ -205,14 +205,14 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
          *
          * TODO: ensure each cache entry is word size aligned.
          */
-        //if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
+        // if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
         //{
-        //        GuestState->rax = state->cache.cpuid.value[0];
-        //        GuestState->rbx = state->cache.cpuid.value[1];
-        //        GuestState->rcx = state->cache.cpuid.value[2];
-        //        GuestState->rdx = state->cache.cpuid.value[3];
-        //}
-        //else
+        //         GuestState->rax = state->cache.cpuid.value[0];
+        //         GuestState->rbx = state->cache.cpuid.value[1];
+        //         GuestState->rcx = state->cache.cpuid.value[2];
+        //         GuestState->rdx = state->cache.cpuid.value[3];
+        // }
+        // else
         //{
 
         //        InterlockedExchange(&state->cache.cpuid.active, TRUE);
@@ -233,37 +233,6 @@ DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
         __wbinvd();
 }
 
-VOID
-HvRestoreRegisters()
-{
-        ULONG64 FsBase;
-        ULONG64 GsBase;
-        ULONG64 GdtrBase;
-        ULONG64 GdtrLimit;
-        ULONG64 IdtrBase;
-        ULONG64 IdtrLimit;
-
-        // Restore FS Base
-        __vmx_vmread(GUEST_FS_BASE, &FsBase);
-        __writemsr(MSR_FS_BASE, FsBase);
-
-        // Restore Gs Base
-        __vmx_vmread(GUEST_GS_BASE, &GsBase);
-        __writemsr(MSR_GS_BASE, GsBase);
-
-        // Restore GDTR
-        __vmx_vmread(GUEST_GDTR_BASE, &GdtrBase);
-        __vmx_vmread(GUEST_GDTR_LIMIT, &GdtrLimit);
-
-        AsmReloadGdtr(GdtrBase, GdtrLimit);
-
-        // Restore IDTR
-        __vmx_vmread(GUEST_IDTR_BASE, &IdtrBase);
-        __vmx_vmread(GUEST_IDTR_LIMIT, &IdtrLimit);
-
-        AsmReloadIdtr(IdtrBase, IdtrLimit);
-}
-
 #define VMCALL_TERMINATE_VMX 0
 
 VOID
@@ -273,6 +242,7 @@ DispatchVmCallTerminateVmx()
         InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
+STATIC
 NTSTATUS
 VmCallDispatcher(_In_ UINT64 VmCallNumber,
                  _In_ UINT64 OptionalParameter1,
@@ -337,26 +307,44 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 DEBUG_LOG("Exiting VMX operation");
 
                 /*
-                 * Since vmx root operation makes use of the system cr3, we need to ensure we write
-                 * the value of the guests previous cr3 before the exit took place to ensure they
-                 * have access to the correct cr3.
-                 */
-                __writecr3(VmcsReadGuestCr3());
-
-                /*
                  * Before we execute vmxoff, store the guests rip and rsp in our vmxoff state
                  * structure, this will allow us to use these values in the vmxoff part of our vmx
                  * exit handler to properly restore the stack and instruction pointer after we
                  * execute vmxoff
                  *
                  * The reason we must do this is since we are executing vmxoff, the rip and rsp will
-                 * no longer be automatically updated from the vmcs, hence we need to save the 2
-                 * values and update the registers with the values during our exit handler.
+                 * no longer be automatically updated by hardware from the vmcs, hence we need to
+                 * save the 2 values and update the registers with the values during our exit
+                 * handler before we call vmxoff
                  */
                 state->exit_state.guest_rip = VmcsReadGuestRip();
                 state->exit_state.guest_rsp = VmcsReadGuestRsp();
 
-                HvRestoreRegisters();
+                /*
+                 * Since vmx root operation makes use of the system cr3, we need to ensure we write
+                 * the value of the guests previous cr3 before the exit took place to ensure they
+                 * have access to the correct dtb
+                 */
+                __writecr3(VmcsReadGuestCr3());
+
+                /*
+                 * Do the same with the FS and GS base
+                 */
+                __writemsr(MSR_FS_BASE, VmcsReadGuestFsBase());
+                __writemsr(MSR_GS_BASE, VmcsReadGuestGsBase());
+
+                /*
+                 * Write back the guest gdtr and idtrs
+                 */
+                SEGMENT_DESCRIPTOR_REGISTER gdtr = {0};
+                gdtr.base_address                = VmcsReadGuestGdtrBase();
+                gdtr.limit                       = VmcsReadGuestGdtrLimit();
+                __lgdt(&gdtr);
+
+                SEGMENT_DESCRIPTOR_REGISTER idtr = {0};
+                idtr.base_address                = VmcsReadGuestIdtrBase();
+                idtr.limit                       = VmcsReadGuestIdtrLimit();
+                __lidt(&idtr);
 
                 /*
                 Execute the vmxoff instruction, leaving vmx operation

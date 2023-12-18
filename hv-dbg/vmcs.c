@@ -374,3 +374,51 @@ VmmReadGuestRsp()
 {
         return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
 }
+
+UINT64
+VmcsReadGuestFsBase()
+{
+        UINT64 base = 0;
+        __vmx_vmread(guest_state_fields.natural_state.fs_base, &base);
+        return base;
+}
+
+UINT64 
+VmcsReadGuestGsBase()
+{
+        UINT64 base = 0;
+        __vmx_vmread(guest_state_fields.natural_state.gs_base, &base);
+        return base;
+}
+
+UINT64
+VmcsReadGuestGdtrBase()
+{
+        UINT64 base = 0;
+        __vmx_vmread(guest_state_fields.natural_state.gdtr_base, &base);
+        return base;
+}
+
+UINT32
+VmcsReadGuestGdtrLimit()
+{
+        UINT32 limit = 0;
+        __vmx_vmread(guest_state_fields.dword_state.gdtr_limit, &limit);
+        return limit;
+}
+
+UINT64
+VmcsReadGuestIdtrBase()
+{
+        UINT64 base = 0;
+        __vmx_vmread(guest_state_fields.natural_state.idtr_base, &base);
+        return base;
+}
+
+UINT32
+VmcsReadGuestIdtrLimit()
+{
+        UINT32 limit = 0;
+        __vmx_vmread(guest_state_fields.dword_state.idtr_limit, &limit);
+        return limit;
+}
