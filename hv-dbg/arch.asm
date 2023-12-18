@@ -21,12 +21,13 @@ PUBLIC __lgdt
 PUBLIC __writecr0 
 PUBLIC __writecr4
 
+PUBLIC __vmx_vmcall
+
 ; standard vmm handler functions
 
 PUBLIC SaveStateAndVirtualizeCore
 PUBLIC VmexitHandler
 PUBLIC VmxRestoreState
-PUBLIC AsmVmxVmcall
 
 ; extern functions
 
@@ -386,36 +387,16 @@ __lgdt PROC
 __lgdt ENDP
 
 
-AsmVmxVmcall PROC
+__vmx_vmcall PROC
     
-	; We change r10 to HVFS Hex ASCII and r11 to VMCALL Hex ASCII and r12 to NOHYPERV Hex ASCII so we can make sure that the calling Vmcall comes
-	; from our hypervisor and we're resposible for managing it, otherwise it has to be managed by Hyper-V
 	pushfq
 
-	push r10
-
-	push r11
-
-	push r12
-
-	mov r10, 48564653H          ; [HVFS]
-
-	mov r11, 564d43414c4cH      ; [VMCALL]
-
-	mov r12, 4e4f485950455256H   ; [NOHYPERV]
-
 	vmcall       
-                   
-	pop r12
-
-	pop r11
-
-	pop r10
 
 	popfq
 
-	ret                             ; Return type is NTSTATUS and it's on RAX from the previous function, no need to change anything
+	ret
 
-AsmVmxVmcall ENDP
+__vmx_vmcall ENDP
 
 END

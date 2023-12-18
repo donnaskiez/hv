@@ -60,10 +60,10 @@ extern PVIRTUAL_MACHINE_STATE vmm_state;
 NTSTATUS
 InitiateVmx(_In_ PIPI_CALL_CONTEXT Context);
 
-BOOLEAN
+NTSTATUS
 BroadcastVmxInitiation(_In_ PIPI_CALL_CONTEXT Context);
 
-BOOLEAN
+NTSTATUS
 BroadcastVmxTermination();
 
 VOID

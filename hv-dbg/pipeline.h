@@ -10,7 +10,7 @@ HandleFutureInstructions(_In_ PVOID             NextInstruction,
                          _Inout_ PGUEST_CONTEXT GuestState,
                          _Out_ PUINT64          RipIncrementSize);
 
-ZyanStatus
+NTSTATUS
 InitialiseDisassemblerState();
 
 #endif

@@ -57,7 +57,7 @@ EXTERN VOID
 __lgdt(_In_ PVOID Value);
 
 EXTERN NTSTATUS INLINE
-AsmVmxVmcall(UINT64 VmcallNumber,
+__vmx_vmcall(UINT64 VmcallNumber,
              UINT64 OptionalParam1,
              UINT64 OptionalParam2,
              UINT64 OptionalParam3);

@@ -32,14 +32,13 @@ DeviceCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
                                   POOLTAG);
 
         if (!context)
-                return STATUS_ABANDONED;
+                goto end;
 
         status = InitializeEptp(&pept);
 
         if (!NT_SUCCESS(status))
         {
                 DEBUG_ERROR("Failed to initialise EPT");
-                ExFreePoolWithTag(context, POOLTAG);
                 goto end;
         }
 
@@ -49,10 +48,25 @@ DeviceCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
                 context[core].guest_stack = NULL;
         }
 
-        InitiateVmx(context);
-        BroadcastVmxInitiation(context);
+        status = InitiateVmx(context);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("InitiateVmx failed with status %x", status);
+                goto end;
+        }
+
+        status = BroadcastVmxInitiation(context);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("BroadcastVmxInitiation failed with status %x", status);
+                goto end;
+        }
 
 end:
+        if (context)
+                ExFreePoolWithTag(context, POOLTAG);
 
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;

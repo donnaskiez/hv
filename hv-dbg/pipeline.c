@@ -20,10 +20,15 @@
  */
 ZydisDecoder decoder = {0};
 
-ZyanStatus
+NTSTATUS
 InitialiseDisassemblerState()
 {
-        return ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64);
+        ZyanStatus status = ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64);
+
+        if (!ZYAN_SUCCESS(status))
+                return STATUS_ABANDONED;
+        else
+                return STATUS_SUCCESS;
 }
 
 /*
