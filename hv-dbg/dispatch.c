@@ -19,74 +19,23 @@ RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register
 {
         switch (Register)
         {
-        case VMX_EXIT_QUALIFICATION_GENREG_RAX:
-        {
-                return Context->rax;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RCX:
-        {
-                return Context->rcx;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RDX:
-        {
-                return Context->rdx;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RBX:
-        {
-                return Context->rbx;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RSP:
-        {
-                return Context->rsp;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RBP:
-        {
-                return Context->rbp;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RSI:
-        {
-                return Context->rsi;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RDI:
-        {
-                return Context->rdi;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R8:
-        {
-                return Context->r8;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R9:
-        {
-                return Context->r9;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R10:
-        {
-                return Context->r10;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R11:
-        {
-                return Context->r11;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R12:
-        {
-                return Context->r12;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R13:
-        {
-                return Context->r13;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R14:
-        {
-                return Context->r14;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R15:
-        {
-                return Context->r15;
-        }
-        default:
-        {
-                return 0;
-        }
+        case VMX_EXIT_QUALIFICATION_GENREG_RAX: return Context->rax;
+        case VMX_EXIT_QUALIFICATION_GENREG_RCX: return Context->rcx;
+        case VMX_EXIT_QUALIFICATION_GENREG_RDX: return Context->rdx;
+        case VMX_EXIT_QUALIFICATION_GENREG_RBX: return Context->rbx;
+        case VMX_EXIT_QUALIFICATION_GENREG_RSP: return Context->rsp;
+        case VMX_EXIT_QUALIFICATION_GENREG_RBP: return Context->rbp;
+        case VMX_EXIT_QUALIFICATION_GENREG_RSI: return Context->rsi;
+        case VMX_EXIT_QUALIFICATION_GENREG_RDI: return Context->rdi;
+        case VMX_EXIT_QUALIFICATION_GENREG_R8: return Context->r8;
+        case VMX_EXIT_QUALIFICATION_GENREG_R9: return Context->r9;
+        case VMX_EXIT_QUALIFICATION_GENREG_R10: return Context->r10;
+        case VMX_EXIT_QUALIFICATION_GENREG_R11: return Context->r11;
+        case VMX_EXIT_QUALIFICATION_GENREG_R12: return Context->r12;
+        case VMX_EXIT_QUALIFICATION_GENREG_R13: return Context->r13;
+        case VMX_EXIT_QUALIFICATION_GENREG_R14: return Context->r14;
+        case VMX_EXIT_QUALIFICATION_GENREG_R15: return Context->r15;
+        default: return 0;
         }
 }
 
@@ -96,90 +45,23 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register, _
 {
         switch (Register)
         {
-        case VMX_EXIT_QUALIFICATION_GENREG_RAX:
-        {
-                Context->rax = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RCX:
-        {
-                Context->rcx = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RDX:
-        {
-                Context->rdx = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RBX:
-        {
-                Context->rbx = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RSP:
-        {
-                Context->rsp = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RBP:
-        {
-                Context->rbp = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RSI:
-        {
-                Context->rsi = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_RDI:
-        {
-                Context->rdi = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R8:
-        {
-                Context->r8 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R9:
-        {
-                Context->r9 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R10:
-        {
-                Context->r10 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R11:
-        {
-                Context->r11 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R12:
-        {
-                Context->r12 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R13:
-        {
-                Context->r13 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R14:
-        {
-                Context->r14 = Value;
-                return;
-        }
-        case VMX_EXIT_QUALIFICATION_GENREG_R15:
-        {
-                Context->r15 = Value;
-                return;
-        }
-        default:
-        {
-                return;
-        }
+        case VMX_EXIT_QUALIFICATION_GENREG_RAX: Context->rax = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RCX: Context->rcx = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RDX: Context->rdx = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RBX: Context->rbx = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RSP: Context->rsp = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RBP: Context->rbp = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RSI: Context->rsi = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_RDI: Context->rdi = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R8: Context->r8 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R9: Context->r9 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R10: Context->r10 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R11: Context->r11 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R12: Context->r12 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R13: Context->r13 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R14: Context->r14 = Value; return;
+        case VMX_EXIT_QUALIFICATION_GENREG_R15: Context->r15 = Value; return;
+        default: return;
         }
 }
 
@@ -196,26 +78,15 @@ DispatchExitReasonMovToCr(_In_ PMOV_CR_QUALIFICATION Qualification, _In_ PGUEST_
         switch (Qualification->Fields.ControlRegister)
         {
         case CONTROL_REGISTER_0:
-        {
                 VmcsWriteGuestCr0(value);
                 VmcsWriteGuestCr0ReadShadow(value);
-                break;
-        }
-        case CONTROL_REGISTER_3:
-        {
-                VmcsWriteGuestCr3((value & ~(1ull << 63)));
-                break;
-        }
+                return;
+        case CONTROL_REGISTER_3: VmcsWriteGuestCr3((value & ~(1ull << 63))); return;
         case CONTROL_REGISTER_4:
-        {
                 VmcsWriteGuestCr4(value);
                 VmcsWriteGuestCr4ReadShadow(value);
-                break;
-        }
-        default:
-        {
-                break;
-        }
+                return;
+        default: return;
         }
 }
 
@@ -258,8 +129,6 @@ STATIC
 VOID
 DispatchExitReasonCLTS(_In_ PMOV_CR_QUALIFICATION Qualification, _In_ PGUEST_CONTEXT Context)
 {
-        DEBUG_LOG("Dispatching CLTS instruction");
-
         CR0 cr0                 = {0};
         cr0.AsUInt              = VmcsReadGuestCr0();
         cr0.Fields.TaskSwitched = FALSE;
@@ -336,24 +205,25 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
          *
          * TODO: ensure each cache entry is word size aligned.
          */
-        if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
-        {
-                GuestState->rax = state->cache.cpuid.value[0];
-                GuestState->rbx = state->cache.cpuid.value[1];
-                GuestState->rcx = state->cache.cpuid.value[2];
-                GuestState->rdx = state->cache.cpuid.value[3];
-        }
-        else
-        {
-                __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+        //if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
+        //{
+        //        GuestState->rax = state->cache.cpuid.value[0];
+        //        GuestState->rbx = state->cache.cpuid.value[1];
+        //        GuestState->rcx = state->cache.cpuid.value[2];
+        //        GuestState->rdx = state->cache.cpuid.value[3];
+        //}
+        //else
+        //{
 
-                GuestState->rax = state->cache.cpuid.value[0];
-                GuestState->rbx = state->cache.cpuid.value[1];
-                GuestState->rcx = state->cache.cpuid.value[2];
-                GuestState->rdx = state->cache.cpuid.value[3];
+        //        InterlockedExchange(&state->cache.cpuid.active, TRUE);
+        //}
 
-                InterlockedExchange(&state->cache.cpuid.active, TRUE);
-        }
+        __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+
+        GuestState->rax = state->cache.cpuid.value[0];
+        GuestState->rbx = state->cache.cpuid.value[1];
+        GuestState->rcx = state->cache.cpuid.value[2];
+        GuestState->rdx = state->cache.cpuid.value[3];
 }
 
 STATIC
@@ -400,8 +270,7 @@ VOID
 DispatchVmCallTerminateVmx()
 {
         PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
-        state->exit_state.exit_vmx   = TRUE;
-        // InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
+        InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
 NTSTATUS
@@ -415,6 +284,7 @@ VmCallDispatcher(_In_ UINT64 VmCallNumber,
         switch (VmCallNumber)
         {
         case VMCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
+        default: break;
         }
 
         return STATUS_SUCCESS;
@@ -462,7 +332,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
          */
         IncrementGuestRip(0);
 
-        if (state->exit_state.exit_vmx)
+        if (InterlockedExchange(&state->exit_state.exit_vmx, state->exit_state.exit_vmx))
         {
                 DEBUG_LOG("Exiting VMX operation");
 
@@ -478,6 +348,10 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                  * structure, this will allow us to use these values in the vmxoff part of our vmx
                  * exit handler to properly restore the stack and instruction pointer after we
                  * execute vmxoff
+                 *
+                 * The reason we must do this is since we are executing vmxoff, the rip and rsp will
+                 * no longer be automatically updated from the vmcs, hence we need to save the 2
+                 * values and update the registers with the values during our exit handler.
                  */
                 state->exit_state.guest_rip = VmcsReadGuestRip();
                 state->exit_state.guest_rsp = VmcsReadGuestRsp();
@@ -496,5 +370,6 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 return TRUE;
         }
 
+        /* continue vmx operation as usual */
         return FALSE;
 }

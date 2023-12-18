@@ -313,8 +313,7 @@ BroadcastVmxTermination()
                 while (core != KeGetCurrentProcessorIndex())
                         YieldProcessor();
 
-                // DEBUG_LOG("exiting vmx on core: %llx", core);
-
+                DEBUG_LOG("exiting vmx on core: %llx", core);
                 AsmVmxVmcall(0, 0, 0, 0);
         }
 

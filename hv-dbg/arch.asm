@@ -110,11 +110,11 @@ endm
 
 VmexitHandler PROC
 
-	push 0		; ensure the stack is aligned
+	push 0				; ensure the stack is aligned
 
-	pushfq		; push eflags
+	pushfq				; push eflags
 
-	SAVE_GP		; save general purpose registers	
+	SAVE_GP				; save general purpose registers	
 	
 	; save floating point registers
 	; vmovups allows us to store them in an unaligned address
@@ -127,14 +127,14 @@ VmexitHandler PROC
 
 	mov rcx, rsp
 
-	sub	rsp, 20h		; allocate some space for the shadow stack
+	sub rsp, 20h			; allocate some space for the shadow stack
 
-	CALL	VmExitDispatcher	; call our vm exit dispatcher	
+	CALL VmExitDispatcher		; call our vm exit dispatcher	
 
-	add	rsp, 20h		; increment stack pointer to free our shadow stack space
+	add rsp, 20h			; increment stack pointer to free our shadow stack space
 
 	cmp al, 1			; check if the return value from our exit dispatcher is 1 (true)
-
+	
 	je ExitVmx			; jump to ExitVmx routine if we returned true
 
 	RESTORE_FP			; restore fp registers
@@ -149,44 +149,43 @@ VmexitHandler ENDP
 
 ExitVmx PROC
 
-	sub rsp, 020h       ; shadow space
+	sub rsp, 020h 
 
-	call VmmReadGuestRsp
+	call VmmReadGuestRsp		; get our guests rsp before we called vmxoff
 
-	add rsp, 020h       ; remove for shadow space
+	add rsp, 020h
 
-	mov [rsp+0e8h], rax  ; now, rax contains rsp
+	mov [rsp+0e8h], rax		; store the rsp at "top" of our stack
 
-	sub rsp, 020h       ; shadow space
+	sub rsp, 020h
 
-	call VmmReadGuestRip
+	call VmmReadGuestRip		; get out guests rip before we called vmxoff
 
-	add rsp, 020h       ; remove for shadow space
+	add rsp, 020h
 
-	mov rdx, rsp        ; save current rsp
+	mov rdx, rsp			; save our current rsp
 
-	mov rbx, [rsp+0e8h] ; read rsp again
+	mov rbx, [rsp+0e8h]		; read the guests that we stored on the current stack
 
-	mov rsp, rbx
+	mov rsp, rbx			; change our stack to the guests stack
 
-	push rax            ; push the return address as we changed the stack, we push
-			; it to the new stack
+	push rax			; push the guests rip to our new stack
 
-	mov rsp, rdx        ; restore previous rsp
+	mov rsp, rdx			; restore our previous exit handlers stack
                         
-	sub rbx,08h         ; we push sth, so we have to add (sub) +8 from previous stack
-				; also rbx already contains the rsp
-	mov [rsp+0e8h], rbx ; move the new pointer to the current stack
+	sub rbx,08h			; allocate some space on the guests stack
 
-	RESTORE_FP
+	mov [rsp+0e8h], rbx		; store the guests stack on the exit handlers stack
 
-	RESTORE_GP
+	RESTORE_FP			; restore the floating point registers
 
-	popfq
+	RESTORE_GP			; restore the general purpose registers
 
-	pop		rsp     ; restore rsp
+	popfq				; restore eflags register
 
-	ret             ; jump back to where we called Vmcall
+	pop rsp				; pop the guests stack back into rsp (we stored this as the top of our exit handlers stack)
+
+	ret				; pop the instruction pointer from the top of the stack (the guests previous rip)
 
 ExitVmx ENDP
 
@@ -197,13 +196,16 @@ SaveStateAndVirtualizeCore PROC PUBLIC
 	SAVE_GP
 
 	sub rsp, 28h
+
 	mov rdx, rsp
+
 	call VirtualizeCore	
+
 	ret
 
 SaveStateAndVirtualizeCore ENDP 
 
-; Restores the state of the registers pushed before we virtualized the core
+; will be used to restore the state of the guest to before we called SaveStateAndVirtualizeCore
 
 VmxRestoreState PROC
 
@@ -217,132 +219,154 @@ VmxRestoreState ENDP
 
 __readgdtbase PROC
 
-	LOCAL	GDTR[10]:BYTE
-	SGDT	GDTR
-	MOV		RAX, QWORD PTR GDTR[2]
+	local gdtr[10]:byte
 
-	RET
+	sgdt gdtr
+
+	mov rax, qword ptr gdtr[2]
+
+	ret
 
 __readgdtbase ENDP
 
 __readcs PROC
 
-	MOV		RAX, CS
-	RET
+	mov rax, cs
+
+	ret
 
 __readcs ENDP
 
 __readds PROC
 
-	MOV		RAX, DS
-	RET
+	mov rax, ds
+
+	ret
 
 __readds ENDP
 
 __reades PROC
 
-	MOV		RAX, ES
-	RET
+	mov rax, es
+
+	ret
 
 __reades ENDP
 
 __readss PROC
 
-	MOV		RAX, SS
-	RET
+	mov rax, ss
+
+	ret
 
 __readss ENDP
 
 __readfs PROC
 
-	MOV		RAX, FS
-	RET
+	mov rax, fs
+
+	ret
 
 __readfs ENDP
 
 __readgs PROC
 
-	MOV		RAX, GS
-	RET
+	mov rax, gs
+
+	ret
 
 __readgs ENDP
 
 __readldtr PROC
 
-	SLDT	RAX
-	RET
+	sldt rax
+
+	ret
 
 __readldtr ENDP
 
 __readtr PROC
 
-	STR		RAX
-	RET
+	str rax
+
+	ret
 
 __readtr ENDP
 
 __readidtbase PROC
 
-	LOCAL	IDTR[10]:BYTE
+	local idtr[10]:byte
 	
-	SIDT	IDTR
-	MOV		RAX, QWORD PTR IDTR[2]
-	RET
+	sidt idtr
+
+	mov rax, qword ptr idtr[2]
+
+	ret
 
 __readidtbase ENDP
 
 __getgdtlimit PROC
 
-	LOCAL	GDTR[10]:BYTE
+	local gdtr[10]:byte
 
-	SGDT	GDTR
-	MOV		AX, WORD PTR GDTR[0]
+	sgdt gdtr
 
-	RET
+	mov ax, word ptr gdtr[0]
+
+	ret
 
 __getgdtlimit ENDP
 
 __getidtlimit PROC
 
-	LOCAL	IDTR[10]:BYTE
+	local idtr[10]:byte
 	
-	SIDT	IDTR
-	MOV		AX, WORD PTR IDTR[0]
+	sidt idtr
 
-	RET
+	mov ax, word ptr idtr[0]
+
+	ret
 
 __getidtlimit ENDP
 
 __readrflags PROC
 
-	PUSHFQ
-	POP		RAX
-	RET
+	pushfq
+
+	pop		rax
+
+	ret
 
 __readrflags ENDP
 
 __readmsr PROC
 
-	RDMSR
-	SHL		RDX, 32
-	OR		RAX, RDX
+	rdmsr
 
-	RET
+	shl rdx, 32
+
+	or rax, rdx
+
+	ret
 
 __readmsr ENDP
 
 __writemsr PROC
 
-	MOV		RAX, RDX
-	SHR		RDX, 32
-	WRMSR
-	RET
+	mov rax, rdx
+
+	shr rdx, 32
+
+	wrmsr
+
+	ret
 
 __writemsr ENDP
 
 __writecr0 PROC
 
 	mov cr0, rcx
+
 	ret
 
 __writecr0 ENDP
@@ -350,6 +374,7 @@ __writecr0 ENDP
 __writecr4 PROC
 
 	mov cr4, rcx
+
 	ret
 
 __writecr4 ENDP
@@ -359,13 +384,21 @@ __writecr4 ENDP
 ; AsmReloadGdtr (PVOID GdtBase (rcx), ULONG GdtLimit (rdx) );
 
 AsmReloadGdtr PROC
-	push	rcx
-	shl		rdx, 48
-	push	rdx
-	lgdt	fword ptr [rsp+6]	; do not try to modify stack selector with this ;)
-	pop		rax
-	pop		rax
+
+	push rcx
+
+	shl rdx, 48
+
+	push rdx
+
+	lgdt fword ptr [rsp+6]	; do not try to modify stack selector with this ;)
+
+	pop rax
+
+	pop rax
+
 	ret
+
 AsmReloadGdtr ENDP
 
 ;------------------------------------------------------------------------
@@ -373,13 +406,21 @@ AsmReloadGdtr ENDP
 ; AsmReloadIdtr (PVOID IdtBase (rcx), ULONG IdtLimit (rdx) );
 
 AsmReloadIdtr PROC
-	push	rcx
-	shl		rdx, 48
-	push	rdx
-	lidt	fword ptr [rsp+6]
-	pop		rax
-	pop		rax
+
+	push rcx
+
+	shl rdx, 48
+
+	push rdx
+
+	lidt fword ptr [rsp+6]
+
+	pop rax
+
+	pop rax
+
 	ret
+
 AsmReloadIdtr ENDP
 
 AsmVmxVmcall PROC
@@ -387,17 +428,29 @@ AsmVmxVmcall PROC
     ; We change r10 to HVFS Hex ASCII and r11 to VMCALL Hex ASCII and r12 to NOHYPERV Hex ASCII so we can make sure that the calling Vmcall comes
     ; from our hypervisor and we're resposible for managing it, otherwise it has to be managed by Hyper-V
     pushfq
-    push    r10
-    push    r11
-    push    r12
-    mov     r10, 48564653H          ; [HVFS]
-    mov     r11, 564d43414c4cH      ; [VMCALL]
-    mov     r12, 4e4f485950455256H   ; [NOHYPERV]
-    vmcall                          ; VmxVmcallHandler(UINT64 VmcallNumber, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT64 OptionalParam3)
-    pop     r12
-    pop     r11
-    pop     r10
+
+    push r10
+
+    push r11
+
+    push r12
+
+    mov r10, 48564653H          ; [HVFS]
+
+    mov r11, 564d43414c4cH      ; [VMCALL]
+
+    mov r12, 4e4f485950455256H   ; [NOHYPERV]
+
+    vmcall       
+                   
+    pop r12
+
+    pop r11
+
+    pop r10
+
     popfq
+
     ret                             ; Return type is NTSTATUS and it's on RAX from the previous function, no need to change anything
 
 AsmVmxVmcall ENDP
