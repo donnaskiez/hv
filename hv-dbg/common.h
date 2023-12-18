@@ -362,28 +362,29 @@ enum SEGREGS
 
 typedef struct _GUEST_CONTEXT
 {
-        M128A   Xmm0;
-        M128A   Xmm1;
-        M128A   Xmm2;
-        M128A   Xmm3;
-        M128A   Xmm4;
-        M128A   Xmm5;
-        ULONG64 rax; // 0x00         // NOT VALID FOR SVM
-        ULONG64 rcx;
-        ULONG64 rdx; // 0x10
-        ULONG64 rbx;
-        ULONG64 rsp; // 0x20         // rsp is not stored here on SVM
-        ULONG64 rbp;
-        ULONG64 rsi; // 0x30
-        ULONG64 rdi;
-        ULONG64 r8; // 0x40
-        ULONG64 r9;
-        ULONG64 r10; // 0x50
-        ULONG64 r11;
-        ULONG64 r12; // 0x60
-        ULONG64 r13;
-        ULONG64 r14; // 0x70
-        ULONG64 r15;
+        //M128A  Xmm0;
+        //M128A  Xmm1;
+        //M128A  Xmm2;
+        //M128A  Xmm3;
+        //M128A  Xmm4;
+        //M128A  Xmm5;
+        UINT64 rax;
+        UINT64 rcx;
+        UINT64 rdx;
+        UINT64 rbx;
+        UINT64 rsp;
+        UINT64 rbp;
+        UINT64 rsi;
+        UINT64 rdi;
+        UINT64 r8;
+        UINT64 r9;
+        UINT64 r10;
+        UINT64 r11;
+        UINT64 r12;
+        UINT64 r13;
+        UINT64 r14;
+        UINT64 r15;
+        UINT32 eflags;
 } GUEST_CONTEXT, *PGUEST_CONTEXT;
 
 typedef union _RFLAGS

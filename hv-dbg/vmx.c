@@ -185,7 +185,7 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
-        for (ULONG core = 0; core < KeQueryActiveProcessorCount(0); core++)
+        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
                 /* for now this limits us to 64 cores, whatever lol */
                 KeSetSystemAffinityThread(1ull << core);
@@ -264,25 +264,27 @@ TerminateVmx(_In_ ULONG_PTR Argument)
 {
         UNREFERENCED_PARAMETER(Argument);
 
-        __vmx_off();
+        InterlockedExchange(&vmm_state[KeGetCurrentProcessorNumber()].exit, TRUE);
 
-        ULONG proc_num = KeGetCurrentProcessorNumber();
+        //__vmx_off();
 
-        if (MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart)
-                MmFreeContiguousMemory(
-                    MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart);
+        //ULONG proc_num = KeGetCurrentProcessorNumber();
 
-        if (MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart)
-                MmFreeContiguousMemory(
-                    MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart);
+        //if (MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart)
+        //        MmFreeContiguousMemory(
+        //            MmGetPhysicalAddress(vmm_state[proc_num].vmxon_region_pa).QuadPart);
 
-        if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
-                MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va, PAGE_SIZE);
+        //if (MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart)
+        //        MmFreeContiguousMemory(
+        //            MmGetPhysicalAddress(vmm_state[proc_num].vmcs_region_pa).QuadPart);
 
-        if (vmm_state[proc_num].vmm_stack_va)
-                ExFreePoolWithTag(vmm_state[proc_num].vmm_stack_va, POOLTAG);
+        //if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
+        //        MmFreeNonCachedMemory(vmm_state[proc_num].msr_bitmap_va, PAGE_SIZE);
 
-        DEBUG_LOG("Terminated VMX on processor index: %lx", proc_num);
+        //if (vmm_state[proc_num].vmm_stack_va)
+        //        ExFreePoolWithTag(vmm_state[proc_num].vmm_stack_va, POOLTAG);
+
+        //DEBUG_LOG("Terminated VMX on processor index: %lx", proc_num);
 }
 
 BOOLEAN
@@ -302,6 +304,20 @@ BroadcastVmxInitiation(_In_ PIPI_CALL_CONTEXT Context)
 BOOLEAN
 BroadcastVmxTermination()
 {
-        KeIpiGenericCall(TerminateVmx, NULL);
+        //KeIpiGenericCall(TerminateVmx, NULL);
+        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++)
+        {
+                KeSetSystemAffinityThread(1ull << core);
+
+                while (core != KeGetCurrentProcessorIndex())
+                        YieldProcessor();
+
+                DEBUG_LOG("exiting vmx on core: %llx", core);
+
+                AsmVmxVmcall(0, 0, 0, 0);
+        }
+
         return TRUE;
 }
+
+

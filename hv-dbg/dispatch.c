@@ -4,6 +4,8 @@
 #include "vmx.h"
 #include "vmcs.h"
 #include "pipeline.h"
+#include <intrin.h>
+#include "arch.h"
 
 VOID
 ResumeToNextInstruction(_In_ UINT64 InstructionOffset)
@@ -376,22 +378,152 @@ DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
 }
 
 VOID
+HvRestoreRegisters()
+{
+        ULONG64 FsBase;
+        ULONG64 GsBase;
+        ULONG64 GdtrBase;
+        ULONG64 GdtrLimit;
+        ULONG64 IdtrBase;
+        ULONG64 IdtrLimit;
+
+        // Restore FS Base
+        __vmx_vmread(GUEST_FS_BASE, &FsBase);
+        __writemsr(MSR_FS_BASE, FsBase);
+
+        // Restore Gs Base
+        __vmx_vmread(GUEST_GS_BASE, &GsBase);
+        __writemsr(MSR_GS_BASE, GsBase);
+
+        // Restore GDTR
+        __vmx_vmread(GUEST_GDTR_BASE, &GdtrBase);
+        __vmx_vmread(GUEST_GDTR_LIMIT, &GdtrLimit);
+
+        AsmReloadGdtr(GdtrBase, GdtrLimit);
+
+        // Restore IDTR
+        __vmx_vmread(GUEST_IDTR_BASE, &IdtrBase);
+        __vmx_vmread(GUEST_IDTR_LIMIT, &IdtrLimit);
+
+        AsmReloadIdtr(IdtrBase, IdtrLimit);
+}
+
+#define VMCALL_TERMINATE_VMX 0
+
+VOID
+DispatchVmCallTerminateVmx()
+{
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
+
+        __writecr3(VmcsReadGuestCr3());
+
+        ResumeToNextInstruction(0);
+
+        state->guest_rip = VmcsReadExitInstructionRip();
+        state->guest_rsp = VmcsReadGuestRsp();
+
+        InterlockedExchange(&state->exit, TRUE);
+
+        HvRestoreRegisters();
+
+        __vmx_off();
+}
+
+VOID
+VmCallDispatcher(_In_ UINT64 VmCallNumber,
+                 _In_ UINT64 OptionalParameter1,
+                 _In_ UINT64 OptionalParameter2,
+                 _In_ UINT64 OptionalParameter3)
+{
+        DEBUG_LOG("Vmcall number: %llx", VmCallNumber);
+
+        switch (VmCallNumber)
+        {
+        case VMCALL_TERMINATE_VMX:
+        {
+                DispatchVmCallTerminateVmx();
+                break;
+        }
+        }
+}
+
+STATIC
+BOOLEAN
+CheckForKernelModeAddress(_In_ UINT64 Address)
+{
+        if (Address < 0x000007FFFFFFFFFF)
+                return FALSE;
+        else
+                return TRUE;
+}
+
+BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
-        UINT64 additional_rip_offset = 0;
+        //        UINT64 additional_rip_offset = 0;
+        //
+        //        switch (VmcsReadExitReason())
+        //        {
+        //        case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
+        //        case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
+        //        case EXIT_REASON_VMCALL:
+        //        case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context);
+        //        break; case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break; case
+        //        EXIT_REASON_EPT_VIOLATION: default: break;
+        //        }
+        //
+        //        /*
+        //         * Once we have processed the initial instruction causing the vmexit, we
+        //         * can translate the next instruction. Once decoded, if its a vm-exit
+        //         * causing instruction we can process that instruction and then advance
+        //         * the rip by the size of the 2 exit-inducing instructions - saving us 1
+        //         * vm exit (2 minus 1 = 1).
+        //         */
+        //
+        //        #pragma warning(push)
+        // #pragma warning(disable : 6387)
+        //
+        //        // HandleFutureInstructions(
+        //        //     (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
+        //        //     Context,
+        //        //     &additional_rip_offset);
+        //
+        // #pragma warning(pop)
+        //
+        //        ResumeToNextInstruction(0);
+        //
+        //        __writecr0(VmcsReadGuestCr0());
+        //        __writecr3(VmcsReadGuestCr3());
+        //        __writecr4(VmcsReadGuestCr4());
+        //
+        //        return TRUE;
+        UINT64                 additional_rip_offset = 0;
+        PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorNumber()];
+        //{
+        //        __writecr3(VmcsReadGuestCr3());
+        //        __writecr0(VmcsReadGuestCr0());
+        //        __writecr4(VmcsReadGuestCr4());
+        //        HvRestoreRegisters();
+        //        return TRUE;
+        //}
 
         switch (VmcsReadExitReason())
         {
         case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
         case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
-        case EXIT_REASON_VMCALL:
+        case EXIT_REASON_VMCALL: 
+        {
+                VmCallDispatcher(0, 0, 0, 0);
+                if (InterlockedExchange(&state->exit, state->exit))
+                        return TRUE;
+
+                return FALSE;
+                break;
+        }
         case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context); break;
         case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break;
         case EXIT_REASON_EPT_VIOLATION:
-        default:
-        {
-                break;
-        }
+        default: break;
         }
 
         /*
@@ -405,54 +537,17 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 #pragma warning(push)
 #pragma warning(disable : 6387)
 
-        HandleFutureInstructions(
-            (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
-            Context,
-            &additional_rip_offset);
+        // HandleFutureInstructions(
+        //     (PVOID)(VmcsReadExitInstructionRip() + VmcsReadInstructionLength()),
+        //     Context,
+        //     &additional_rip_offset);
 
 #pragma warning(pop)
 
-        ResumeToNextInstruction(additional_rip_offset);
-}
+        ResumeToNextInstruction(0);
 
-#define VMCALL_TERMINATE_VMX 0
+        if (InterlockedExchange(&state->exit, state->exit))
+                return TRUE;
 
-VOID
-DispatchVmCallTerminateVmx()
-{
-        UINT32 processor_index         = 0;
-        UINT64 guest_rsp               = 0;
-        UINT64 guest_rip               = 0;
-        UINT64 guest_cr3               = 0;
-        UINT64 exit_instruction_length = 0;
-
-        processor_index = KeGetCurrentProcessorNumber();
-
-        __vmx_vmread(GUEST_RIP, &guest_rip);
-        __vmx_vmread(GUEST_RSP, &guest_rsp);
-
-        __vmx_vmread(GUEST_CR3, &guest_cr3);
-        __writecr3(guest_cr3);
-
-        __vmx_vmread(VM_EXIT_INSTRUCTION_LEN, &exit_instruction_length);
-
-        guest_rip += exit_instruction_length;
-
-        // vmm_state[processor_index].vm
-}
-
-VOID
-VmCallDispatcher(_In_ UINT64 VmCallNumber,
-                 _In_ UINT64 OptionalParameter1,
-                 _In_ UINT64 OptionalParameter2,
-                 _In_ UINT64 OptionalParameter3)
-{
-        switch (VmCallNumber)
-        {
-        case VMCALL_TERMINATE_VMX:
-        {
-                DispatchVmCallTerminateVmx();
-                break;
-        }
-        }
+        return FALSE;
 }

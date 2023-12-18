@@ -39,7 +39,10 @@ typedef struct _VIRTUAL_MACHINE_STATE
         UINT64    vmm_stack_va;
         UINT64    msr_bitmap_va;
         UINT64    msr_bitmap_pa;
+        BOOLEAN   exit;
         VMM_CACHE cache;
+        UINT64    guest_rip;
+        UINT64    guest_rsp;
 
 } VIRTUAL_MACHINE_STATE, *PVIRTUAL_MACHINE_STATE;
 

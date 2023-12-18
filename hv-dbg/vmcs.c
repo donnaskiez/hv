@@ -10,6 +10,9 @@ VMCS_HOST_STATE_FIELDS    host_state_fields    = {0};
 VMCS_CONTROL_STATE_FIELDS control_state_fields = {0};
 VMCS_EXIT_STATE_FIELDS    exit_state_fields    = {0};
 
+UINT64 guest_rip = 0;
+UINT64 guest_rsp = 0;
+
 STATIC
 BOOLEAN
 GetSegmentDescriptor(_In_ PSEGMENT_SELECTOR SegmentSelector,
@@ -148,7 +151,7 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer)
 
         __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, __segmentlimit(__readgdtbase));
         __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, __segmentlimit(__readidtbase));
-
+        
         __vmx_vmwrite(guest_state_fields.natural_state.rflags, __readrflags());
 
         __vmx_vmwrite(guest_state_fields.dword_state.sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
@@ -358,4 +361,16 @@ VmcsReadGuestCr4()
         UINT64 cr4 = 0;
         __vmx_vmread(guest_state_fields.natural_state.cr4, &cr4);
         return cr4;
+}
+
+UINT64 
+VmmReadGuestRip()
+{
+        return vmm_state[KeGetCurrentProcessorIndex()].guest_rip;
+}
+
+UINT64
+VmmReadGuestRsp()
+{
+        return vmm_state[KeGetCurrentProcessorIndex()].guest_rsp;
 }

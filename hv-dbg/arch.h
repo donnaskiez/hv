@@ -48,4 +48,21 @@ EXTERN
 VOID
 __writemsr(_In_ UINT32 Register, _In_ UINT64 Value);
 
+EXTERN
+VOID
+__writecr0(_In_ UINT64 Value);
+
+EXTERN VOID
+__writecr4(_In_ UINT64 Value);
+
+extern void
+AsmReloadGdtr(void* GdtBase, unsigned long GdtLimit);
+extern void
+AsmReloadIdtr(void* GdtBase, unsigned long GdtLimit);
+
+extern NTSTATUS inline AsmVmxVmcall(unsigned long long VmcallNumber,
+                                    unsigned long long OptionalParam1,
+                                    unsigned long long OptionalParam2,
+                                    unsigned long long OptionalParam3);
+
 #endif

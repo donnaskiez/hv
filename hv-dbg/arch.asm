@@ -17,17 +17,30 @@ PUBLIC __readrflags
 PUBLIC __readmsr
 PUBLIC __writemsr
 
+PUBLIC __writecr0 
+PUBLIC __writecr4
+
+PUBLIC AsmReloadGdtr
+PUBLIC AsmReloadIdtr
+
 ; standard vmm handler functions
 
 PUBLIC SaveStateAndVirtualizeCore
 PUBLIC VmexitHandler
 PUBLIC VmxRestoreState
+PUBLIC AsmVmxVmcall
 
 ; extern functions
 
 EXTERN VmExitDispatcher:PROC
 EXTERN VmResumeInstruction:PROC
 EXTERN VirtualizeCore:PROC
+
+EXTERN VmmReadGuestRip:PROC
+EXTERN VmmReadGuestRsp:PROC
+
+EXTERN guest_rip:QWORD
+EXTERN guest_rsp:QWORD
 
 ; vmm status error codes
 
@@ -38,9 +51,11 @@ VMX_ERROR_CODE_FAILED               = 2
 .code _text
 
 VmexitHandler PROC
-
+	
 	; save general purpose registers
 
+	push 0
+	pushfq
 	push r15
 	push r14
 	push r13
@@ -62,14 +77,14 @@ VmexitHandler PROC
 	; vmovups allows us to store them in an unaligned address
 	; which is not ideal and should be fixed.
 
-	sub     rsp, 60h
+	; sub     rsp, 60h
 
-	vmovups  xmmword ptr [rsp +  0h], xmm0
-	vmovups  xmmword ptr [rsp + 10h], xmm1
-	vmovups  xmmword ptr [rsp + 20h], xmm2
-	vmovups  xmmword ptr [rsp + 30h], xmm3
-	vmovups  xmmword ptr [rsp + 40h], xmm4
-	vmovups  xmmword ptr [rsp + 50h], xmm5
+	; vmovups  xmmword ptr [rsp +  0h], xmm0
+	; vmovups  xmmword ptr [rsp + 10h], xmm1
+	; vmovups  xmmword ptr [rsp + 20h], xmm2
+	; vmovups  xmmword ptr [rsp + 30h], xmm3
+	; vmovups  xmmword ptr [rsp + 40h], xmm4
+	; vmovups  xmmword ptr [rsp + 50h], xmm5
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -88,18 +103,21 @@ VmexitHandler PROC
 
 	add	rsp, 20h	
 
+	cmp al, 1
+	je ExitVmx
+
 	; restore our saved floating point registers back
 
-        vmovups  xmm0, xmmword ptr [rsp +  0h]
-        vmovups  xmm1, xmmword ptr [rsp + 10h]
-        vmovups  xmm2, xmmword ptr [rsp + 20h]
-        vmovups  xmm3, xmmword ptr [rsp + 30h]
-        vmovups  xmm4, xmmword ptr [rsp + 40h]
-        vmovups  xmm5, xmmword ptr [rsp + 50h]
+        ; vmovups  xmm0, xmmword ptr [rsp +  0h]
+        ; vmovups  xmm1, xmmword ptr [rsp + 10h]
+        ; vmovups  xmm2, xmmword ptr [rsp + 20h]
+        ; vmovups  xmm3, xmmword ptr [rsp + 30h]
+        ; vmovups  xmm4, xmmword ptr [rsp + 40h]
+        ; vmovups  xmm5, xmmword ptr [rsp + 50h]
 
 	; increment stack pointer since we've restored the floating point registers
 	
-        add     rsp, 60h
+        ; add     rsp, 60h
 
 	; pop the general purpose registers back
 
@@ -119,12 +137,79 @@ VmexitHandler PROC
 	pop r13
 	pop r14
 	pop r15
+	popfq
 			
 	; resume execution 
 
 	jmp VmResumeInstruction
 	
 VmexitHandler ENDP
+
+ExitVmx PROC
+
+	; vmovups  xmm0, xmmword ptr [rsp +  0h]
+        ; vmovups  xmm1, xmmword ptr [rsp + 10h]
+        ; vmovups  xmm2, xmmword ptr [rsp + 20h]
+        ; vmovups  xmm3, xmmword ptr [rsp + 30h]
+        ; vmovups  xmm4, xmmword ptr [rsp + 40h]
+        ; vmovups  xmm5, xmmword ptr [rsp + 50h]
+
+	; increment stack pointer since we've restored the floating point registers
+	
+        ; add     rsp, 60h
+
+	; pop the general purpose registers back
+
+    sub rsp, 020h       ; shadow space
+    call VmmReadGuestRsp
+    add rsp, 020h       ; remove for shadow space
+
+    mov [rsp+088h], rax  ; now, rax contains rsp
+
+    sub rsp, 020h       ; shadow space
+    call VmmReadGuestRip
+    add rsp, 020h       ; remove for shadow space
+
+    mov rdx, rsp        ; save current rsp
+
+    mov rbx, [rsp+088h] ; read rsp again
+
+    mov rsp, rbx
+
+    push rax            ; push the return address as we changed the stack, we push
+                        ; it to the new stack
+
+    mov rsp, rdx        ; restore previous rsp
+                        
+    sub rbx,08h         ; we push sth, so we have to add (sub) +8 from previous stack
+                        ; also rbx already contains the rsp
+    mov [rsp+088h], rbx ; move the new pointer to the current stack
+
+	RestoreState:
+
+	pop rax
+	pop rcx
+	pop rdx
+	pop rbx
+	pop rbp		         ; rsp
+	pop rbp
+	pop rsi
+	pop rdi 
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+
+	popfq
+
+	pop		rsp     ; restore rsp
+	ret             ; jump back to where we called Vmcall
+
+ExitVmx ENDP
 
 ; No need to raise the irql as this routine run at IPI_LEVEL 
 
@@ -301,5 +386,67 @@ __writemsr PROC
 	RET
 
 __writemsr ENDP
+
+__writecr0 PROC
+
+	mov cr0, rcx
+	ret
+
+__writecr0 ENDP
+
+__writecr4 PROC
+
+	mov cr4, rcx
+	ret
+
+__writecr4 ENDP
+
+;------------------------------------------------------------------------
+
+; AsmReloadGdtr (PVOID GdtBase (rcx), ULONG GdtLimit (rdx) );
+
+AsmReloadGdtr PROC
+	push	rcx
+	shl		rdx, 48
+	push	rdx
+	lgdt	fword ptr [rsp+6]	; do not try to modify stack selector with this ;)
+	pop		rax
+	pop		rax
+	ret
+AsmReloadGdtr ENDP
+
+;------------------------------------------------------------------------
+
+; AsmReloadIdtr (PVOID IdtBase (rcx), ULONG IdtLimit (rdx) );
+
+AsmReloadIdtr PROC
+	push	rcx
+	shl		rdx, 48
+	push	rdx
+	lidt	fword ptr [rsp+6]
+	pop		rax
+	pop		rax
+	ret
+AsmReloadIdtr ENDP
+
+AsmVmxVmcall PROC
+    
+    ; We change r10 to HVFS Hex ASCII and r11 to VMCALL Hex ASCII and r12 to NOHYPERV Hex ASCII so we can make sure that the calling Vmcall comes
+    ; from our hypervisor and we're resposible for managing it, otherwise it has to be managed by Hyper-V
+    pushfq
+    push    r10
+    push    r11
+    push    r12
+    mov     r10, 48564653H          ; [HVFS]
+    mov     r11, 564d43414c4cH      ; [VMCALL]
+    mov     r12, 4e4f485950455256H   ; [NOHYPERV]
+    vmcall                          ; VmxVmcallHandler(UINT64 VmcallNumber, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT64 OptionalParam3)
+    pop     r12
+    pop     r11
+    pop     r10
+    popfq
+    ret                             ; Return type is NTSTATUS and it's on RAX from the previous function, no need to change anything
+
+AsmVmxVmcall ENDP
 
 END

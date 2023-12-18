@@ -127,12 +127,12 @@ CheckForExitingInstruction(_In_ ZydisDecodedInstruction* Instruction,
         {
         case ZYDIS_MNEMONIC_CPUID:
         {
-                DEBUG_LOG("next instruction CPUID");
+                //DEBUG_LOG("next instruction CPUID");
                 return ZYAN_STATUS_FAILED;
         }
         case ZYDIS_MNEMONIC_MOV:
         {
-                DEBUG_LOG("Next instruction MOV");
+                //DEBUG_LOG("Next instruction MOV");
                 return DispatchMovInstruction(Operands, GuestState);
         }
 
@@ -143,23 +143,23 @@ CheckForExitingInstruction(_In_ ZydisDecodedInstruction* Instruction,
                  */
         case ZYDIS_MNEMONIC_RDMSR:
         {
-                DEBUG_LOG("Next instruction RDMSR");
+                //DEBUG_LOG("Next instruction RDMSR");
                 return ZYAN_STATUS_SUCCESS;
         }
         case ZYDIS_MNEMONIC_WRMSR:
         {
-                DEBUG_LOG("Next instruction WRMSR");
+                //DEBUG_LOG("Next instruction WRMSR");
                 return ZYAN_STATUS_SUCCESS;
         }
         case ZYDIS_MNEMONIC_INVD:
         {
-                DEBUG_LOG("Next instruction INVD");
+                //DEBUG_LOG("Next instruction INVD");
                 __wbinvd();
                 return ZYAN_STATUS_SUCCESS;
         }
         case ZYDIS_MNEMONIC_WBINVD:
         {
-                DEBUG_LOG("Next instruction WBINVD");
+                //DEBUG_LOG("Next instruction WBINVD");
                 __wbinvd();
                 return ZYAN_STATUS_SUCCESS;
         }
