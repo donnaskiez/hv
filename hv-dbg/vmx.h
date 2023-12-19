@@ -57,6 +57,13 @@ typedef struct _VIRTUAL_MACHINE_STATE
 
 extern PVIRTUAL_MACHINE_STATE vmm_state;
 
+typedef struct _DRIVER_STATE
+{
+        PVOID power_callback;
+        PCALLBACK_OBJECT power_callback_object;
+
+}DRIVER_STATE, *PDRIVER_STATE;
+
 NTSTATUS
 InitiateVmx(_In_ PIPI_CALL_CONTEXT Context);
 
@@ -68,5 +75,14 @@ BroadcastVmxTermination();
 
 VOID
 VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer);
+
+NTSTATUS
+SetupVmxOperation();
+
+NTSTATUS
+InitialisePowerCallback();
+
+NTSTATUS
+AllocateDriverState();
 
 #endif

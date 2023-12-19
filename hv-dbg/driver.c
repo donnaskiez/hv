@@ -13,7 +13,7 @@ NTSTATUS
 DeviceClose(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
         UNREFERENCED_PARAMETER(DeviceObject);
-        BroadcastVmxTermination();
+        //BroadcastVmxTermination();
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
 }
@@ -22,51 +22,6 @@ NTSTATUS
 DeviceCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
         UNREFERENCED_PARAMETER(DeviceObject);
-
-        NTSTATUS          status  = STATUS_ABANDONED;
-        PIPI_CALL_CONTEXT context = NULL;
-        EPT_POINTER*      pept    = NULL;
-
-        context = ExAllocatePool2(POOL_FLAG_NON_PAGED,
-                                  KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT),
-                                  POOLTAG);
-
-        if (!context)
-                goto end;
-
-        status = InitializeEptp(&pept);
-
-        if (!NT_SUCCESS(status))
-        {
-                DEBUG_ERROR("Failed to initialise EPT");
-                goto end;
-        }
-
-        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
-        {
-                context[core].eptp        = pept;
-                context[core].guest_stack = NULL;
-        }
-
-        status = InitiateVmx(context);
-
-        if (!NT_SUCCESS(status))
-        {
-                DEBUG_ERROR("InitiateVmx failed with status %x", status);
-                goto end;
-        }
-
-        status = BroadcastVmxInitiation(context);
-
-        if (!NT_SUCCESS(status))
-        {
-                DEBUG_ERROR("BroadcastVmxInitiation failed with status %x", status);
-                goto end;
-        }
-
-end:
-        if (context)
-                ExFreePoolWithTag(context, POOLTAG);
 
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
@@ -78,6 +33,30 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         UNREFERENCED_PARAMETER(RegistryPath);
 
         NTSTATUS status = STATUS_SUCCESS;
+
+        status = AllocateDriverState();
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("AllocateDriverState failed with status %x", status);
+                return status;
+        }
+
+        status = InitialisePowerCallback();
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
+                return status;
+        }
+
+        status = SetupVmxOperation();
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
+                return status;
+        }
 
         status = IoCreateDevice(DriverObject,
                                 0,

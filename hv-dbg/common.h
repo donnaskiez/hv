@@ -908,3 +908,10 @@ typedef struct _SEGMENT_DESCRIPTOR_REGISTER
 
 } SEGMENT_DESCRIPTOR_REGISTER, *PSEGMENT_DESCRIPTOR_REGISTER;
 #pragma pack(pop)
+
+typedef enum _VMCALL_ID
+{
+        TERMINATE_VMX = 0ull,
+        TEST
+
+}VMCALL_ID;

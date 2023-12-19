@@ -6,11 +6,13 @@
 #include "encode.h"
 #include "arch.h"
 #include "vmcs.h"
+#include "ept.h"
 
 #include <intrin.h>
 #include <Zydis/Zydis.h>
 
-PVIRTUAL_MACHINE_STATE vmm_state;
+PDRIVER_STATE          driver_state = NULL;
+PVIRTUAL_MACHINE_STATE vmm_state    = NULL;
 
 /*
  * Assuming the thread calling this is binded to a particular core
@@ -156,6 +158,17 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
         }
 
         VmmState->vmxon_region_pa = physical_allocation;
+
+        return STATUS_SUCCESS;
+}
+
+NTSTATUS
+AllocateDriverState()
+{
+        driver_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(DRIVER_STATE), POOLTAG);
+
+        if (!driver_state)
+                return STATUS_MEMORY_NOT_ALLOCATED;
 
         return STATUS_SUCCESS;
 }
@@ -335,9 +348,21 @@ BroadcastVmxInitiation(_In_ PIPI_CALL_CONTEXT Context)
 }
 
 NTSTATUS
+VmxVmCall(VMCALL_ID VmcallId, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT64 OptionalParam3)
+{
+        NTSTATUS status = __vmx_vmcall(VmcallId, OptionalParam1, OptionalParam2, OptionalParam3);
+
+        if (!NT_SUCCESS(status))
+                DEBUG_ERROR("VmCall failed wtih status %x", status);
+
+        return status;
+}
+
+NTSTATUS
 BroadcastVmxTermination()
 {
-        // KeIpiGenericCall(TerminateVmx, NULL);
+        NTSTATUS status = STATUS_ABANDONED;
+
         for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++)
         {
                 KeSetSystemAffinityThread(1ull << core);
@@ -347,8 +372,13 @@ BroadcastVmxTermination()
 
                 DEBUG_LOG("exiting vmx on core: %llx", core);
 
-                //todo: vmcall wrapper with enum for value
-                __vmx_vmcall(0, 0, 0, 0);
+                status = VmxVmCall(TERMINATE_VMX, 0, 0, 0);
+
+                if (!NT_SUCCESS(status))
+                {
+                        DEBUG_ERROR("VmCall with id TERMINATE_VMX failed with status %x", status);
+                        return status;
+                }
 
                 if (MmGetPhysicalAddress(vmm_state[core].vmxon_region_pa).QuadPart)
                         MmFreeContiguousMemory(
@@ -368,5 +398,144 @@ BroadcastVmxTermination()
         if (vmm_state)
                 ExFreePoolWithTag(vmm_state, POOLTAG);
 
+        vmm_state = NULL;
+
         return STATUS_SUCCESS;
+}
+
+NTSTATUS
+SetupVmxOperation()
+{
+        NTSTATUS          status  = STATUS_ABANDONED;
+        PIPI_CALL_CONTEXT context = NULL;
+        EPT_POINTER*      pept    = NULL;
+
+        context = ExAllocatePool2(POOL_FLAG_NON_PAGED,
+                                  KeQueryActiveProcessorCount(0) * sizeof(IPI_CALL_CONTEXT),
+                                  POOLTAG);
+
+        if (!context)
+                goto end;
+
+        status = InitializeEptp(&pept);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("Failed to initialise EPT");
+                goto end;
+        }
+
+        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
+        {
+                context[core].eptp        = pept;
+                context[core].guest_stack = NULL;
+        }
+
+        status = InitiateVmx(context);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("InitiateVmx failed with status %x", status);
+                goto end;
+        }
+
+        status = BroadcastVmxInitiation(context);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("BroadcastVmxInitiation failed with status %x", status);
+                goto end;
+        }
+
+end:
+        if (context)
+                ExFreePoolWithTag(context, POOLTAG);
+
+        return status;
+}
+
+VOID
+TerminatePowerCallback()
+{
+        if (driver_state->power_callback)
+                ExUnregisterCallback(driver_state->power_callback);
+
+        if (driver_state->power_callback_object)
+                ObDereferenceObject(driver_state->power_callback_object);
+}
+
+/*
+ * Argument1 consists of a set of constants cast to a void*. In our case we are only interested in
+ * the PO_CB_SYSTEM_STATE_LOCK argument. This argument denotes a change in the system power policy
+ * has changed.
+ *
+ * When Argument1 is equal to PO_CB_SYSTEM_STATE_LOCK, Argument2 is FALSE if the computer is about
+ * to exit system power state s0, and is TRUE if the computer has just reentered s0.
+ */
+STATIC
+VOID
+PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument2)
+{
+        UNREFERENCED_PARAMETER(CallbackContext);
+
+        NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+        if (Argument1 != (PVOID)PO_CB_SYSTEM_STATE_LOCK)
+                return;
+
+        if (Argument2)
+        {
+                DEBUG_LOG("Resuming VMX operation after sleep..");
+
+                status = SetupVmxOperation();
+
+                if (!NT_SUCCESS(status))
+                {
+                        DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
+                        return;
+                }
+        }
+        else
+        {
+                DEBUG_LOG("Exiting VMX operation for sleep...");
+
+                status = BroadcastVmxTermination();
+
+                if (!NT_SUCCESS(status))
+                {
+                        DEBUG_ERROR("BroadcastVmxTermination failed with status %x", status);
+                        return;
+                }
+        }
+}
+
+NTSTATUS
+InitialisePowerCallback()
+{
+        NTSTATUS          status = STATUS_ABANDONED;
+        UNICODE_STRING    name   = RTL_CONSTANT_STRING(L"\\Callback\\PowerState");
+        OBJECT_ATTRIBUTES object_attributes =
+            RTL_CONSTANT_OBJECT_ATTRIBUTES(&name, OBJ_CASE_INSENSITIVE);
+
+        status =
+            ExCreateCallback(&driver_state->power_callback_object, &object_attributes, FALSE, TRUE);
+
+        if (!NT_SUCCESS(status))
+        {
+                DEBUG_ERROR("ExCreateCallback failed with status %x", status);
+                return status;
+        }
+
+        driver_state->power_callback =
+            ExRegisterCallback(driver_state->power_callback_object, PowerCallbackRoutine, NULL);
+
+        if (!driver_state->power_callback)
+        {
+                DEBUG_ERROR("ExRegisterCallback failed");
+                ObDereferenceObject(driver_state->power_callback_object);
+                driver_state->power_callback_object = NULL;
+                return STATUS_UNSUCCESSFUL;
+        }
+
+        return status;
 }

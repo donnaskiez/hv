@@ -239,13 +239,13 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK)
         {
                 DEBUG_ERROR("Unable to clear the vmcs region");
-                return STATUS_ABANDONED;
+                return STATUS_UNSUCCESSFUL;
         }
 
         if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK)
         {
                 DEBUG_ERROR("vmptrld failed with status: %lx", VmcsReadInstructionErrorCode());
-                return STATUS_ABANDONED;
+                return STATUS_UNSUCCESSFUL;
         }
 
         VmcsWriteControlStateFields(GuestState);

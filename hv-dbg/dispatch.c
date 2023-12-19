@@ -190,33 +190,10 @@ STATIC
 VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 {
-        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
-
         /*
-         * If its the first time performing the CPUID instruction from root
-         * mode, perform the instruction and store the result in
-         * state->cache.cpuid.value. Then assign the result to the designated
-         * registers. Once we have the result cached, set the active flag to
-         * true to ensure all future CPUID vm exits simply retrieve the cached
-         * result.
-         *
-         * Due to the frequent access to our VMM state structure, it should
-         * always remain cached.
-         *
-         * TODO: ensure each cache entry is word size aligned.
-         */
-        // if (InterlockedExchange(&state->cache.cpuid.active, TRUE))
-        //{
-        //         GuestState->rax = state->cache.cpuid.value[0];
-        //         GuestState->rbx = state->cache.cpuid.value[1];
-        //         GuestState->rcx = state->cache.cpuid.value[2];
-        //         GuestState->rdx = state->cache.cpuid.value[3];
-        // }
-        // else
-        //{
-
-        //        InterlockedExchange(&state->cache.cpuid.active, TRUE);
-        //}
+        * todo: implement some sort of caching mechanism
+        */
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
 
         __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
 
@@ -232,8 +209,6 @@ DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
 {
         __wbinvd();
 }
-
-#define VMCALL_TERMINATE_VMX 0
 
 VOID
 DispatchVmCallTerminateVmx()
@@ -253,7 +228,8 @@ VmCallDispatcher(_In_ UINT64 VmCallNumber,
 
         switch (VmCallNumber)
         {
-        case VMCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
+        case TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
+        case TEST: break;
         default: break;
         }
 
