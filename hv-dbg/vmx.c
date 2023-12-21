@@ -406,7 +406,7 @@ BroadcastVmxTermination()
 NTSTATUS
 SetupVmxOperation()
 {
-        NTSTATUS          status  = STATUS_ABANDONED;
+        NTSTATUS          status  = STATUS_UNSUCCESSFUL;
         PIPI_CALL_CONTEXT context = NULL;
         EPT_POINTER*      pept    = NULL;
 
@@ -479,6 +479,7 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
         UNREFERENCED_PARAMETER(CallbackContext);
 
         NTSTATUS status = STATUS_UNSUCCESSFUL;
+        HANDLE   handle = NULL;
 
         if (Argument1 != (PVOID)PO_CB_SYSTEM_STATE_LOCK)
                 return;
@@ -490,10 +491,7 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
                 status = SetupVmxOperation();
 
                 if (!NT_SUCCESS(status))
-                {
                         DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
-                        return;
-                }
         }
         else
         {
@@ -502,10 +500,7 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
                 status = BroadcastVmxTermination();
 
                 if (!NT_SUCCESS(status))
-                {
                         DEBUG_ERROR("BroadcastVmxTermination failed with status %x", status);
-                        return;
-                }
         }
 }
 

@@ -10,9 +10,6 @@ VMCS_HOST_STATE_FIELDS    host_state_fields    = {0};
 VMCS_CONTROL_STATE_FIELDS control_state_fields = {0};
 VMCS_EXIT_STATE_FIELDS    exit_state_fields    = {0};
 
-UINT64 guest_rip = 0;
-UINT64 guest_rsp = 0;
-
 STATIC
 BOOLEAN
 GetSegmentDescriptor(_In_ PSEGMENT_SELECTOR SegmentSelector,
@@ -128,7 +125,7 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
 STATIC
 VOID
-VmcsWriteGuestStateFields(_In_ PVOID StackPointer)
+VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE GuestState)
 {
         __vmx_vmwrite(guest_state_fields.qword_state.vmcs_link_pointer, ~0ull);
 
@@ -149,9 +146,16 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer)
         __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, __readgdtbase());
         __vmx_vmwrite(guest_state_fields.natural_state.idtr_base, __readidtbase());
 
+        /*
+         * fffff807`5347200b 0f03c8          lsl     ecx,eax
+         *
+         * the lsl instruction here causes a page fault on turning vmx back on after vmx is
+         * initiated again after returning from sleep
+         */
+
         __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, __segmentlimit(__readgdtbase));
         __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, __segmentlimit(__readidtbase));
-        
+
         __vmx_vmwrite(guest_state_fields.natural_state.rflags, __readrflags());
 
         __vmx_vmwrite(guest_state_fields.dword_state.sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
@@ -201,9 +205,15 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
          * Lets not force a vmexit on any external interrupts
          */
         IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls = {0};
+        pin_ctls.NmiExiting                      = FALSE;
 
         __vmx_vmwrite(control_state_fields.dword_state.pin_based_vm_execution_controls,
                       AdjustMsrControl((UINT32)pin_ctls.AsUInt, MSR_IA32_VMX_PINBASED_CTLS));
+
+        /*
+         * Set all 32 bits to ensure every exception is caught
+         */
+        __vmx_vmwrite(control_state_fields.dword_state.exception_bitmap, 0xffffffff);
 
         /*
          * Ensure we acknowledge interrupts on VMEXIT and are in 64 bit mode.
@@ -249,7 +259,7 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         }
 
         VmcsWriteControlStateFields(GuestState);
-        VmcsWriteGuestStateFields(StackPointer);
+        VmcsWriteGuestStateFields(StackPointer, GuestState);
         VmcsWriteHostStateFields(GuestState);
 
         return STATUS_SUCCESS;
@@ -363,7 +373,7 @@ VmcsReadGuestCr4()
         return cr4;
 }
 
-UINT64 
+UINT64
 VmmReadGuestRip()
 {
         return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
@@ -383,7 +393,7 @@ VmcsReadGuestFsBase()
         return base;
 }
 
-UINT64 
+UINT64
 VmcsReadGuestGsBase()
 {
         UINT64 base = 0;
@@ -421,4 +431,24 @@ VmcsReadGuestIdtrLimit()
         UINT32 limit = 0;
         __vmx_vmread(guest_state_fields.dword_state.idtr_limit, &limit);
         return limit;
+}
+
+UINT32
+VmcsReadExitInterruptionInfo()
+{
+        UINT32 info = 0;
+        __vmx_vmread(exit_state_fields.dword_state.interruption_info, &info);
+        return info;
+}
+
+UINT32
+VmcsWriteEntryInterruptionInfo(_In_ UINT32 Value)
+{
+        __vmx_vmwrite(control_state_fields.dword_state.vmentry_interruption_info, Value);
+}
+
+UINT32
+VmcsWriteEntryInstructionLength(_In_ UINT32 Value)
+{
+        __vmx_vmwrite(control_state_fields.dword_state.vmentry_instruction_length, Value);
 }

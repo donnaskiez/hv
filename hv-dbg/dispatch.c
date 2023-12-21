@@ -191,8 +191,8 @@ VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 {
         /*
-        * todo: implement some sort of caching mechanism
-        */
+         * todo: implement some sort of caching mechanism
+         */
         PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
 
         __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
@@ -236,6 +236,55 @@ VmCallDispatcher(_In_ UINT64 VmCallNumber,
         return STATUS_SUCCESS;
 }
 
+STATIC
+VOID
+InjectEventIntoGuest(_In_ INTERRUPTION_TYPE InterruptType,
+                     _In_ EXCEPTION_VECTOR  Vector,
+                     _In_ UINT32            WriteLength)
+{
+        DEBUG_LOG("Injecting event into guest with type: %lx vector: %lx", InterruptType, Vector);
+
+        VMENTRY_INTERRUPT_INFORMATION info = {0};
+        info.InterruptionType              = InterruptType;
+        info.Vector                        = Vector;
+        info.DeliverErrorCode              = FALSE;
+        info.Valid                         = TRUE;
+
+        VmcsWriteEntryInterruptionInfo(info.AsUInt);
+
+        if (WriteLength > 0)
+                VmcsWriteEntryInstructionLength(WriteLength);
+}
+
+STATIC
+VOID
+DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
+{
+        VMEXIT_INTERRUPT_INFORMATION info = {0};
+        info.AsUInt                       = VmcsReadExitInterruptionInfo();
+
+        switch (info.InterruptionType)
+        {
+        case ExternalInterrupt: break;
+        case NonMaskableInterrupt: InjectEventIntoGuest(NonMaskableInterrupt, Nmi, 0); break;
+        case HardwareException:
+                InjectEventIntoGuest(
+                    info.InterruptionType, info.Vector, VmcsReadInstructionLength());
+                break;
+        case SoftwareInterrupt:
+                InjectEventIntoGuest(
+                    info.InterruptionType, info.Vector, VmcsReadInstructionLength());
+                break;
+        case PrivilegedSoftwareException:
+        case SoftwareException:
+        case OtherEvent:
+        default:
+                InjectEventIntoGuest(
+                    info.InterruptionType, info.Vector, VmcsReadInstructionLength());
+                break;
+        }
+}
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -244,14 +293,15 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 
         switch (VmcsReadExitReason())
         {
-        case EXIT_REASON_CPUID: DispatchExitReasonCPUID(Context); break;
-        case EXIT_REASON_INVD: DispatchExitReasonINVD(Context); break;
-        case EXIT_REASON_VMCALL:
+        case VMX_EXIT_REASON_EXECUTE_CPUID: DispatchExitReasonCPUID(Context); break;
+        case VMX_EXIT_REASON_EXECUTE_INVD: DispatchExitReasonINVD(Context); break;
+        case VMX_EXIT_REASON_EXECUTE_VMCALL:
                 Context->rax =
                     VmCallDispatcher(Context->rcx, Context->rdx, Context->r8, Context->r9);
                 break;
-        case EXIT_REASON_CR_ACCESS: DispatchExitReasonControlRegisterAccess(Context); break;
-        case EXIT_REASON_WBINVD: DispatchExitReasonWBINVD(Context); break;
+        case VMX_EXIT_REASON_MOV_CR: DispatchExitReasonControlRegisterAccess(Context); break;
+        case VMX_EXIT_REASON_EXECUTE_WBINVD: DispatchExitReasonWBINVD(Context); break;
+        case VMX_EXIT_REASON_EXCEPTION_OR_NMI: DispatchExitReasonExceptionOrNmi(Context); break;
         default: break;
         }
 
@@ -314,12 +364,12 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                  */
                 SEGMENT_DESCRIPTOR_REGISTER gdtr = {0};
                 gdtr.base_address                = VmcsReadGuestGdtrBase();
-                gdtr.limit                       = VmcsReadGuestGdtrLimit();
+                gdtr.limit                       = (UINT16)VmcsReadGuestGdtrLimit();
                 __lgdt(&gdtr);
 
                 SEGMENT_DESCRIPTOR_REGISTER idtr = {0};
                 idtr.base_address                = VmcsReadGuestIdtrBase();
-                idtr.limit                       = VmcsReadGuestIdtrLimit();
+                idtr.limit                       = (UINT16)VmcsReadGuestIdtrLimit();
                 __lidt(&idtr);
 
                 /*

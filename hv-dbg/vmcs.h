@@ -70,4 +70,13 @@ VmcsReadGuestIdtrBase();
 UINT32
 VmcsReadGuestIdtrLimit();
 
+UINT32
+VmcsReadExitInterruptionInfo();
+
+UINT32
+VmcsWriteEntryInterruptionInfo(_In_ UINT32 Value);
+
+UINT32
+VmcsWriteEntryInstructionLength(_In_ UINT32 Value);
+
 #endif
