@@ -4,6 +4,7 @@
 #include "vmx.h"
 #include "encode.h"
 #include "arch.h"
+#include <intrin.h>
 
 VMCS_GUEST_STATE_FIELDS   guest_state_fields   = {0};
 VMCS_HOST_STATE_FIELDS    host_state_fields    = {0};
@@ -11,87 +12,114 @@ VMCS_CONTROL_STATE_FIELDS control_state_fields = {0};
 VMCS_EXIT_STATE_FIELDS    exit_state_fields    = {0};
 
 STATIC
-BOOLEAN
-GetSegmentDescriptor(_In_ PSEGMENT_SELECTOR SegmentSelector,
-                     _In_ USHORT            Selector,
-                     _In_ PUCHAR            GdtBase)
+UINT32
+__segmentar(SEGMENT_SELECTOR* Selector)
 {
-        ULONG64             temp               = 0;
-        PSEGMENT_DESCRIPTOR segment_descriptor = NULL;
+        VMX_SEGMENT_ACCESS_RIGHTS ar = {0};
 
-        if (!SegmentSelector)
-                return FALSE;
-
-        if (Selector & 0x4)
-                return FALSE;
-
-        segment_descriptor = (PSEGMENT_DESCRIPTOR)((PUCHAR)GdtBase + (Selector & ~0x7));
-
-        SegmentSelector->SEL  = Selector;
-        SegmentSelector->BASE = segment_descriptor->BASE0 | segment_descriptor->BASE1 << 16 |
-                                segment_descriptor->BASE2 << 24;
-        SegmentSelector->LIMIT =
-            segment_descriptor->LIMIT0 | (segment_descriptor->LIMIT1ATTR1 & 0xf) << 16;
-        SegmentSelector->ATTRIBUTES.UCHARs =
-            segment_descriptor->ATTR0 | (segment_descriptor->LIMIT1ATTR1 & 0xf0) << 4;
-
-        if (!(segment_descriptor->ATTR0 & 0x10))
+        /*
+         * If the table is set to the GDT and there is no index, set the segment as unusable.
+         */
+        if (Selector->Table == FALSE && Selector->Index == FALSE)
         {
-                // this is a TSS or callgate etc, save the base high part
-                temp                  = (*(PULONG64)((PUCHAR)segment_descriptor + 8));
-                SegmentSelector->BASE = (SegmentSelector->BASE & 0xffffffff) | (temp << 32);
+                ar.Unusable = TRUE;
+                return ar.AsUInt;
         }
 
-        if (SegmentSelector->ATTRIBUTES.Fields.G)
-        {
-                // 4096-bit granularity is enabled for this segment, scale the
-                // limit
-                SegmentSelector->LIMIT = (SegmentSelector->LIMIT << 12) + 0xfff;
-        }
+        /*
+         * Use the lar instruction to load the access rights. remove the first byte as the value is
+         * not used in the access rights. Set the unusable flag to false to allow the access rightse
+         * to be used.
+         */
+        ar.AsUInt    = (__lar(Selector->AsUInt) >> 8);
+        ar.Unusable  = 0;
+        ar.Reserved1 = 0;
+        ar.Reserved2 = 0;
 
-        return TRUE;
+        return ar.AsUInt;
 }
 
-ULONG
-AdjustMsrControl(_In_ ULONG Control, _In_ ULONG Msr)
+STATIC
+UINT32
+AdjustMsrControl(_In_ UINT32 Control, _In_ UINT32 Msr)
 {
-        MSR MsrValue = {0};
+        MSR msr     = {0};
+        msr.Content = __readmsr(Msr);
 
-        MsrValue.Content = __readmsr(Msr);
-        Control &= MsrValue.High; /* bit == 0 in high word ==> must be zero */
-        Control |= MsrValue.Low;  /* bit == 1 in low word  ==> must be one  */
+        Control &= msr.High;
+        Control |= msr.Low;
+
         return Control;
 }
 
-VOID
-VmcsWriteSelectors(_In_ PVOID GdtBase, _In_ ULONG SegmentRegisters, _In_ USHORT Selector)
+/*
+ * Given either the LDT or GDT base, return the segment descriptor given the selector talble index.
+ * We do this by taking the Selectors Index value and multiplying it by 8 as each entry is the size
+ * of a pointer.
+ */
+STATIC
+SEGMENT_DESCRIPTOR_64*
+GetSegmentDescriptor(_In_ UINT64 TableBase, _In_ SEGMENT_SELECTOR* Selector)
 {
-        SEGMENT_SELECTOR segment_selector = {0};
-        ULONG            access_rights;
+        return (SEGMENT_DESCRIPTOR_64*)(TableBase + Selector->Index * 8);
+}
 
-        GetSegmentDescriptor(&segment_selector, Selector, GdtBase);
-        access_rights = ((PUCHAR)&segment_selector.ATTRIBUTES)[0] +
-                        (((PUCHAR)&segment_selector.ATTRIBUTES)[1] << 12);
+STATIC
+UINT64
+GetSegmentDescriptorBase(_In_ SEGMENT_DESCRIPTOR_64* Descriptor)
+{
+        UINT64 base = Descriptor->BaseAddressHigh << 24 | Descriptor->BaseAddressMiddle << 16 |
+                      Descriptor->BaseAddressLow;
 
-        if (!Selector)
-                access_rights |= 0x10000;
+        /*
+         * If our our descriptor is a system descriptor and, more specifically, points to the TSS -
+         * it means we need to expand the base to 16 bytes. The reason for this is as most
+         * descriptors are 8 bytes, the call-gate, IDT and LDT/TSS descriptors are expanded to 16
+         * bytes.
+         */
+        if (Descriptor->DescriptorType == SEGMENT_DESCRIPTOR_TYPE_SYSTEM &&
+            (Descriptor->Type == SEGMENT_DESCRIPTOR_TYPE_TSS_AVAILABLE ||
+             Descriptor->Type == SEGMENT_DESCRIPTOR_TYPE_TSS_BUSY))
+                base |= (UINT64)(((SEGMENT_DESCRIPTOR_64*)Descriptor)->BaseAddressUpper) << 32;
 
-        __vmx_vmwrite(guest_state_fields.word_state.es_selector + SegmentRegisters * 2, Selector);
-        __vmx_vmwrite(guest_state_fields.dword_state.es_limit + SegmentRegisters * 2,
-                      segment_selector.LIMIT);
-        __vmx_vmwrite(guest_state_fields.dword_state.es_access_rights + SegmentRegisters * 2,
-                      access_rights);
-        __vmx_vmwrite(guest_state_fields.natural_state.es_base + SegmentRegisters * 2,
-                      segment_selector.BASE);
+        return base;
+}
+
+STATIC
+UINT64
+__segmentbase(_In_ SEGMENT_DESCRIPTOR_REGISTER_64* Gdtr, _In_ SEGMENT_SELECTOR* Selector)
+{
+        if (!Selector->AsUInt)
+                return 0;
+
+        SEGMENT_DESCRIPTOR_64* descriptor = GetSegmentDescriptor(Gdtr->BaseAddress, Selector);
+
+        /*
+         * Selector->Table specifies the descriptor table to use. Clearing the flag selects the GDT
+         * while setting the flags selects the current LDT.
+         *
+         * Because all execution will happen within the context of the OS, we don't need to worry
+         * about and LDT segments
+         */
+        if (Selector->Table == TRUE)
+                return 0;
+
+        /*
+         * Given our segment descriptor, find the base address the descriper describes and return
+         * it.
+         */
+        return GetSegmentDescriptorBase(descriptor);
 }
 
 STATIC
 VOID
 VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 {
-        SEGMENT_SELECTOR selector = {0};
-        GetSegmentDescriptor(&selector, __readtr(), (PUCHAR)__readgdtbase());
-        __vmx_vmwrite(host_state_fields.natural_state.tr_base, selector.BASE);
+        SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+        SEGMENT_SELECTOR               tr   = {0};
+        tr.AsUInt                           = __readtr();
+        __sgdt(&gdtr);
+        __vmx_vmwrite(host_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
 
         __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
         __vmx_vmwrite(host_state_fields.word_state.cs_selector, __readcs() & 0xF8);
@@ -127,24 +155,81 @@ STATIC
 VOID
 VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE GuestState)
 {
+        SEGMENT_SELECTOR es   = {0};
+        SEGMENT_SELECTOR cs   = {0};
+        SEGMENT_SELECTOR ss   = {0};
+        SEGMENT_SELECTOR ds   = {0};
+        SEGMENT_SELECTOR fs   = {0};
+        SEGMENT_SELECTOR gs   = {0};
+        SEGMENT_SELECTOR tr   = {0};
+        SEGMENT_SELECTOR ldtr = {0};
+
+        es.AsUInt  = __reades();
+        cs.AsUInt  = __readcs();
+        ss.AsUInt  = __readss();
+        ds.AsUInt  = __readds();
+        fs.AsUInt  = __readfs();
+        gs.AsUInt  = __readgs();
+        tr.AsUInt  = __readtr();
+        ldtr.Table = __readldtr();
+
+        SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+        SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
+
+        __sgdt(&gdtr);
+        __sidt(&idtr);
+
+        __vmx_vmwrite(guest_state_fields.word_state.es_selector, es.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.cs_selector, cs.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.ss_selector, ss.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.ds_selector, ds.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.fs_selector, fs.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.gs_selector, gs.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.tr_selector, tr.AsUInt);
+        __vmx_vmwrite(guest_state_fields.word_state.ldtr_selector, ldtr.AsUInt);
+
+        __vmx_vmwrite(guest_state_fields.natural_state.es_base, __segmentbase(&gdtr, &es));
+        __vmx_vmwrite(guest_state_fields.natural_state.cs_base, __segmentbase(&gdtr, &cs));
+        __vmx_vmwrite(guest_state_fields.natural_state.ss_base, __segmentbase(&gdtr, &ss));
+        __vmx_vmwrite(guest_state_fields.natural_state.ds_base, __segmentbase(&gdtr, &ds));
+        __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __segmentbase(&gdtr, &fs));
+        __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __segmentbase(&gdtr, &gs));
+        __vmx_vmwrite(guest_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
+        __vmx_vmwrite(guest_state_fields.natural_state.ldtr_base, __segmentbase(&gdtr, &ldtr));
+
+        __vmx_vmwrite(guest_state_fields.dword_state.es_limit, __segmentlimit(__reades()));
+        __vmx_vmwrite(guest_state_fields.dword_state.cs_limit, __segmentlimit(__readcs()));
+        __vmx_vmwrite(guest_state_fields.dword_state.ss_limit, __segmentlimit(__readss()));
+        __vmx_vmwrite(guest_state_fields.dword_state.ds_limit, __segmentlimit(__readds()));
+        __vmx_vmwrite(guest_state_fields.dword_state.fs_limit, __segmentlimit(__readfs()));
+        __vmx_vmwrite(guest_state_fields.dword_state.gs_limit, __segmentlimit(__readgs()));
+        __vmx_vmwrite(guest_state_fields.dword_state.tr_limit, __segmentlimit(__readtr()));
+        __vmx_vmwrite(guest_state_fields.dword_state.ldtr_limit, __segmentlimit(__readldtr()));
+
+        __vmx_vmwrite(guest_state_fields.dword_state.es_access_rights, __segmentar(&es));
+        __vmx_vmwrite(guest_state_fields.dword_state.cs_access_rights, __segmentar(&cs));
+        __vmx_vmwrite(guest_state_fields.dword_state.ss_access_rights, __segmentar(&ss));
+        __vmx_vmwrite(guest_state_fields.dword_state.ds_access_rights, __segmentar(&ds));
+        __vmx_vmwrite(guest_state_fields.dword_state.fs_access_rights, __segmentar(&fs));
+        __vmx_vmwrite(guest_state_fields.dword_state.gs_access_rights, __segmentar(&gs));
+        __vmx_vmwrite(guest_state_fields.dword_state.tr_access_rights, __segmentar(&tr));
+        __vmx_vmwrite(guest_state_fields.dword_state.ldtr_access_rights, __segmentar(&ldtr));
+
+        __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, gdtr.Limit);
+        __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, idtr.Limit);
+
+        __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, gdtr.BaseAddress);
+        __vmx_vmwrite(guest_state_fields.natural_state.idtr_base, idtr.BaseAddress);
+
         __vmx_vmwrite(guest_state_fields.qword_state.vmcs_link_pointer, ~0ull);
 
-        VmcsWriteSelectors(__readgdtbase(), ES, __reades());
-        VmcsWriteSelectors(__readgdtbase(), CS, __readcs());
-        VmcsWriteSelectors(__readgdtbase(), SS, __readss());
-        VmcsWriteSelectors(__readgdtbase(), DS, __readds());
-        VmcsWriteSelectors(__readgdtbase(), FS, __readfs());
-        VmcsWriteSelectors(__readgdtbase(), GS, __readgs());
-        VmcsWriteSelectors(__readgdtbase(), LDTR, __readldtr());
-        VmcsWriteSelectors(__readgdtbase(), TR, __readtr());
-
+        /*
+         * Simply set the cr0, cr3, cr4 and dr7 to what the guest was running with before.
+         */
         __vmx_vmwrite(guest_state_fields.natural_state.cr0, __readcr0());
         __vmx_vmwrite(guest_state_fields.natural_state.cr3, __readcr3());
         __vmx_vmwrite(guest_state_fields.natural_state.cr4, __readcr4());
         __vmx_vmwrite(guest_state_fields.natural_state.dr7, 0x400);
-
-        __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, __readgdtbase());
-        __vmx_vmwrite(guest_state_fields.natural_state.idtr_base, __readidtbase());
 
         /*
          * fffff807`5347200b 0f03c8          lsl     ecx,eax
@@ -152,9 +237,6 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
          * the lsl instruction here causes a page fault on turning vmx back on after vmx is
          * initiated again after returning from sleep
          */
-
-        __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, __segmentlimit(__readgdtbase));
-        __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, __segmentlimit(__readidtbase));
 
         __vmx_vmwrite(guest_state_fields.natural_state.rflags, __readrflags());
 
@@ -166,6 +248,12 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
         __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
         __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
 
+        /*
+         * Since the goal of this hypervisor is to virtualise and already running operating system,
+         * once we initiate VMX, we want to set the RIP and RSP set to the values they were before
+         * the core was interrupted by our inter process interrupt. This means once vmx has been
+         * initiated, guest operation will continue as normal as if nothing happened.
+         */
         __vmx_vmwrite(guest_state_fields.natural_state.rsp, StackPointer);
         __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState);
 }
@@ -213,7 +301,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         /*
          * Set all 32 bits to ensure every exception is caught
          */
-        __vmx_vmwrite(control_state_fields.dword_state.exception_bitmap, 0xffffffff);
+        __vmx_vmwrite(control_state_fields.dword_state.exception_bitmap, 0ul);
 
         /*
          * Ensure we acknowledge interrupts on VMEXIT and are in 64 bit mode.

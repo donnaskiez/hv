@@ -17,6 +17,9 @@ PUBLIC __readrflags
 PUBLIC __readmsr
 PUBLIC __writemsr
 PUBLIC __lgdt
+PUBLIC __lar
+PUBLIC __sgdt
+PUBLIC __sldt
 
 PUBLIC __writecr0 
 PUBLIC __writecr4
@@ -398,5 +401,25 @@ __vmx_vmcall PROC
 	ret
 
 __vmx_vmcall ENDP
+
+__lar PROC
+	lar rax, rcx
+	ret
+__lar ENDP
+
+__sgdt PROC
+	
+	sgdt [rcx]
+	ret
+
+__sgdt ENDP
+
+__sldt PROC
+
+	sldt ax
+	ret
+
+__sldt ENDP
+
 
 END

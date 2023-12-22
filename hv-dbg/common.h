@@ -12,18 +12,6 @@
 #define INLINE inline
 #define EXTERN extern
 
-extern USHORT  __readcs(VOID);
-extern USHORT  __readds(VOID);
-extern USHORT  __reades(VOID);
-extern USHORT  __readss(VOID);
-extern USHORT  __readfs(VOID);
-extern USHORT  __readgs(VOID);
-extern USHORT  __readldtr(VOID);
-extern USHORT  __readtr(VOID);
-extern USHORT  __getidtlimit(VOID);
-extern USHORT  __getgdtlimit(VOID);
-extern ULONG64 __readrflags(VOID);
-
 #define VMX_OK          0 /* all ok */
 #define VMX_UNSUPPORTED 1 /* VT unsupported or disabled on 1+ cores */
 #define VMX_INUSE
@@ -329,36 +317,6 @@ typedef union _CR4
         UINT64 bit_address;
 
 } CR4, *PCR4;
-
-typedef struct SEGMENT_SELECTOR
-{
-        USHORT             SEL;
-        SEGMENT_ATTRIBUTES ATTRIBUTES;
-        ULONG32            LIMIT;
-        ULONG64            BASE;
-} SEGMENT_SELECTOR, *PSEGMENT_SELECTOR;
-
-typedef struct _SEGMENT_DESCRIPTOR
-{
-        USHORT LIMIT0;
-        USHORT BASE0;
-        UCHAR  BASE1;
-        UCHAR  ATTR0;
-        UCHAR  LIMIT1ATTR1;
-        UCHAR  BASE2;
-} SEGMENT_DESCRIPTOR, *PSEGMENT_DESCRIPTOR;
-
-enum SEGREGS
-{
-        ES = 0,
-        CS,
-        SS,
-        DS,
-        FS,
-        GS,
-        LDTR,
-        TR
-};
 
 typedef struct _GUEST_CONTEXT
 {
@@ -892,22 +850,6 @@ enum VMCS_FIELDS
 #define CONTROL_REGISTER_3 3
 #define CONTROL_REGISTER_4 4
 #define CONTROL_REGISTER_8
-
-#pragma pack(push, 1)
-typedef struct _SEGMENT_DESCRIPTOR_REGISTER
-{
-        /**
-         * Limit.
-         */
-        UINT16 limit;
-
-        /**
-         * Base Address.
-         */
-        UINT64 base_address;
-
-} SEGMENT_DESCRIPTOR_REGISTER, *PSEGMENT_DESCRIPTOR_REGISTER;
-#pragma pack(pop)
 
 typedef enum _VMCALL_ID
 {

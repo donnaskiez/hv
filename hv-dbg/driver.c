@@ -5,6 +5,8 @@
 #include "common.h"
 #include "ept.h"
 #include "pipeline.h"
+#include <intrin.h>
+#include "arch.h"
 
 UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
 UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
@@ -13,7 +15,7 @@ NTSTATUS
 DeviceClose(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
         UNREFERENCED_PARAMETER(DeviceObject);
-        //BroadcastVmxTermination();
+        // BroadcastVmxTermination();
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return Irp->IoStatus.Status;
 }

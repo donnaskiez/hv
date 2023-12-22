@@ -236,6 +236,10 @@ VmCallDispatcher(_In_ UINT64 VmCallNumber,
         return STATUS_SUCCESS;
 }
 
+/*
+ * Once we've read the interruption information field, we need to write a certain value to the vm
+ * entry interruption info field which dispatches said exception to the guest on vmentry.
+ */
 STATIC
 VOID
 InjectEventIntoGuest(_In_ INTERRUPTION_TYPE InterruptType,
@@ -256,6 +260,17 @@ InjectEventIntoGuest(_In_ INTERRUPTION_TYPE InterruptType,
                 VmcsWriteEntryInstructionLength(WriteLength);
 }
 
+/*
+ * IF we want to force exceptions and NMIs to produce a VM exit, we first must set the exception we
+ * would like to cause a vm exit to 1 in the exception bitmap, or set all of them. When a vmexit is
+ * caused by an exception or nmi, information related to the exit can be found in the exit
+ * interruption information field.
+ *
+ * Some exceptions require us to increment the instruction pointer (since after all, they are
+ * themselves instructions) such as software breakpoints.
+ *
+ * See 25.9.2 for more information.
+ */
 STATIC
 VOID
 DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
@@ -362,14 +377,14 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 /*
                  * Write back the guest gdtr and idtrs
                  */
-                SEGMENT_DESCRIPTOR_REGISTER gdtr = {0};
-                gdtr.base_address                = VmcsReadGuestGdtrBase();
-                gdtr.limit                       = (UINT16)VmcsReadGuestGdtrLimit();
+                SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+                gdtr.BaseAddress                    = VmcsReadGuestGdtrBase();
+                gdtr.Limit                          = (UINT16)VmcsReadGuestGdtrLimit();
                 __lgdt(&gdtr);
 
-                SEGMENT_DESCRIPTOR_REGISTER idtr = {0};
-                idtr.base_address                = VmcsReadGuestIdtrBase();
-                idtr.limit                       = (UINT16)VmcsReadGuestIdtrLimit();
+                SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
+                idtr.BaseAddress                    = VmcsReadGuestIdtrBase();
+                idtr.Limit                          = (UINT16)VmcsReadGuestIdtrLimit();
                 __lidt(&idtr);
 
                 /*

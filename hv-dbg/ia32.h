@@ -17389,46 +17389,46 @@ typedef struct
 				     *
 				     * @see Vol3A[3.4.2(Segment Selectors)] (reference)
 				     */
-//typedef union
-//{
-//	struct
-//	{
-//		/**
-//		 * [Bits 1:0] Specifies the privilege level of the selector. The privilege level can range from 0 to 3, with 0 being the
-//		 * most privileged level.
-//		 *
-//		 * @see Vol3A[5.5(Privilege Levels)]
-//		 */
-//		UINT16 RequestPrivilegeLevel : 2;
-//#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_BIT                 0
-//#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_FLAG                0x03
-//#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_MASK                0x03
-//#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL(_)                  (((_) >> 0) & 0x03)
-//
-//		/**
-//		 * [Bit 2] Specifies the descriptor table to use: clearing this flag selects the GDT; setting this flag selects the current
-//		 * LDT.
-//		 */
-//		UINT16 Table : 1;
-//#define SEGMENT_SELECTOR_TABLE_BIT                                   2
-//#define SEGMENT_SELECTOR_TABLE_FLAG                                  0x04
-//#define SEGMENT_SELECTOR_TABLE_MASK                                  0x01
-//#define SEGMENT_SELECTOR_TABLE(_)                                    (((_) >> 2) & 0x01)
-//
-//		/**
-//		 * [Bits 15:3] Selects one of 8192 descriptors in the GDT or LDT. The processor multiplies the index value by 8 (the number
-//		 * of bytes in a segment descriptor) and adds the result to the base address of the GDT or LDT (from the GDTR or LDTR
-//		 * register, respectively).
-//		 */
-//		UINT16 Index : 13;
-//#define SEGMENT_SELECTOR_INDEX_BIT                                   3
-//#define SEGMENT_SELECTOR_INDEX_FLAG                                  0xFFF8
-//#define SEGMENT_SELECTOR_INDEX_MASK                                  0x1FFF
-//#define SEGMENT_SELECTOR_INDEX(_)                                    (((_) >> 3) & 0x1FFF)
-//	};
-//
-//	UINT16 AsUInt;
-//} SEGMENT_SELECTOR;
+typedef union
+{
+	struct
+	{
+		/**
+		 * [Bits 1:0] Specifies the privilege level of the selector. The privilege level can range from 0 to 3, with 0 being the
+		 * most privileged level.
+		 *
+		 * @see Vol3A[5.5(Privilege Levels)]
+		 */
+		UINT16 RequestPrivilegeLevel : 2;
+#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_BIT                 0
+#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_FLAG                0x03
+#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL_MASK                0x03
+#define SEGMENT_SELECTOR_REQUEST_PRIVILEGE_LEVEL(_)                  (((_) >> 0) & 0x03)
+
+		/**
+		 * [Bit 2] Specifies the descriptor table to use: clearing this flag selects the GDT; setting this flag selects the current
+		 * LDT.
+		 */
+		UINT16 Table : 1;
+#define SEGMENT_SELECTOR_TABLE_BIT                                   2
+#define SEGMENT_SELECTOR_TABLE_FLAG                                  0x04
+#define SEGMENT_SELECTOR_TABLE_MASK                                  0x01
+#define SEGMENT_SELECTOR_TABLE(_)                                    (((_) >> 2) & 0x01)
+
+		/**
+		 * [Bits 15:3] Selects one of 8192 descriptors in the GDT or LDT. The processor multiplies the index value by 8 (the number
+		 * of bytes in a segment descriptor) and adds the result to the base address of the GDT or LDT (from the GDTR or LDTR
+		 * register, respectively).
+		 */
+		UINT16 Index : 13;
+#define SEGMENT_SELECTOR_INDEX_BIT                                   3
+#define SEGMENT_SELECTOR_INDEX_FLAG                                  0xFFF8
+#define SEGMENT_SELECTOR_INDEX_MASK                                  0x1FFF
+#define SEGMENT_SELECTOR_INDEX(_)                                    (((_) >> 3) & 0x1FFF)
+	};
+
+	UINT16 AsUInt;
+} SEGMENT_SELECTOR;
 
 /**
  * @}
