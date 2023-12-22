@@ -38,6 +38,8 @@ EXTERN VmmReadGuestRsp:PROC
 
 .code _text
 
+; save general purpose registers to the stack, matching our GUEST_CONTEXT structure
+
 SAVE_GP macro
 
 	push r15
@@ -80,6 +82,12 @@ RESTORE_GP macro
 
 endm
 
+	; save floating point registers
+	; vmovups allows us to store them in an unaligned address
+	; which is not ideal and should be fixed.
+
+	; todo: Instead we should align the stack and use the movaps instruction
+
 SAVE_FP macro
 
 	sub     rsp, 60h
@@ -113,10 +121,6 @@ VmexitHandler PROC
 	pushfq				; push eflags
 
 	SAVE_GP				; save general purpose registers	
-	
-	; save floating point registers
-	; vmovups allows us to store them in an unaligned address
-	; which is not ideal and should be fixed.
 
 	SAVE_FP
 
@@ -187,7 +191,9 @@ ExitVmx PROC
 
 ExitVmx ENDP
 
-; No need to raise the irql as this routine run at IPI_LEVEL 
+; Save the future guests state before we initialise vmx operation
+
+; This functions runs at IRQL = IPI_LEVEL
 
 SaveStateAndVirtualizeCore PROC PUBLIC
 
@@ -204,6 +210,12 @@ SaveStateAndVirtualizeCore PROC PUBLIC
 SaveStateAndVirtualizeCore ENDP 
 
 ; will be used to restore the state of the guest to before we called SaveStateAndVirtualizeCore
+
+; Since we are virtualizing an already running operating system, once vmx operation is initiated
+
+; we will set the guest rip to this function which will restore the guest to the state before 
+
+; we called SaveStateAndVirtualizeCore
 
 VmxRestoreState PROC
 
@@ -283,7 +295,7 @@ __readrflags PROC
 
 	pushfq
 
-	pop		rax
+	pop rax
 
 	ret
 
@@ -351,13 +363,17 @@ __vmx_vmcall PROC
 __vmx_vmcall ENDP
 
 __lar PROC
+
 	lar rax, rcx
+
 	ret
+
 __lar ENDP
 
 __sgdt PROC
 	
 	sgdt [rcx]
+
 	ret
 
 __sgdt ENDP
@@ -365,6 +381,7 @@ __sgdt ENDP
 __sldt PROC
 
 	sldt ax
+
 	ret
 
 __sldt ENDP
