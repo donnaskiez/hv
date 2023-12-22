@@ -9,10 +9,6 @@ PUBLIC __readfs
 PUBLIC __readgs
 PUBLIC __readldtr
 PUBLIC __readtr
-PUBLIC __readgdtbase
-PUBLIC __readidtbase
-PUBLIC __getgdtlimit
-PUBLIC __getidtlimit
 PUBLIC __readrflags
 PUBLIC __readmsr
 PUBLIC __writemsr
@@ -219,18 +215,6 @@ VmxRestoreState PROC
 	
 VmxRestoreState ENDP
 
-__readgdtbase PROC
-
-	local gdtr[10]:byte
-
-	sgdt gdtr
-
-	mov rax, qword ptr gdtr[2]
-
-	ret
-
-__readgdtbase ENDP
-
 __readcs PROC
 
 	mov rax, cs
@@ -294,42 +278,6 @@ __readtr PROC
 	ret
 
 __readtr ENDP
-
-__readidtbase PROC
-
-	local idtr[10]:byte
-	
-	sidt idtr
-
-	mov rax, qword ptr idtr[2]
-
-	ret
-
-__readidtbase ENDP
-
-__getgdtlimit PROC
-
-	local gdtr[10]:byte
-
-	sgdt gdtr
-
-	mov ax, word ptr gdtr[0]
-
-	ret
-
-__getgdtlimit ENDP
-
-__getidtlimit PROC
-
-	local idtr[10]:byte
-	
-	sidt idtr
-
-	mov ax, word ptr idtr[0]
-
-	ret
-
-__getidtlimit ENDP
 
 __readrflags PROC
 

@@ -99,7 +99,7 @@ __segmentbase(_In_ SEGMENT_DESCRIPTOR_REGISTER_64* Gdtr, _In_ SEGMENT_SELECTOR* 
          * while setting the flags selects the current LDT.
          *
          * Because all execution will happen within the context of the OS, we don't need to worry
-         * about and LDT segments
+         * about LDT descriptors
          */
         if (Selector->Table == TRUE)
                 return 0;
@@ -116,9 +116,12 @@ VOID
 VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 {
         SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+        __sgdt(&gdtr);
+
+
         SEGMENT_SELECTOR               tr   = {0};
         tr.AsUInt                           = __readtr();
-        __sgdt(&gdtr);
+
         __vmx_vmwrite(host_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
 
         __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
