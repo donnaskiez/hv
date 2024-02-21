@@ -21911,6 +21911,7 @@ typedef union
 																		    *
 																		    * Natural-Width Fields.
 																		    *
+																		    *
 																		    * @see Vol3D[B.4(NATURAL-WIDTH FIELDS)] (reference)
 																		    * @{
 																		    */

@@ -300,7 +300,7 @@ VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer)
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
-        DEBUG_ERROR("vmlaunch failed with status %lx", VmcsReadInstructionErrorCode());
+        DEBUG_ERROR("vmlaunch failed with status %lx", VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
 }
 
 NTSTATUS

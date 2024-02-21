@@ -345,7 +345,8 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         }
 
         if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK) {
-                DEBUG_ERROR("vmptrld failed with status: %lx", VmcsReadInstructionErrorCode());
+                DEBUG_ERROR("vmptrld failed with status: %llx",
+                            VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
                 return STATUS_UNSUCCESSFUL;
         }
 
@@ -356,112 +357,19 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         return STATUS_SUCCESS;
 }
 
-UINT32
-VmcsReadInstructionErrorCode()
-{
-        UINT32 code = 0;
-        __vmx_vmread(exit_state_fields.dword_state.instruction_error, &code);
-        return code;
-}
-
-UINT32
-VmcsReadInstructionLength()
-{
-        UINT32 length = 0;
-        __vmx_vmread(exit_state_fields.dword_state.instruction_length, &length);
-        return length;
-}
-
+/* Wrapper functions to read and write to and from the vmcs. */
 UINT64
-VmcsReadGuestRip()
+VmxVmRead(_In_ UINT64 VmcsField)
 {
-        UINT64 rip = 0;
-        __vmx_vmread(guest_state_fields.natural_state.rip, &rip);
-        return rip;
-}
-
-UINT32
-VmcsReadExitReason()
-{
-        UINT32 reason = 0;
-        __vmx_vmread(exit_state_fields.dword_state.reason, &reason);
-        return reason;
+        UINT64 result = 0;
+        __vmx_vmread(VmcsField, &result);
+        return result;
 }
 
 VOID
-VmcsWriteGuestRip(_In_ UINT64 NewValue)
+VmxVmWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value)
 {
-        __vmx_vmwrite(guest_state_fields.natural_state.rip, NewValue);
-}
-
-VOID
-VmcsWriteGuestCr0(_In_ UINT64 NewValue)
-{
-        __vmx_vmwrite(guest_state_fields.natural_state.cr0, NewValue);
-}
-
-VOID
-VmcsWriteGuestCr0ReadShadow(_In_ UINT64 NewValue)
-{
-        __vmx_vmwrite(control_state_fields.natural_state.cr0_read_shadow, NewValue);
-}
-
-VOID
-VmcsWriteGuestCr3(_In_ UINT64 NewValue)
-{
-        __vmx_vmwrite(guest_state_fields.natural_state.cr3, NewValue);
-}
-
-VOID
-VmcsWriteGuestCr4(_In_ UINT64 NewValue)
-{
-        __vmx_vmwrite(guest_state_fields.natural_state.cr4, NewValue);
-}
-
-VOID
-VmcsWriteGuestCr4ReadShadow(_In_ UINT64 NewValue)
-{
-        __vmx_vmwrite(control_state_fields.natural_state.cr4_read_shadow, NewValue);
-}
-
-UINT64
-VmcsReadGuestRsp()
-{
-        UINT64 rsp = 0;
-        __vmx_vmread(guest_state_fields.natural_state.rsp, &rsp);
-        return rsp;
-}
-
-UINT32
-VmcsReadExitQualification()
-{
-        UINT32 exit_qualification = 0;
-        __vmx_vmread(exit_state_fields.natural_state.exit_qualification, &exit_qualification);
-        return exit_qualification;
-}
-
-UINT64
-VmcsReadGuestCr0()
-{
-        UINT64 cr0 = 0;
-        __vmx_vmread(guest_state_fields.natural_state.cr0, &cr0);
-        return cr0;
-}
-
-UINT64
-VmcsReadGuestCr3()
-{
-        UINT64 cr3 = 0;
-        __vmx_vmread(guest_state_fields.natural_state.cr3, &cr3);
-        return cr3;
-}
-
-UINT64
-VmcsReadGuestCr4()
-{
-        UINT64 cr4 = 0;
-        __vmx_vmread(guest_state_fields.natural_state.cr4, &cr4);
-        return cr4;
+        __vmx_vmwrite(VmcsField, Value);
 }
 
 UINT64
@@ -474,72 +382,4 @@ UINT64
 VmmReadGuestRsp()
 {
         return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
-}
-
-UINT64
-VmcsReadGuestFsBase()
-{
-        UINT64 base = 0;
-        __vmx_vmread(guest_state_fields.natural_state.fs_base, &base);
-        return base;
-}
-
-UINT64
-VmcsReadGuestGsBase()
-{
-        UINT64 base = 0;
-        __vmx_vmread(guest_state_fields.natural_state.gs_base, &base);
-        return base;
-}
-
-UINT64
-VmcsReadGuestGdtrBase()
-{
-        UINT64 base = 0;
-        __vmx_vmread(guest_state_fields.natural_state.gdtr_base, &base);
-        return base;
-}
-
-UINT32
-VmcsReadGuestGdtrLimit()
-{
-        UINT32 limit = 0;
-        __vmx_vmread(guest_state_fields.dword_state.gdtr_limit, &limit);
-        return limit;
-}
-
-UINT64
-VmcsReadGuestIdtrBase()
-{
-        UINT64 base = 0;
-        __vmx_vmread(guest_state_fields.natural_state.idtr_base, &base);
-        return base;
-}
-
-UINT32
-VmcsReadGuestIdtrLimit()
-{
-        UINT32 limit = 0;
-        __vmx_vmread(guest_state_fields.dword_state.idtr_limit, &limit);
-        return limit;
-}
-
-UINT32
-VmcsReadExitInterruptionInfo()
-{
-        UINT32 info = 0;
-        __vmx_vmread(exit_state_fields.dword_state.interruption_info, &info);
-        return info;
-}
-
-UINT32
-VmcsWriteEntryInterruptionInfo(_In_ UINT32 Value)
-{
-        __vmx_vmwrite(control_state_fields.dword_state.vmentry_interruption_info, Value);
-}
-
-UINT32
-VmcsWriteEntryInstructionLength(_In_ UINT32 Value)
-{
-        __vmx_vmwrite(control_state_fields.dword_state.vmentry_instruction_length, Value);
 }

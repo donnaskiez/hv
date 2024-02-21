@@ -16,7 +16,7 @@ InjectHwExceptionIntoGuest(UINT32 Vector)
         interrupt.DeliverErrorCode              = FALSE;
         interrupt.Valid                         = TRUE;
 
-        __vmx_vmwrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
 }
 
 FORCEINLINE
@@ -29,8 +29,8 @@ InjectHwExceptionIntoGuestWithErrorCode(UINT32 Vector)
         interrupt.DeliverErrorCode              = TRUE;
         interrupt.Valid                         = TRUE;
 
-        __vmx_vmwrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
-        __vmx_vmwrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE, interrupt.AsUInt);
 }
 
 FORCEINLINE
@@ -43,13 +43,14 @@ InjectNmiIntoGuest()
         interrupt.DeliverErrorCode              = FALSE;
         interrupt.Valid                         = TRUE;
 
-        __vmx_vmwrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
 }
 
 VOID
 IncrementGuestRip()
 {
-        VmcsWriteGuestRip(VmcsReadGuestRip() + VmcsReadInstructionLength());
+        VmxVmWrite(VMCS_GUEST_RIP,
+                   VmxVmRead(VMCS_GUEST_RIP) + VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
 STATIC
@@ -111,19 +112,20 @@ VOID
 DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                           _In_ PGUEST_CONTEXT                 Context)
 {
-        UINT64 value = RetrieveValueInContextRegister(Context, Qualification->GeneralPurposeRegister);
+        UINT64 value =
+            RetrieveValueInContextRegister(Context, Qualification->GeneralPurposeRegister);
 
         switch (Qualification->ControlRegister) {
         case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
-                VmcsWriteGuestCr0(value);
-                VmcsWriteGuestCr0ReadShadow(value);
+                VmxVmWrite(VMCS_GUEST_CR0, value);
+                VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
                 return;
         case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
-                VmcsWriteGuestCr3(CLEAR_CR3_RESERVED_BIT(value));
+                VmxVmWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
                 return;
         case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
-                VmcsWriteGuestCr4(value);
-                VmcsWriteGuestCr4ReadShadow(value);
+                VmxVmWrite(VMCS_GUEST_CR4, value);
+                VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
                 return;
         default: return;
         }
@@ -141,9 +143,9 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
         // clang-format off
 
         switch (Qualification->ControlRegister) {
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR0: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmcsReadGuestCr0()); break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR3: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmcsReadGuestCr3()); break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR4: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmcsReadGuestCr4()); break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR0: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR0)); break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR3: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR3)); break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR4: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR4)); break;
         default: break;
         }
 
@@ -165,11 +167,11 @@ DispatchExitReasonCLTS(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                        _In_ PGUEST_CONTEXT                 Context)
 {
         CR0 cr0                 = {0};
-        cr0.AsUInt              = VmcsReadGuestCr0();
+        cr0.AsUInt              = VmxVmRead(VMCS_GUEST_CR0);
         cr0.Fields.TaskSwitched = FALSE;
 
-        VmcsWriteGuestCr0(cr0.AsUInt);
-        VmcsWriteGuestCr0ReadShadow(cr0.AsUInt);
+        VmxVmWrite(VMCS_GUEST_CR0, cr0.AsUInt);
+        VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
 }
 
 STATIC
@@ -177,7 +179,7 @@ VOID
 DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 {
         VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
-        qualification.AsUInt                        = VmcsReadExitQualification();
+        qualification.AsUInt                        = VmxVmRead(VMCS_EXIT_QUALIFICATION);
 
         // clang-format off
 
@@ -265,33 +267,33 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
          * save the 2 values and update the registers with the values during our exit
          * handler before we call vmxoff
          */
-        State->exit_state.guest_rip = VmcsReadGuestRip();
-        State->exit_state.guest_rsp = VmcsReadGuestRsp();
+        State->exit_state.guest_rip = VmxVmRead(VMCS_GUEST_RIP);
+        State->exit_state.guest_rsp = VmxVmRead(VMCS_GUEST_RSP);
 
         /*
          * Since vmx root operation makes use of the system cr3, we need to ensure we write
          * the value of the guests previous cr3 before the exit took place to ensure they
          * have access to the correct dtb
          */
-        __writecr3(VmcsReadGuestCr3());
+        __writecr3(VmxVmRead(VMCS_GUEST_CR3));
 
         /*
          * Do the same with the FS and GS base
          */
-        __writemsr(MSR_FS_BASE, VmcsReadGuestFsBase());
-        __writemsr(MSR_GS_BASE, VmcsReadGuestGsBase());
+        __writemsr(MSR_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
+        __writemsr(MSR_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
 
         /*
          * Write back the guest gdtr and idtrs
          */
         SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
-        gdtr.BaseAddress                    = VmcsReadGuestGdtrBase();
-        gdtr.Limit                          = (UINT16)VmcsReadGuestGdtrLimit();
+        gdtr.BaseAddress                    = VmxVmRead(VMCS_GUEST_GDTR_BASE);
+        gdtr.Limit                          = VmxVmRead(VMCS_GUEST_GDTR_LIMIT);
         __lgdt(&gdtr);
 
         SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
-        idtr.BaseAddress                    = VmcsReadGuestIdtrBase();
-        idtr.Limit                          = (UINT16)VmcsReadGuestIdtrLimit();
+        idtr.BaseAddress                    = VmxVmRead(VMCS_GUEST_IDTR_BASE);
+        idtr.Limit                          = VmxVmRead(VMCS_GUEST_IDTR_LIMIT);
         __lidt(&idtr);
 
         /*
@@ -308,7 +310,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 
         // clang-format off
 
-        switch (VmcsReadExitReason()) {
+        switch (VmxVmRead(VMCS_EXIT_REASON)) {
         case VMX_EXIT_REASON_EXECUTE_CPUID:     DispatchExitReasonCPUID(Context);                                                       break;
         case VMX_EXIT_REASON_EXECUTE_INVD:      DispatchExitReasonINVD(Context);                                                        break;
         case VMX_EXIT_REASON_EXECUTE_VMCALL:    Context->rax = VmCallDispatcher(Context->rcx, Context->rdx, Context->r8, Context->r9);  break;
@@ -319,8 +321,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 
         // clang-format on
 
-        /*
-         * Increment our guest rip by the size of the exiting instruction since we've processed it
+        /* Increment our guest rip by the size of the exiting instruction since we've processed it
          */
         IncrementGuestRip();
 
