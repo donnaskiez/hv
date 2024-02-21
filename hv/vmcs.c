@@ -6,11 +6,6 @@
 #include "arch.h"
 #include <intrin.h>
 
-VMCS_GUEST_STATE_FIELDS   guest_state_fields   = {0};
-VMCS_HOST_STATE_FIELDS    host_state_fields    = {0};
-VMCS_CONTROL_STATE_FIELDS control_state_fields = {0};
-VMCS_EXIT_STATE_FIELDS    exit_state_fields    = {0};
-
 STATIC
 UINT32
 __segmentar(SEGMENT_SELECTOR* Selector)
@@ -124,36 +119,31 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         tr.AsUInt = __readtr();
 
-        __vmx_vmwrite(host_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
+        __vmx_vmwrite(VMCS_HOST_ES_SELECTOR, __reades() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_CS_SELECTOR, __readcs() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_SS_SELECTOR, __readss() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_DS_SELECTOR, __readds() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_FS_SELECTOR, __readfs() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_GS_SELECTOR, __readgs() & VMCS_HOST_SELECTOR_MASK);
+        __vmx_vmwrite(VMCS_HOST_TR_SELECTOR, __readtr() & VMCS_HOST_SELECTOR_MASK);
 
-        __vmx_vmwrite(host_state_fields.word_state.es_selector, __reades() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.cs_selector, __readcs() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.ss_selector, __readss() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.ds_selector, __readds() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.fs_selector, __readfs() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.gs_selector, __readgs() & 0xF8);
-        __vmx_vmwrite(host_state_fields.word_state.tr_selector, __readtr() & 0xF8);
+        __vmx_vmwrite(VMCS_HOST_CR0, __readcr0());
+        __vmx_vmwrite(VMCS_HOST_CR3, __readcr3());
+        __vmx_vmwrite(VMCS_HOST_CR4, __readcr4());
 
-        __vmx_vmwrite(host_state_fields.natural_state.cr0, __readcr0());
-        __vmx_vmwrite(host_state_fields.natural_state.cr3, __readcr3());
-        __vmx_vmwrite(host_state_fields.natural_state.cr4, __readcr4());
+        __vmx_vmwrite(VMCS_HOST_GDTR_BASE, gdtr.BaseAddress);
+        __vmx_vmwrite(VMCS_HOST_IDTR_BASE, idtr.BaseAddress);
 
-        __vmx_vmwrite(host_state_fields.natural_state.gdtr_base, gdtr.BaseAddress);
-        __vmx_vmwrite(host_state_fields.natural_state.idtr_base, idtr.BaseAddress);
+        __vmx_vmwrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMM_STACK_SIZE - 1);
+        __vmx_vmwrite(VMCS_HOST_RIP, VmexitHandler);
 
-        __vmx_vmwrite(host_state_fields.natural_state.rsp,
-                      GuestState->vmm_stack_va + VMM_STACK_SIZE - 1);
-        __vmx_vmwrite(host_state_fields.natural_state.rip, VmexitHandler);
+        __vmx_vmwrite(VMCS_HOST_FS_BASE, __readmsr(MSR_FS_BASE));
+        __vmx_vmwrite(VMCS_HOST_GS_BASE, __readmsr(MSR_GS_BASE));
+        __vmx_vmwrite(VMCS_HOST_TR_BASE, __segmentbase(&gdtr, &tr));
 
-        __vmx_vmwrite(host_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(host_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
-
-        __vmx_vmwrite(host_state_fields.dword_state.ia32_sysenter_cs,
-                      __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_eip,
-                      __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(host_state_fields.natural_state.ia32_sysenter_esp,
-                      __readmsr(MSR_IA32_SYSENTER_ESP));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_CS, __readmsr(MSR_IA32_SYSENTER_CS));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_EIP, __readmsr(MSR_IA32_SYSENTER_EIP));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_ESP, __readmsr(MSR_IA32_SYSENTER_ESP));
 }
 
 STATIC
@@ -184,57 +174,52 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
         __sgdt(&gdtr);
         __sidt(&idtr);
 
-        __vmx_vmwrite(guest_state_fields.word_state.es_selector, es.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.cs_selector, cs.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.ss_selector, ss.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.ds_selector, ds.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.fs_selector, fs.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.gs_selector, gs.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.tr_selector, tr.AsUInt);
-        __vmx_vmwrite(guest_state_fields.word_state.ldtr_selector, ldtr.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_ES_SELECTOR, es.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_CS_SELECTOR, cs.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_SS_SELECTOR, ss.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_DS_SELECTOR, ds.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_FS_SELECTOR, fs.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_GS_SELECTOR, gs.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_TR_SELECTOR, tr.AsUInt);
+        __vmx_vmwrite(VMCS_GUEST_LDTR_SELECTOR, ldtr.AsUInt);
 
-        __vmx_vmwrite(guest_state_fields.natural_state.es_base, __segmentbase(&gdtr, &es));
-        __vmx_vmwrite(guest_state_fields.natural_state.cs_base, __segmentbase(&gdtr, &cs));
-        __vmx_vmwrite(guest_state_fields.natural_state.ss_base, __segmentbase(&gdtr, &ss));
-        __vmx_vmwrite(guest_state_fields.natural_state.ds_base, __segmentbase(&gdtr, &ds));
-        __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __segmentbase(&gdtr, &fs));
-        __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __segmentbase(&gdtr, &gs));
-        __vmx_vmwrite(guest_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
-        __vmx_vmwrite(guest_state_fields.natural_state.ldtr_base, __segmentbase(&gdtr, &ldtr));
+        __vmx_vmwrite(VMCS_GUEST_ES_BASE, __segmentbase(&gdtr, &es));
+        __vmx_vmwrite(VMCS_GUEST_CS_BASE, __segmentbase(&gdtr, &cs));
+        __vmx_vmwrite(VMCS_GUEST_SS_BASE, __segmentbase(&gdtr, &ss));
+        __vmx_vmwrite(VMCS_GUEST_DS_BASE, __segmentbase(&gdtr, &ds));
+        __vmx_vmwrite(VMCS_GUEST_FS_BASE, __segmentbase(&gdtr, &fs));
+        __vmx_vmwrite(VMCS_GUEST_GS_BASE, __segmentbase(&gdtr, &gs));
+        __vmx_vmwrite(VMCS_GUEST_TR_BASE, __segmentbase(&gdtr, &tr));
+        __vmx_vmwrite(VMCS_GUEST_LDTR_BASE, __segmentbase(&gdtr, &ldtr));
 
-        __vmx_vmwrite(guest_state_fields.dword_state.es_limit, __segmentlimit(__reades()));
-        __vmx_vmwrite(guest_state_fields.dword_state.cs_limit, __segmentlimit(__readcs()));
-        __vmx_vmwrite(guest_state_fields.dword_state.ss_limit, __segmentlimit(__readss()));
-        __vmx_vmwrite(guest_state_fields.dword_state.ds_limit, __segmentlimit(__readds()));
-        __vmx_vmwrite(guest_state_fields.dword_state.fs_limit, __segmentlimit(__readfs()));
-        __vmx_vmwrite(guest_state_fields.dword_state.gs_limit, __segmentlimit(__readgs()));
-        __vmx_vmwrite(guest_state_fields.dword_state.tr_limit, __segmentlimit(__readtr()));
-        __vmx_vmwrite(guest_state_fields.dword_state.ldtr_limit, __segmentlimit(__readldtr()));
+        __vmx_vmwrite(VMCS_GUEST_ES_LIMIT, __segmentlimit(__reades()));
+        __vmx_vmwrite(VMCS_GUEST_CS_LIMIT, __segmentlimit(__readcs()));
+        __vmx_vmwrite(VMCS_GUEST_SS_LIMIT, __segmentlimit(__readss()));
+        __vmx_vmwrite(VMCS_GUEST_DS_LIMIT, __segmentlimit(__readds()));
+        __vmx_vmwrite(VMCS_GUEST_FS_LIMIT, __segmentlimit(__readfs()));
+        __vmx_vmwrite(VMCS_GUEST_GS_LIMIT, __segmentlimit(__readgs()));
+        __vmx_vmwrite(VMCS_GUEST_TR_LIMIT, __segmentlimit(__readtr()));
+        __vmx_vmwrite(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(__readldtr()));
 
-        __vmx_vmwrite(guest_state_fields.dword_state.es_access_rights, __segmentar(&es));
-        __vmx_vmwrite(guest_state_fields.dword_state.cs_access_rights, __segmentar(&cs));
-        __vmx_vmwrite(guest_state_fields.dword_state.ss_access_rights, __segmentar(&ss));
-        __vmx_vmwrite(guest_state_fields.dword_state.ds_access_rights, __segmentar(&ds));
-        __vmx_vmwrite(guest_state_fields.dword_state.fs_access_rights, __segmentar(&fs));
-        __vmx_vmwrite(guest_state_fields.dword_state.gs_access_rights, __segmentar(&gs));
-        __vmx_vmwrite(guest_state_fields.dword_state.tr_access_rights, __segmentar(&tr));
-        __vmx_vmwrite(guest_state_fields.dword_state.ldtr_access_rights, __segmentar(&ldtr));
+        __vmx_vmwrite(VMCS_GUEST_ES_ACCESS_RIGHTS, __segmentar(&es));
+        __vmx_vmwrite(VMCS_GUEST_CS_ACCESS_RIGHTS, __segmentar(&cs));
+        __vmx_vmwrite(VMCS_GUEST_SS_ACCESS_RIGHTS, __segmentar(&ss));
+        __vmx_vmwrite(VMCS_GUEST_DS_ACCESS_RIGHTS, __segmentar(&ds));
+        __vmx_vmwrite(VMCS_GUEST_FS_ACCESS_RIGHTS, __segmentar(&fs));
+        __vmx_vmwrite(VMCS_GUEST_GS_ACCESS_RIGHTS, __segmentar(&gs));
+        __vmx_vmwrite(VMCS_GUEST_TR_ACCESS_RIGHTS, __segmentar(&tr));
+        __vmx_vmwrite(VMCS_GUEST_LDTR_ACCESS_RIGHTS, __segmentar(&ldtr));
 
-        __vmx_vmwrite(guest_state_fields.dword_state.gdtr_limit, gdtr.Limit);
-        __vmx_vmwrite(guest_state_fields.dword_state.idtr_limit, idtr.Limit);
+        __vmx_vmwrite(VMCS_GUEST_GDTR_LIMIT, gdtr.Limit);
+        __vmx_vmwrite(VMCS_GUEST_IDTR_LIMIT, idtr.Limit);
+        __vmx_vmwrite(VMCS_GUEST_GDTR_BASE, gdtr.BaseAddress);
+        __vmx_vmwrite(VMCS_GUEST_IDTR_BASE, idtr.BaseAddress);
 
-        __vmx_vmwrite(guest_state_fields.natural_state.gdtr_base, gdtr.BaseAddress);
-        __vmx_vmwrite(guest_state_fields.natural_state.idtr_base, idtr.BaseAddress);
+        __vmx_vmwrite(VMCS_GUEST_VMCS_LINK_POINTER, ~0ull);
 
-        __vmx_vmwrite(guest_state_fields.qword_state.vmcs_link_pointer, ~0ull);
-
-        /*
-         * Simply set the cr0, cr3, cr4 and dr7 to what the guest was running with before.
-         */
-        __vmx_vmwrite(guest_state_fields.natural_state.cr0, __readcr0());
-        __vmx_vmwrite(guest_state_fields.natural_state.cr3, __readcr3());
-        __vmx_vmwrite(guest_state_fields.natural_state.cr4, __readcr4());
-        __vmx_vmwrite(guest_state_fields.natural_state.dr7, 0x400);
+        __vmx_vmwrite(VMCS_GUEST_CR0, __readcr0());
+        __vmx_vmwrite(VMCS_GUEST_CR3, __readcr3());
+        __vmx_vmwrite(VMCS_GUEST_CR4, __readcr4());
 
         /*
          * fffff807`5347200b 0f03c8          lsl     ecx,eax
@@ -243,15 +228,12 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
          * initiated again after returning from sleep
          */
 
-        __vmx_vmwrite(guest_state_fields.natural_state.rflags, __readrflags());
-
-        __vmx_vmwrite(guest_state_fields.dword_state.sysenter_cs, __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(guest_state_fields.natural_state.sysenter_eip,
-                      __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(guest_state_fields.natural_state.sysenter_esp,
-                      __readmsr(MSR_IA32_SYSENTER_ESP));
-        __vmx_vmwrite(guest_state_fields.natural_state.fs_base, __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(guest_state_fields.natural_state.gs_base, __readmsr(MSR_GS_BASE));
+        __vmx_vmwrite(VMCS_GUEST_RFLAGS,        __readrflags());
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_CS,   __readmsr(MSR_IA32_SYSENTER_CS));
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_EIP,  __readmsr(MSR_IA32_SYSENTER_EIP));
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_ESP,  __readmsr(MSR_IA32_SYSENTER_ESP));
+        __vmx_vmwrite(VMCS_GUEST_FS_BASE,       __readmsr(MSR_FS_BASE));
+        __vmx_vmwrite(VMCS_GUEST_GS_BASE,       __readmsr(MSR_GS_BASE));
 
         /*
          * Since the goal of this hypervisor is to virtualise and already running operating system,
@@ -259,8 +241,8 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
          * the core was interrupted by our inter process interrupt. This means once vmx has been
          * initiated, guest operation will continue as normal as if nothing happened.
          */
-        __vmx_vmwrite(guest_state_fields.natural_state.rsp, StackPointer);
-        __vmx_vmwrite(guest_state_fields.natural_state.rip, VmxRestoreState);
+        __vmx_vmwrite(VMCS_GUEST_RSP, StackPointer);
+        __vmx_vmwrite(VMCS_GUEST_RIP, VmxRestoreState);
 }
 
 STATIC
@@ -278,8 +260,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls.Cr3LoadExiting                   = TRUE;
         proc_ctls.Cr3StoreExiting                  = TRUE;
 
-        __vmx_vmwrite(control_state_fields.dword_state.processor_based_vm_execution_controls,
-                      AdjustMsrControl((UINT32)proc_ctls.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS));
+        VmxVmWrite(VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+                   AdjustMsrControl((UINT32)proc_ctls.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS));
 
         /*
          * Ensure RDTSCP, INVPCID and XSAVES/XRSTORS do not raise an invalid
@@ -290,9 +272,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls2.EnableInvpcid                     = TRUE;
         proc_ctls2.EnableXsaves                      = TRUE;
 
-        __vmx_vmwrite(
-            control_state_fields.dword_state.secondary_processor_based_vm_execution_controls,
-            AdjustMsrControl((UINT32)proc_ctls2.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS2));
+        VmxVmWrite(VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+                   AdjustMsrControl((UINT32)proc_ctls2.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS2));
 
         /*
          * Lets not force a vmexit on any external interrupts
@@ -300,13 +281,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls = {0};
         pin_ctls.NmiExiting                      = FALSE;
 
-        __vmx_vmwrite(control_state_fields.dword_state.pin_based_vm_execution_controls,
-                      AdjustMsrControl((UINT32)pin_ctls.AsUInt, MSR_IA32_VMX_PINBASED_CTLS));
+        VmxVmWrite(VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
+                   AdjustMsrControl((UINT32)pin_ctls.AsUInt, MSR_IA32_VMX_PINBASED_CTLS));
 
         /*
          * Set all 32 bits to ensure every exception is caught
          */
-        __vmx_vmwrite(control_state_fields.dword_state.exception_bitmap, 0ul);
+        __vmx_vmwrite(VMCS_CTRL_EXCEPTION_BITMAP, 0ul);
 
         /*
          * Ensure we acknowledge interrupts on VMEXIT and are in 64 bit mode.
@@ -315,30 +296,23 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         exit_ctls.AcknowledgeInterruptOnExit  = TRUE;
         exit_ctls.HostAddressSpaceSize        = TRUE;
 
-        __vmx_vmwrite(control_state_fields.dword_state.vmexit_controls,
+        __vmx_vmwrite(VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
                       AdjustMsrControl((UINT32)exit_ctls.AsUInt, MSR_IA32_VMX_EXIT_CTLS));
-
         /*
          * Ensure we are in 64bit mode on VMX entry.
          */
         IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls = {0};
         entry_ctls.Ia32EModeGuest               = TRUE;
 
-        __vmx_vmwrite(control_state_fields.dword_state.vmentry_controls,
+        __vmx_vmwrite(VMCS_CTRL_VMENTRY_CONTROLS,
                       AdjustMsrControl((UINT32)entry_ctls.AsUInt, MSR_IA32_VMX_ENTRY_CTLS));
 
-        __vmx_vmwrite(control_state_fields.qword_state.msr_bitmap_address,
-                      GuestState->msr_bitmap_pa);
+        __vmx_vmwrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, GuestState->msr_bitmap_pa);
 }
 
 NTSTATUS
 SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
 {
-        EncodeVmcsControlStateFields(&control_state_fields);
-        EncodeVmcsGuestStateFields(&guest_state_fields);
-        EncodeVmcsHostStateFields(&host_state_fields);
-        EncodeVmcsExitStateFields(&exit_state_fields);
-
         if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK) {
                 DEBUG_ERROR("Unable to clear the vmcs region");
                 return STATUS_UNSUCCESSFUL;
