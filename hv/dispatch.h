@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-VOID
+BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT GuestState);
 
 #endif

@@ -2,14 +2,12 @@
 
 #include "common.h"
 #include "ia32.h"
-#include "pipeline.h"
 #include "encode.h"
 #include "arch.h"
 #include "vmcs.h"
 #include "ept.h"
 
 #include <intrin.h>
-#include <Zydis/Zydis.h>
 
 PDRIVER_STATE          driver_state = NULL;
 PVIRTUAL_MACHINE_STATE vmm_state    = NULL;
@@ -42,14 +40,12 @@ IsVmxSupported()
         IA32_FEATURE_CONTROL_MSR Control = {0};
         Control.bit_address              = __readmsr(MSR_IA32_FEATURE_CONTROL);
 
-        if (Control.bits.Lock == 0)
-        {
+        if (Control.bits.Lock == 0) {
                 Control.bits.Lock        = TRUE;
                 Control.bits.EnableVmxon = TRUE;
                 __writemsr(MSR_IA32_FEATURE_CONTROL, Control.bit_address);
         }
-        else if (Control.bits.EnableVmxon == FALSE)
-        {
+        else if (Control.bits.EnableVmxon == FALSE) {
                 DEBUG_LOG("VMX not enabled in the bios");
                 return STATUS_NOT_SUPPORTED;
         }
@@ -81,8 +77,7 @@ AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
         virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
-        if (!virtual_allocation)
-        {
+        if (!virtual_allocation) {
                 DEBUG_ERROR("Failed to allocate vmcs region");
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -91,8 +86,7 @@ AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
         physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
-        if (!physical_allocation)
-        {
+        if (!physical_allocation) {
                 DEBUG_LOG("Faield to get vmcs pa address");
                 MmFreeContiguousMemory(virtual_allocation);
                 return STATUS_MEMORY_NOT_ALLOCATED;
@@ -122,8 +116,7 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
         virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
-        if (!virtual_allocation)
-        {
+        if (!virtual_allocation) {
                 DEBUG_ERROR("MmAllocateContiguousMemory failed");
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -132,8 +125,7 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
         physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
 
-        if (!physical_allocation)
-        {
+        if (!physical_allocation) {
                 MmFreeContiguousMemory(virtual_allocation);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -150,8 +142,7 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
          * VM-instruction error field of the current VMCS. 2 : The operation
          * failed without status available.
          */
-        if (status)
-        {
+        if (status) {
                 DEBUG_LOG("VmxOn failed with status: %i", status);
                 MmFreeContiguousMemory(virtual_allocation);
                 return STATUS_FAIL_CHECK;
@@ -189,8 +180,7 @@ AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
         VmmState->vmm_stack_va = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMM_STACK_SIZE, POOLTAG);
 
-        if (!VmmState->vmm_stack_va)
-        {
+        if (!VmmState->vmm_stack_va) {
                 DEBUG_LOG("Error in allocating VMM Stack.");
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -204,8 +194,7 @@ AllocateMsrBitmap(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
         VmmState->msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
 
-        if (!VmmState->msr_bitmap_va)
-        {
+        if (!VmmState->msr_bitmap_va) {
                 DEBUG_LOG("Error in allocating MSRBitMap.");
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -224,8 +213,7 @@ AllocateVmmStateStructure()
         vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED,
                                     sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0),
                                     POOLTAG);
-        if (!vmm_state)
-        {
+        if (!vmm_state) {
                 DEBUG_LOG("Failed to allocate vmm state");
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -240,14 +228,12 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
 
         status = AllocateVmmStateStructure();
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateVmmStateStructure failed with status %x", status);
                 return status;
         }
 
-        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++)
-        {
+        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++) {
                 /* for now this limits us to 64 cores, whatever lol */
                 KeSetSystemAffinityThread(1ull << core);
 
@@ -256,61 +242,48 @@ InitiateVmx(_In_ PIPI_CALL_CONTEXT Context)
 
                 status = EnableVmxOperationOnCore();
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
-                        return status;
-                }
-
-                status = InitialiseDisassemblerState();
-
-                if (!NT_SUCCESS(status))
-                {
-                        DEBUG_ERROR("InitialiseDisassemblerState failed with status %x", status);
                         return status;
                 }
 
                 status = AllocateVmxonRegion(&vmm_state[core]);
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
                         return status;
                 }
 
                 status = AllocateVmcsRegion(&vmm_state[core]);
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("AllocateVmcsRegion failed with status %x", status);
                         return status;
                 }
 
                 status = AllocateVmmStack(&vmm_state[core]);
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("AllocateVmmStack failed with status %x", status);
                         return status;
                 }
 
                 status = AllocateMsrBitmap(&vmm_state[core]);
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("AllocateMsrBitmap failed with status %x", status);
                         return status;
                 }
 
                 status = InitiateVmmState(&vmm_state[core]);
 
-                if (!NT_SUCCESS(status))
-                {
+                if (!NT_SUCCESS(status)) {
                         DEBUG_ERROR("InitiateVmmState failed with status %x", status);
                         return status;
                 }
         }
 
+        KeSetSystemAffinityThread((KAFFINITY)0ull);
         return STATUS_SUCCESS;
 }
 
@@ -319,8 +292,7 @@ VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 {
         NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
                 return;
         }
@@ -336,21 +308,19 @@ BroadcastVmxInitiation(_In_ PIPI_CALL_CONTEXT Context)
 {
         NTSTATUS status = IsVmxSupported();
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_LOG("VMX operation is not supported on this machine");
                 return status;
         }
 
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
-
-        return STATUS_SUCCESS;
+        return status;
 }
 
 NTSTATUS
-VmxVmCall(VMCALL_ID VmcallId, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT64 OptionalParam3)
+VmxVmCall(VMCALL_ID Id, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT64 OptionalParam3)
 {
-        NTSTATUS status = __vmx_vmcall(VmcallId, OptionalParam1, OptionalParam2, OptionalParam3);
+        NTSTATUS status = __vmx_vmcall(Id, OptionalParam1, OptionalParam2, OptionalParam3);
 
         if (!NT_SUCCESS(status))
                 DEBUG_ERROR("VmCall failed wtih status %x", status);
@@ -358,48 +328,56 @@ VmxVmCall(VMCALL_ID VmcallId, UINT64 OptionalParam1, UINT64 OptionalParam2, UINT
         return status;
 }
 
+VOID
+FreeCoreVmxState(_In_ UINT32 Core)
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[Core];
+
+        if (vcpu->vmxon_region_va)
+                MmFreeContiguousMemory(vcpu->vmxon_region_va);
+        if (vcpu->vmcs_region_va)
+                MmFreeContiguousMemory(vcpu->vmcs_region_va);
+        if (vcpu->msr_bitmap_va)
+                MmFreeNonCachedMemory(vcpu->msr_bitmap_va, PAGE_SIZE);
+        if (vcpu->vmm_stack_va)
+                ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
+}
+
+VOID
+FreeGlobalVmmState()
+{
+        if (vmm_state) {
+                ExFreePoolWithTag(vmm_state, POOLTAG);
+                vmm_state = NULL;
+        }
+}
+
 NTSTATUS
 BroadcastVmxTermination()
 {
-        NTSTATUS status = STATUS_ABANDONED;
-
-        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++)
-        {
+        for (UINT64 core = 0; core < KeQueryActiveProcessorCount(0); core++) {
                 KeSetSystemAffinityThread(1ull << core);
 
                 while (core != KeGetCurrentProcessorIndex())
                         YieldProcessor();
 
-                DEBUG_LOG("exiting vmx on core: %llx", core);
-
-                status = VmxVmCall(TERMINATE_VMX, 0, 0, 0);
-
-                if (!NT_SUCCESS(status))
-                {
-                        DEBUG_ERROR("VmCall with id TERMINATE_VMX failed with status %x", status);
-                        return status;
+                if (!NT_SUCCESS(VmxVmCall(TERMINATE_VMX, 0, 0, 0))) {
+                        return STATUS_UNSUCCESSFUL;
                 }
 
-                if (MmGetPhysicalAddress(vmm_state[core].vmxon_region_pa).QuadPart)
-                        MmFreeContiguousMemory(
-                            MmGetPhysicalAddress(vmm_state[core].vmxon_region_pa).QuadPart);
-
-                if (MmGetPhysicalAddress(vmm_state[core].vmcs_region_pa).QuadPart)
-                        MmFreeContiguousMemory(
-                            MmGetPhysicalAddress(vmm_state[core].vmcs_region_pa).QuadPart);
-
-                if (vmm_state[KeGetCurrentNodeNumber()].msr_bitmap_va)
-                        MmFreeNonCachedMemory(vmm_state[core].msr_bitmap_va, PAGE_SIZE);
-
-                if (vmm_state[core].vmm_stack_va)
-                        ExFreePoolWithTag(vmm_state[core].vmm_stack_va, POOLTAG);
+                /*
+                 * At this point, we have exited VMX operation and we can safely free our per core
+                 * allocations.
+                 */
+                FreeCoreVmxState(core);
         }
 
-        if (vmm_state)
-                ExFreePoolWithTag(vmm_state, POOLTAG);
-
-        vmm_state = NULL;
-
+        /*
+         * Now that each per core stuctures have been freed, we are safe to revert the affinity of
+         * the current thread and free the global vmm state array.
+         */
+        KeSetSystemAffinityThread((KAFFINITY)0ull);
+        FreeGlobalVmmState();
         return STATUS_SUCCESS;
 }
 
@@ -419,30 +397,26 @@ SetupVmxOperation()
 
         status = InitializeEptp(&pept);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("Failed to initialise EPT");
                 goto end;
         }
 
-        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++)
-        {
+        for (INT core = 0; core < KeQueryActiveProcessorCount(0); core++) {
                 context[core].eptp        = pept;
                 context[core].guest_stack = NULL;
         }
 
         status = InitiateVmx(context);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("InitiateVmx failed with status %x", status);
                 goto end;
         }
 
         status = BroadcastVmxInitiation(context);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("BroadcastVmxInitiation failed with status %x", status);
                 goto end;
         }
@@ -484,8 +458,7 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
         if (Argument1 != (PVOID)PO_CB_SYSTEM_STATE_LOCK)
                 return;
 
-        if (Argument2)
-        {
+        if (Argument2) {
                 DEBUG_LOG("Resuming VMX operation after sleep..");
 
                 status = SetupVmxOperation();
@@ -493,8 +466,7 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
                 if (!NT_SUCCESS(status))
                         DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
         }
-        else
-        {
+        else {
                 DEBUG_LOG("Exiting VMX operation for sleep...");
 
                 status = BroadcastVmxTermination();
@@ -515,8 +487,7 @@ InitialisePowerCallback()
         status =
             ExCreateCallback(&driver_state->power_callback_object, &object_attributes, FALSE, TRUE);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("ExCreateCallback failed with status %x", status);
                 return status;
         }
@@ -524,8 +495,7 @@ InitialisePowerCallback()
         driver_state->power_callback =
             ExRegisterCallback(driver_state->power_callback_object, PowerCallbackRoutine, NULL);
 
-        if (!driver_state->power_callback)
-        {
+        if (!driver_state->power_callback) {
                 DEBUG_ERROR("ExRegisterCallback failed");
                 ObDereferenceObject(driver_state->power_callback_object);
                 driver_state->power_callback_object = NULL;

@@ -32,7 +32,7 @@ BinPackParameters: false
 ExperimentalAutoDetectBinPacking: false
 AllowAllParametersOfDeclarationOnNextLine: true
 
-BreakBeforeBraces: Custom
+BreakBeforeBraces: Stroustrup
 BraceWrapping:
     AfterCaseLabel: true
     AfterClass: true
@@ -127,5 +127,5 @@ StatementMacros: [
     '__drv_freesMem',
     ]
     
-TabWidth: '8'
+TabWidth: '4'
 UseTab: Never

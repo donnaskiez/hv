@@ -30,8 +30,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         pml4 = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
 
-        if (!pml4)
-        {
+        if (!pml4) {
                 ExFreePoolWithTag(ept, POOLTAG);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
@@ -40,8 +39,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         pdpt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
 
-        if (!pdpt)
-        {
+        if (!pdpt) {
                 ExFreePoolWithTag(pml4, POOLTAG);
                 ExFreePoolWithTag(ept, POOLTAG);
                 return STATUS_MEMORY_NOT_ALLOCATED;
@@ -51,8 +49,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         pd = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
 
-        if (!pd)
-        {
+        if (!pd) {
                 ExFreePoolWithTag(pdpt, POOLTAG);
                 ExFreePoolWithTag(pml4, POOLTAG);
                 ExFreePoolWithTag(ept, POOLTAG);
@@ -63,8 +60,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         pt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
 
-        if (!pt)
-        {
+        if (!pt) {
                 ExFreePoolWithTag(pd, POOLTAG);
                 ExFreePoolWithTag(pdpt, POOLTAG);
                 ExFreePoolWithTag(pml4, POOLTAG);
@@ -76,8 +72,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED, NUM_PAGES * PAGE_SIZE, POOLTAG);
 
-        if (!guest_virtual)
-        {
+        if (!guest_virtual) {
                 ExFreePoolWithTag(pt, POOLTAG);
                 ExFreePoolWithTag(pd, POOLTAG);
                 ExFreePoolWithTag(pdpt, POOLTAG);
@@ -88,8 +83,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
 
         RtlZeroMemory(guest_virtual, PAGE_SIZE);
 
-        for (SIZE_T index = 0; index < NUM_PAGES; index++)
-        {
+        for (SIZE_T index = 0; index < NUM_PAGES; index++) {
                 pt[index].Fields.Accessed        = 0;
                 pt[index].Fields.Dirty           = 0;
                 pt[index].Fields.MemoryType      = 6;

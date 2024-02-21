@@ -20,8 +20,7 @@ __segmentar(SEGMENT_SELECTOR* Selector)
         /*
          * If the table is set to the GDT and there is no index, set the segment as unusable.
          */
-        if (Selector->Table == FALSE && Selector->Index == FALSE)
-        {
+        if (Selector->Table == FALSE && Selector->Index == FALSE) {
                 ar.Unusable = TRUE;
                 return ar.AsUInt;
         }
@@ -116,11 +115,14 @@ VOID
 VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 {
         SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+        SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
+
         __sgdt(&gdtr);
+        __sidt(&idtr);
 
+        SEGMENT_SELECTOR tr = {0};
 
-        SEGMENT_SELECTOR               tr   = {0};
-        tr.AsUInt                           = __readtr();
+        tr.AsUInt = __readtr();
 
         __vmx_vmwrite(host_state_fields.natural_state.tr_base, __segmentbase(&gdtr, &tr));
 
@@ -136,8 +138,8 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         __vmx_vmwrite(host_state_fields.natural_state.cr3, __readcr3());
         __vmx_vmwrite(host_state_fields.natural_state.cr4, __readcr4());
 
-        __vmx_vmwrite(host_state_fields.natural_state.gdtr_base, __readgdtbase());
-        __vmx_vmwrite(host_state_fields.natural_state.idtr_base, __readidtbase());
+        __vmx_vmwrite(host_state_fields.natural_state.gdtr_base, gdtr.BaseAddress);
+        __vmx_vmwrite(host_state_fields.natural_state.idtr_base, idtr.BaseAddress);
 
         __vmx_vmwrite(host_state_fields.natural_state.rsp,
                       GuestState->vmm_stack_va + VMM_STACK_SIZE - 1);
@@ -337,14 +339,12 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         EncodeVmcsHostStateFields(&host_state_fields);
         EncodeVmcsExitStateFields(&exit_state_fields);
 
-        if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK)
-        {
+        if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK) {
                 DEBUG_ERROR("Unable to clear the vmcs region");
                 return STATUS_UNSUCCESSFUL;
         }
 
-        if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK)
-        {
+        if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK) {
                 DEBUG_ERROR("vmptrld failed with status: %lx", VmcsReadInstructionErrorCode());
                 return STATUS_UNSUCCESSFUL;
         }

@@ -4,12 +4,11 @@
 #include "vmx.h"
 #include "common.h"
 #include "ept.h"
-#include "pipeline.h"
 #include <intrin.h>
 #include "arch.h"
 
-UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv-dbg");
-UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-dbg-link");
+UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\hv");
+UNICODE_STRING device_link = RTL_CONSTANT_STRING(L"\\??\\hv-link");
 
 NTSTATUS
 DeviceClose(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
@@ -38,24 +37,21 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 
         status = AllocateDriverState();
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateDriverState failed with status %x", status);
                 return status;
         }
 
         status = InitialisePowerCallback();
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
                 return status;
         }
 
         status = SetupVmxOperation();
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
                 return status;
         }
@@ -73,8 +69,7 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 
         status = IoCreateSymbolicLink(&device_link, &device_name);
 
-        if (!NT_SUCCESS(status))
-        {
+        if (!NT_SUCCESS(status)) {
                 IoDeleteDevice(&DriverObject->DeviceObject);
                 return STATUS_FAILED_DRIVER_ENTRY;
         }
