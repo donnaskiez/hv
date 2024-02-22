@@ -9,7 +9,7 @@ VOID
 VmxRestoreState();
 
 EXTERN UINT64 INLINE
-SaveStateAndVirtualizeCore(_In_ PIPI_CALL_CONTEXT Context);
+SaveStateAndVirtualizeCore(_In_ PDPC_CALL_CONTEXT Context);
 
 EXTERN
 VOID

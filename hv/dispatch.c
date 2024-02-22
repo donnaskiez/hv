@@ -280,8 +280,9 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         /*
          * Do the same with the FS and GS base
          */
-        __writemsr(MSR_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
-        __writemsr(MSR_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
+        
+        __writemsr(IA32_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
+        __writemsr(IA32_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
 
         /*
          * Write back the guest gdtr and idtrs

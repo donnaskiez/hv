@@ -2,7 +2,6 @@
 
 #include "ia32.h"
 #include "vmx.h"
-#include "encode.h"
 #include "arch.h"
 #include <intrin.h>
 
@@ -134,16 +133,16 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         __vmx_vmwrite(VMCS_HOST_GDTR_BASE, gdtr.BaseAddress);
         __vmx_vmwrite(VMCS_HOST_IDTR_BASE, idtr.BaseAddress);
 
-        __vmx_vmwrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMM_STACK_SIZE - 1);
+        __vmx_vmwrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE - 1);
         __vmx_vmwrite(VMCS_HOST_RIP, VmexitHandler);
 
-        __vmx_vmwrite(VMCS_HOST_FS_BASE, __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(VMCS_HOST_GS_BASE, __readmsr(MSR_GS_BASE));
+        __vmx_vmwrite(VMCS_HOST_FS_BASE, __readmsr(IA32_FS_BASE));
+        __vmx_vmwrite(VMCS_HOST_GS_BASE, __readmsr(IA32_GS_BASE));
         __vmx_vmwrite(VMCS_HOST_TR_BASE, __segmentbase(&gdtr, &tr));
 
-        __vmx_vmwrite(VMCS_HOST_SYSENTER_CS, __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(VMCS_HOST_SYSENTER_EIP, __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(VMCS_HOST_SYSENTER_ESP, __readmsr(MSR_IA32_SYSENTER_ESP));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
+        __vmx_vmwrite(VMCS_HOST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
 }
 
 STATIC
@@ -228,12 +227,12 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
          * initiated again after returning from sleep
          */
 
-        __vmx_vmwrite(VMCS_GUEST_RFLAGS,        __readrflags());
-        __vmx_vmwrite(VMCS_GUEST_SYSENTER_CS,   __readmsr(MSR_IA32_SYSENTER_CS));
-        __vmx_vmwrite(VMCS_GUEST_SYSENTER_EIP,  __readmsr(MSR_IA32_SYSENTER_EIP));
-        __vmx_vmwrite(VMCS_GUEST_SYSENTER_ESP,  __readmsr(MSR_IA32_SYSENTER_ESP));
-        __vmx_vmwrite(VMCS_GUEST_FS_BASE,       __readmsr(MSR_FS_BASE));
-        __vmx_vmwrite(VMCS_GUEST_GS_BASE,       __readmsr(MSR_GS_BASE));
+        __vmx_vmwrite(VMCS_GUEST_RFLAGS, __readrflags());
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
+        __vmx_vmwrite(VMCS_GUEST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
+        __vmx_vmwrite(VMCS_GUEST_FS_BASE, __readmsr(IA32_FS_BASE));
+        __vmx_vmwrite(VMCS_GUEST_GS_BASE, __readmsr(IA32_GS_BASE));
 
         /*
          * Since the goal of this hypervisor is to virtualise and already running operating system,
@@ -261,7 +260,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls.Cr3StoreExiting                  = TRUE;
 
         VmxVmWrite(VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-                   AdjustMsrControl((UINT32)proc_ctls.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS));
+                   AdjustMsrControl((UINT32)proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
 
         /*
          * Ensure RDTSCP, INVPCID and XSAVES/XRSTORS do not raise an invalid
@@ -273,7 +272,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls2.EnableXsaves                      = TRUE;
 
         VmxVmWrite(VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-                   AdjustMsrControl((UINT32)proc_ctls2.AsUInt, MSR_IA32_VMX_PROCBASED_CTLS2));
+                   AdjustMsrControl((UINT32)proc_ctls2.AsUInt, IA32_VMX_PROCBASED_CTLS2));
 
         /*
          * Lets not force a vmexit on any external interrupts
@@ -282,7 +281,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         pin_ctls.NmiExiting                      = FALSE;
 
         VmxVmWrite(VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
-                   AdjustMsrControl((UINT32)pin_ctls.AsUInt, MSR_IA32_VMX_PINBASED_CTLS));
+                   AdjustMsrControl((UINT32)pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
 
         /*
          * Set all 32 bits to ensure every exception is caught
@@ -297,7 +296,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         exit_ctls.HostAddressSpaceSize        = TRUE;
 
         __vmx_vmwrite(VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
-                      AdjustMsrControl((UINT32)exit_ctls.AsUInt, MSR_IA32_VMX_EXIT_CTLS));
+                      AdjustMsrControl((UINT32)exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
         /*
          * Ensure we are in 64bit mode on VMX entry.
          */
@@ -305,7 +304,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         entry_ctls.Ia32EModeGuest               = TRUE;
 
         __vmx_vmwrite(VMCS_CTRL_VMENTRY_CONTROLS,
-                      AdjustMsrControl((UINT32)entry_ctls.AsUInt, MSR_IA32_VMX_ENTRY_CTLS));
+                      AdjustMsrControl((UINT32)entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 
         __vmx_vmwrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, GuestState->msr_bitmap_pa);
 }
@@ -313,15 +312,29 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 NTSTATUS
 SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
 {
-        if (__vmx_vmclear(&GuestState->vmcs_region_pa) != VMX_OK) {
-                DEBUG_ERROR("Unable to clear the vmcs region");
+        UCHAR status = 0;
+
+        status = __vmx_vmclear(&GuestState->vmcs_region_pa);
+
+        if (!VMX_OK(status)) {
+                DEBUG_ERROR("__vmx_vmclear failed with status %x", status);
                 return STATUS_UNSUCCESSFUL;
         }
 
-        if (__vmx_vmptrld(&GuestState->vmcs_region_pa) != VMX_OK) {
-                DEBUG_ERROR("vmptrld failed with status: %llx",
-                            VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
-                return STATUS_UNSUCCESSFUL;
+        status = __vmx_vmptrld(&GuestState->vmcs_region_pa);
+
+        if (!VMX_OK(status)) {
+                if (status == VMX_STATUS_OPERATION_FAILED)
+                {
+                        DEBUG_ERROR("__vmx_vmptrld failed with status: %llx",
+                                    VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
+                        return STATUS_UNSUCCESSFUL;
+                }
+                else
+                {
+                        DEBUG_ERROR("__vmx_vmptrld failed with no status.");
+                        return STATUS_UNSUCCESSFUL;
+                }
         }
 
         VmcsWriteControlStateFields(GuestState);

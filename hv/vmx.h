@@ -5,12 +5,14 @@
 #include "driver.h"
 #include "ia32.h"
 
-typedef struct _IPI_CALL_CONTEXT
+typedef struct _DPC_CALL_CONTEXT
 {
         EPT_POINTER* eptp;
         PVOID        guest_stack;
+        NTSTATUS*    status;
+        UINT32       status_count;
 
-} IPI_CALL_CONTEXT, *PIPI_CALL_CONTEXT;
+} DPC_CALL_CONTEXT, *PDPC_CALL_CONTEXT;
 
 typedef struct _CPUID_CACHE
 {
@@ -64,17 +66,20 @@ typedef struct _DRIVER_STATE
 
 }DRIVER_STATE, *PDRIVER_STATE;
 
-NTSTATUS
-InitiateVmx(_In_ PIPI_CALL_CONTEXT Context);
+VOID
+InitialiseVmxOperation(_In_ PKDPC*    Dpc,
+            _In_opt_ PVOID DeferredContext,
+            _In_opt_ PVOID SystemArgument1,
+            _In_opt_ PVOID SystemArgument2);
 
 NTSTATUS
-BroadcastVmxInitiation(_In_ PIPI_CALL_CONTEXT Context);
+BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context);
 
 NTSTATUS
 BroadcastVmxTermination();
 
 VOID
-VirtualizeCore(_In_ PIPI_CALL_CONTEXT Context, _In_ PVOID StackPointer);
+VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer);
 
 NTSTATUS
 SetupVmxOperation();

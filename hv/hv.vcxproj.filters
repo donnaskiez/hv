@@ -28,9 +28,6 @@
     <ClCompile Include="vmcs.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="encode.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="dispatch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -54,9 +51,6 @@
     <ClInclude Include="vmcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="encode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="dispatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -74,13 +68,10 @@
     <MASM Include="arch.asm">
       <Filter>Source Files</Filter>
     </MASM>
-    <MASM Include="arch.asm">
-      <Filter>Source Files</Filter>
-    </MASM>
   </ItemGroup>
   <ItemGroup>
-    <None Include="hv.inf">
+    <Inf Include="hv.inf">
       <Filter>Driver Files</Filter>
-    </None>
+    </Inf>
   </ItemGroup>
 </Project>
