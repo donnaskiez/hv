@@ -156,6 +156,18 @@ VmexitHandler ENDP
 
 ExitVmx PROC
 
+	push rax	
+
+	sub rsp, 020h
+
+	call VmmGetCoresVcpu
+	
+	add rsp, 020h
+
+	mov [rax], dword ptr VMX_VCPU_STATE_TERMINATED
+
+	pop rax
+
 	sub rsp, 020h 
 
 	call VmmReadGuestRsp		; get our guests rsp before we called vmxoff

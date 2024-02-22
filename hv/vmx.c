@@ -392,18 +392,28 @@ TerminateVmxDpcRoutine(_In_ PKDPC*    Dpc,
         UNREFERENCED_PARAMETER(Dpc);
         UNREFERENCED_PARAMETER(DeferredContext);
 
-        DEBUG_LOG("Core: %lx - Terminating VMX Operation.", KeGetCurrentProcessorNumber());
+        UINT32                 core = KeGetCurrentProcessorNumber();
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[core];
 
         if (!NT_SUCCESS(VmxVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
                 return STATUS_UNSUCCESSFUL;
+        }
+
+        /* TODO: how should we handle this? */
+        if (vcpu->state != VMX_VCPU_STATE_TERMINATED) {
+                DEBUG_ERROR("Core: %lx - Failed to terminate VMX operation.", core);
+                goto end;
         }
 
         /*
          * At this point, we have exited VMX operation and we can safely free our per core
          * allocations.
          */
-        FreeCoreVmxState(KeGetCurrentProcessorNumber());
+        FreeCoreVmxState(core);
 
+        DEBUG_LOG("Core: %lx - Terminated VMX Operation.", core);
+
+end:
         KeSignalCallDpcSynchronize(SystemArgument2);
         KeSignalCallDpcDone(SystemArgument1);
 }
@@ -569,10 +579,11 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
 NTSTATUS
 InitialisePowerCallback()
 {
-        NTSTATUS          status = STATUS_ABANDONED;
-        UNICODE_STRING    name   = RTL_CONSTANT_STRING(L"\\Callback\\PowerState");
-        OBJECT_ATTRIBUTES object_attributes =
-            RTL_CONSTANT_OBJECT_ATTRIBUTES(&name, OBJ_CASE_INSENSITIVE);
+        NTSTATUS          status            = STATUS_ABANDONED;
+        UNICODE_STRING    name              = RTL_CONSTANT_STRING(L"\\Callback\\PowerState");
+        OBJECT_ATTRIBUTES object_attributes = {0};
+
+        InitializeObjectAttributes(&object_attributes, &name, OBJ_KERNEL_HANDLE, NULL, NULL);
 
         status =
             ExCreateCallback(&driver_state->power_callback_object, &object_attributes, FALSE, TRUE);

@@ -235,19 +235,25 @@ DispatchVmCallTerminateVmx()
 
 STATIC
 NTSTATUS
-VmCallDispatcher(_In_ UINT64 HypercallId,
-                 _In_ UINT64 OptionalParameter1,
-                 _In_ UINT64 OptionalParameter2,
-                 _In_ UINT64 OptionalParameter3)
+DispatchVmCallPing()
 {
-        DEBUG_LOG("HypercallId number: %llx", HypercallId);
+        return STATUS_SUCCESS;
+}
 
+STATIC
+NTSTATUS
+VmCallDispatcher(_In_ UINT64     HypercallId,
+                 _In_opt_ UINT64 OptionalParameter1,
+                 _In_opt_ UINT64 OptionalParameter2,
+                 _In_opt_ UINT64 OptionalParameter3)
+{
         // clang-format off
         switch (HypercallId) {
         case VMX_HYPERCALL_TERMINATE_VMX:       DispatchVmCallTerminateVmx(); break;
+        case VMX_HYPERCALL_PING:                return DispatchVmCallPing();
         default: break;
         }
-        // clang-format on
+        // clang-format on      
 
         return STATUS_SUCCESS;
 }
@@ -280,7 +286,7 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         /*
          * Do the same with the FS and GS base
          */
-        
+
         __writemsr(IA32_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
         __writemsr(IA32_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
 
@@ -310,7 +316,6 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorIndex()];
 
         // clang-format off
-
         switch (VmxVmRead(VMCS_EXIT_REASON)) {
         case VMX_EXIT_REASON_EXECUTE_CPUID:     DispatchExitReasonCPUID(Context);                                                       break;
         case VMX_EXIT_REASON_EXECUTE_INVD:      DispatchExitReasonINVD(Context);                                                        break;
@@ -319,7 +324,6 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_REASON_EXECUTE_WBINVD:    DispatchExitReasonWBINVD(Context);                                                      break;
         default: break;
         }
-
         // clang-format on
 
         /* Increment our guest rip by the size of the exiting instruction since we've processed it
