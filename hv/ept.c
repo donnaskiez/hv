@@ -84,58 +84,58 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
         RtlZeroMemory(guest_virtual, PAGE_SIZE);
 
         for (SIZE_T index = 0; index < NUM_PAGES; index++) {
-                pt[index].Fields.Accessed        = 0;
-                pt[index].Fields.Dirty           = 0;
-                pt[index].Fields.MemoryType      = 6;
-                pt[index].Fields.ExecuteAccess   = 1;
-                pt[index].Fields.UserModeExecute = 0;
-                pt[index].Fields.IgnorePat       = 0;
+                pt[index].Fields.Accessed        = FALSE;
+                pt[index].Fields.Dirty           = FALSE;
+                pt[index].Fields.MemoryType      = MEMORY_TYPE_WRITE_BACK;
+                pt[index].Fields.ExecuteAccess   = TRUE;
+                pt[index].Fields.UserModeExecute = FALSE;
+                pt[index].Fields.IgnorePat       = FALSE;
                 pt[index].Fields.PageFrameNumber =
                     MmGetPhysicalAddress(guest_virtual + (index * PAGE_SIZE)).QuadPart / PAGE_SIZE;
-                pt[index].Fields.ReadAccess  = 1;
-                pt[index].Fields.SuppressVe  = 0;
-                pt[index].Fields.WriteAccess = 1;
+                pt[index].Fields.ReadAccess  = TRUE;
+                pt[index].Fields.SuppressVe  = FALSE;
+                pt[index].Fields.WriteAccess = TRUE;
         }
 
-        pd->Fields.Accessed        = 0;
-        pd->Fields.ExecuteAccess   = 1;
-        pd->Fields.UserModeExecute = 0;
+        pd->Fields.Accessed        = FALSE;
+        pd->Fields.ExecuteAccess   = TRUE;
+        pd->Fields.UserModeExecute = FALSE;
         pd->Fields.Reserved1       = 0;
         pd->Fields.Reserved2       = 0;
         pd->Fields.Reserved3       = 0;
         pd->Fields.PageFrameNumber = MmGetPhysicalAddress(pt).QuadPart / PAGE_SIZE;
-        pd->Fields.ReadAccess      = 1;
+        pd->Fields.ReadAccess      = FALSE;
         pd->Fields.Reserved1       = 0;
         pd->Fields.Reserved2       = 0;
-        pd->Fields.WriteAccess     = 1;
+        pd->Fields.WriteAccess     = TRUE;
 
-        pdpt->Fields.Accessed        = 0;
-        pdpt->Fields.ExecuteAccess   = 1;
-        pdpt->Fields.UserModeExecute = 0;
+        pdpt->Fields.Accessed        = FALSE;
+        pdpt->Fields.ExecuteAccess   = TRUE;
+        pdpt->Fields.UserModeExecute = FALSE;
         pdpt->Fields.Reserved1       = 0;
         pdpt->Fields.Reserved2       = 0;
         pdpt->Fields.Reserved3       = 0;
         pdpt->Fields.PageFrameNumber = MmGetPhysicalAddress(pd).QuadPart / PAGE_SIZE;
-        pdpt->Fields.ReadAccess      = 1;
+        pdpt->Fields.ReadAccess      = TRUE;
         pdpt->Fields.Reserved1       = 0;
         pdpt->Fields.Reserved2       = 0;
-        pdpt->Fields.WriteAccess     = 1;
+        pdpt->Fields.WriteAccess     = TRUE;
 
-        pml4->Fields.Accessed        = 0;
-        pml4->Fields.ExecuteAccess   = 1;
-        pml4->Fields.UserModeExecute = 0;
+        pml4->Fields.Accessed        = FALSE;
+        pml4->Fields.ExecuteAccess   = TRUE;
+        pml4->Fields.UserModeExecute = FALSE;
         pml4->Fields.Reserved1       = 0;
         pml4->Fields.Reserved2       = 0;
         pml4->Fields.Reserved3       = 0;
         pml4->Fields.PageFrameNumber = MmGetPhysicalAddress(pdpt).QuadPart / PAGE_SIZE;
-        pml4->Fields.ReadAccess      = 1;
+        pml4->Fields.ReadAccess      = TRUE;
         pml4->Fields.Reserved1       = 0;
         pml4->Fields.Reserved2       = 0;
-        pml4->Fields.WriteAccess     = 1;
+        pml4->Fields.WriteAccess     = TRUE;
 
-        ept->Fields.EnableAccessAndDirtyFlags = 1;
-        ept->Fields.MemoryType                = 6;
-        ept->Fields.PageWalkLength            = 3;
+        ept->Fields.EnableAccessAndDirtyFlags = TRUE;
+        ept->Fields.MemoryType                = MEMORY_TYPE_WRITE_BACK;
+        ept->Fields.PageWalkLength            = EPT_PAGE_WALK_LENGTH_4;
         ept->Fields.PageFrameNumber           = MmGetPhysicalAddress(pml4).QuadPart / PAGE_SIZE;
         ept->Fields.Reserved1                 = 0;
         ept->Fields.Reserved2                 = 0;

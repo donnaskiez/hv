@@ -19,4 +19,7 @@ VmmReadGuestRip();
 UINT64
 VmmReadGuestRsp();
 
+UINT64
+VmmGetCoresVcpu();
+
 #endif

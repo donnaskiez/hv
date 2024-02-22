@@ -35,6 +35,11 @@ EXTERN VirtualizeCore:PROC
 
 EXTERN VmmReadGuestRip:PROC
 EXTERN VmmReadGuestRsp:PROC
+EXTERN VmmGetCoresVcpu:PROC
+
+VMX_VCPU_STATE_OFF        EQU 0
+VMX_VCPU_STATE_RUNNING    EQU 1
+VMX_VCPU_STATE_TERMINATED EQU 2
 
 .code _text
 
@@ -220,6 +225,12 @@ SaveStateAndVirtualizeCore ENDP
 VmxRestoreState PROC
 
 	add rsp, 28h
+
+	; We can overwrite rax since we are gonna restore it anyway
+	
+	call VmmGetCoresVcpu
+
+	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
 
 	RESTORE_GP
 	

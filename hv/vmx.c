@@ -170,7 +170,7 @@ InitiateVmmState(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
         VmmState->cache.cpuid.active  = FALSE;
         VmmState->exit_state.exit_vmx = FALSE;
-
+        VmmState->state               = VMX_VCPU_STATE_OFF;
         return STATUS_SUCCESS;
 }
 
@@ -289,7 +289,10 @@ end:
 VOID
 VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 {
-        NTSTATUS status = SetupVmcs(&vmm_state[KeGetCurrentProcessorNumber()], StackPointer);
+        NTSTATUS               status = STATUS_UNSUCCESSFUL;
+        PVIRTUAL_MACHINE_STATE vcpu   = &vmm_state[KeGetCurrentProcessorNumber()];
+
+        status = SetupVmcs(vcpu, StackPointer);
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
@@ -300,6 +303,24 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 
         /* only if vmlaunch fails will we end up here */
         DEBUG_ERROR("vmlaunch failed with status %llx", VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
+
+        vcpu->state = VMX_VCPU_STATE_TERMINATED;
+}
+
+NTSTATUS
+ValidateVmxLaunch()
+{
+        for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
+                PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[core];
+
+                if (vcpu->state != VMX_VCPU_STATE_RUNNING) {
+                        DEBUG_LOG("Core: %lx failed to enter VMX operation.", core);
+                        return STATUS_UNSUCCESSFUL;
+                }
+        }
+
+        DEBUG_LOG("All cores succesfully entered VMX operation.");
+        return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -314,7 +335,10 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
-        return status;
+
+        /* lets make sure we entered VMX operation on ALL cores. If a core failed to enter, the
+         * vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
+        return ValidateVmxLaunch();
 }
 
 NTSTATUS
@@ -477,6 +501,11 @@ SetupVmxOperation()
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("BeginVmxOperation failed with status %x", status);
+
+                /* We could have potentially entered VMX operation on some cores, so lets terminate
+                 * on any cores that did enter VMX operation before we clear the global vcpu
+                 * state.*/
+                BroadcastVmxTermination();
                 goto end;
         }
 
