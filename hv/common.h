@@ -33,6 +33,17 @@ typedef struct _GUEST_CONTEXT
         M128A  Xmm3;
         M128A  Xmm4;
         M128A  Xmm5;
+        M128A  Xmm6;
+        M128A  Xmm7;
+        M128A  Xmm8;
+        M128A  Xmm9;
+        M128A  Xmm10;
+        M128A  Xmm11;
+        M128A  Xmm12;
+        M128A  Xmm13;
+        M128A  Xmm14;
+        M128A  Xmm15;
+
         UINT64 rax;
         UINT64 rcx;
         UINT64 rdx;
@@ -49,7 +60,9 @@ typedef struct _GUEST_CONTEXT
         UINT64 r13;
         UINT64 r14;
         UINT64 r15;
+
         UINT32 eflags;
+
 } GUEST_CONTEXT, *PGUEST_CONTEXT;
 
 #define VMX_HYPERCALL_TERMINATE_VMX 0ull

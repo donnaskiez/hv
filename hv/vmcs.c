@@ -133,7 +133,7 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         VmxVmWrite(VMCS_HOST_GDTR_BASE, gdtr.BaseAddress);
         VmxVmWrite(VMCS_HOST_IDTR_BASE, idtr.BaseAddress);
 
-        VmxVmWrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE - 1);
+        VmxVmWrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE);
         VmxVmWrite(VMCS_HOST_RIP, VmexitHandler);
 
         VmxVmWrite(VMCS_HOST_FS_BASE, __readmsr(IA32_FS_BASE));
@@ -173,46 +173,46 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
         __sgdt(&gdtr);
         __sidt(&idtr);
 
-        VmxVmWrite(VMCS_GUEST_ES_SELECTOR,   es.AsUInt);
-        VmxVmWrite(VMCS_GUEST_CS_SELECTOR,   cs.AsUInt);
-        VmxVmWrite(VMCS_GUEST_SS_SELECTOR,   ss.AsUInt);
-        VmxVmWrite(VMCS_GUEST_DS_SELECTOR,   ds.AsUInt);
-        VmxVmWrite(VMCS_GUEST_FS_SELECTOR,   fs.AsUInt);
-        VmxVmWrite(VMCS_GUEST_GS_SELECTOR,   gs.AsUInt);
-        VmxVmWrite(VMCS_GUEST_TR_SELECTOR,   tr.AsUInt);
+        VmxVmWrite(VMCS_GUEST_ES_SELECTOR, es.AsUInt);
+        VmxVmWrite(VMCS_GUEST_CS_SELECTOR, cs.AsUInt);
+        VmxVmWrite(VMCS_GUEST_SS_SELECTOR, ss.AsUInt);
+        VmxVmWrite(VMCS_GUEST_DS_SELECTOR, ds.AsUInt);
+        VmxVmWrite(VMCS_GUEST_FS_SELECTOR, fs.AsUInt);
+        VmxVmWrite(VMCS_GUEST_GS_SELECTOR, gs.AsUInt);
+        VmxVmWrite(VMCS_GUEST_TR_SELECTOR, tr.AsUInt);
         VmxVmWrite(VMCS_GUEST_LDTR_SELECTOR, ldtr.AsUInt);
 
-        VmxVmWrite(VMCS_GUEST_ES_BASE,   __segmentbase(&gdtr, &es));
-        VmxVmWrite(VMCS_GUEST_CS_BASE,   __segmentbase(&gdtr, &cs));
-        VmxVmWrite(VMCS_GUEST_SS_BASE,   __segmentbase(&gdtr, &ss));
-        VmxVmWrite(VMCS_GUEST_DS_BASE,   __segmentbase(&gdtr, &ds));
-        VmxVmWrite(VMCS_GUEST_FS_BASE,   __segmentbase(&gdtr, &fs));
-        VmxVmWrite(VMCS_GUEST_GS_BASE,   __segmentbase(&gdtr, &gs));
-        VmxVmWrite(VMCS_GUEST_TR_BASE,   __segmentbase(&gdtr, &tr));
+        VmxVmWrite(VMCS_GUEST_ES_BASE, __segmentbase(&gdtr, &es));
+        VmxVmWrite(VMCS_GUEST_CS_BASE, __segmentbase(&gdtr, &cs));
+        VmxVmWrite(VMCS_GUEST_SS_BASE, __segmentbase(&gdtr, &ss));
+        VmxVmWrite(VMCS_GUEST_DS_BASE, __segmentbase(&gdtr, &ds));
+        VmxVmWrite(VMCS_GUEST_FS_BASE, __segmentbase(&gdtr, &fs));
+        VmxVmWrite(VMCS_GUEST_GS_BASE, __segmentbase(&gdtr, &gs));
+        VmxVmWrite(VMCS_GUEST_TR_BASE, __segmentbase(&gdtr, &tr));
         VmxVmWrite(VMCS_GUEST_LDTR_BASE, __segmentbase(&gdtr, &ldtr));
 
-        VmxVmWrite(VMCS_GUEST_ES_LIMIT,   __segmentlimit(__reades()));
-        VmxVmWrite(VMCS_GUEST_CS_LIMIT,   __segmentlimit(__readcs()));
-        VmxVmWrite(VMCS_GUEST_SS_LIMIT,   __segmentlimit(__readss()));
-        VmxVmWrite(VMCS_GUEST_DS_LIMIT,   __segmentlimit(__readds()));
-        VmxVmWrite(VMCS_GUEST_FS_LIMIT,   __segmentlimit(__readfs()));
-        VmxVmWrite(VMCS_GUEST_GS_LIMIT,   __segmentlimit(__readgs()));
-        VmxVmWrite(VMCS_GUEST_TR_LIMIT,   __segmentlimit(__readtr()));
+        VmxVmWrite(VMCS_GUEST_ES_LIMIT, __segmentlimit(__reades()));
+        VmxVmWrite(VMCS_GUEST_CS_LIMIT, __segmentlimit(__readcs()));
+        VmxVmWrite(VMCS_GUEST_SS_LIMIT, __segmentlimit(__readss()));
+        VmxVmWrite(VMCS_GUEST_DS_LIMIT, __segmentlimit(__readds()));
+        VmxVmWrite(VMCS_GUEST_FS_LIMIT, __segmentlimit(__readfs()));
+        VmxVmWrite(VMCS_GUEST_GS_LIMIT, __segmentlimit(__readgs()));
+        VmxVmWrite(VMCS_GUEST_TR_LIMIT, __segmentlimit(__readtr()));
         VmxVmWrite(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(__readldtr()));
 
-        VmxVmWrite(VMCS_GUEST_ES_ACCESS_RIGHTS,   __segmentar(&es));
-        VmxVmWrite(VMCS_GUEST_CS_ACCESS_RIGHTS,   __segmentar(&cs));
-        VmxVmWrite(VMCS_GUEST_SS_ACCESS_RIGHTS,   __segmentar(&ss));
-        VmxVmWrite(VMCS_GUEST_DS_ACCESS_RIGHTS,   __segmentar(&ds));
-        VmxVmWrite(VMCS_GUEST_FS_ACCESS_RIGHTS,   __segmentar(&fs));
-        VmxVmWrite(VMCS_GUEST_GS_ACCESS_RIGHTS,   __segmentar(&gs));
-        VmxVmWrite(VMCS_GUEST_TR_ACCESS_RIGHTS,   __segmentar(&tr));
+        VmxVmWrite(VMCS_GUEST_ES_ACCESS_RIGHTS, __segmentar(&es));
+        VmxVmWrite(VMCS_GUEST_CS_ACCESS_RIGHTS, __segmentar(&cs));
+        VmxVmWrite(VMCS_GUEST_SS_ACCESS_RIGHTS, __segmentar(&ss));
+        VmxVmWrite(VMCS_GUEST_DS_ACCESS_RIGHTS, __segmentar(&ds));
+        VmxVmWrite(VMCS_GUEST_FS_ACCESS_RIGHTS, __segmentar(&fs));
+        VmxVmWrite(VMCS_GUEST_GS_ACCESS_RIGHTS, __segmentar(&gs));
+        VmxVmWrite(VMCS_GUEST_TR_ACCESS_RIGHTS, __segmentar(&tr));
         VmxVmWrite(VMCS_GUEST_LDTR_ACCESS_RIGHTS, __segmentar(&ldtr));
 
         VmxVmWrite(VMCS_GUEST_GDTR_LIMIT, gdtr.Limit);
         VmxVmWrite(VMCS_GUEST_IDTR_LIMIT, idtr.Limit);
-        VmxVmWrite(VMCS_GUEST_GDTR_BASE,  gdtr.BaseAddress);
-        VmxVmWrite(VMCS_GUEST_IDTR_BASE,  idtr.BaseAddress);
+        VmxVmWrite(VMCS_GUEST_GDTR_BASE, gdtr.BaseAddress);
+        VmxVmWrite(VMCS_GUEST_IDTR_BASE, idtr.BaseAddress);
 
         VmxVmWrite(VMCS_GUEST_VMCS_LINK_POINTER, MAXULONG_PTR);
 
@@ -227,12 +227,12 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
          * initiated again after returning from sleep
          */
 
-        VmxVmWrite(VMCS_GUEST_RFLAGS,       __readrflags());
-        VmxVmWrite(VMCS_GUEST_SYSENTER_CS,  __readmsr(IA32_SYSENTER_CS));
+        VmxVmWrite(VMCS_GUEST_RFLAGS, __readrflags());
+        VmxVmWrite(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
         VmxVmWrite(VMCS_GUEST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
         VmxVmWrite(VMCS_GUEST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
-        VmxVmWrite(VMCS_GUEST_FS_BASE,      __readmsr(IA32_FS_BASE));
-        VmxVmWrite(VMCS_GUEST_GS_BASE,      __readmsr(IA32_GS_BASE));
+        VmxVmWrite(VMCS_GUEST_FS_BASE, __readmsr(IA32_FS_BASE));
+        VmxVmWrite(VMCS_GUEST_GS_BASE, __readmsr(IA32_GS_BASE));
 
         /*
          * Since the goal of this hypervisor is to virtualise and already running operating system,
@@ -324,14 +324,12 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         status = __vmx_vmptrld(&GuestState->vmcs_region_pa);
 
         if (!VMX_OK(status)) {
-                if (status == VMX_STATUS_OPERATION_FAILED)
-                {
+                if (status == VMX_STATUS_OPERATION_FAILED) {
                         DEBUG_ERROR("__vmx_vmptrld failed with status: %llx",
                                     VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
                         return STATUS_UNSUCCESSFUL;
                 }
-                else
-                {
+                else {
                         DEBUG_ERROR("__vmx_vmptrld failed with no status.");
                         return STATUS_UNSUCCESSFUL;
                 }

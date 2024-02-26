@@ -185,6 +185,11 @@ AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
+        DEBUG_LOG("vmm stack va: %llx", VmmState->vmm_stack_va);
+        DEBUG_LOG("vmm stack top: %llx", VmmState->vmm_stack_va + VMX_HOST_STACK_SIZE);
+
+        memset(VmmState->vmm_stack_va, 0xCC, VMX_HOST_STACK_SIZE);
+
         return STATUS_SUCCESS;
 }
 

@@ -95,7 +95,7 @@ endm
 
 SAVE_FP macro
 
-	sub     rsp, 60h
+	sub     rsp, 256
 
 	vmovups  xmmword ptr [rsp +  0h], xmm0
 	vmovups  xmmword ptr [rsp + 10h], xmm1
@@ -103,6 +103,16 @@ SAVE_FP macro
 	vmovups  xmmword ptr [rsp + 30h], xmm3
 	vmovups  xmmword ptr [rsp + 40h], xmm4
 	vmovups  xmmword ptr [rsp + 50h], xmm5
+	vmovups  xmmword ptr [rsp + 60h], xmm6
+	vmovups  xmmword ptr [rsp + 70h], xmm7
+	vmovups  xmmword ptr [rsp + 80h], xmm8
+	vmovups  xmmword ptr [rsp + 90h], xmm9
+	vmovups  xmmword ptr [rsp + 160], xmm10
+	vmovups  xmmword ptr [rsp + 176], xmm11
+	vmovups  xmmword ptr [rsp + 192], xmm12
+	vmovups  xmmword ptr [rsp + 208], xmm13
+	vmovups  xmmword ptr [rsp + 224], xmm14
+	vmovups  xmmword ptr [rsp + 240], xmm15
 
 endm
 
@@ -114,8 +124,18 @@ RESTORE_FP macro
         vmovups  xmm3, xmmword ptr [rsp + 30h]
         vmovups  xmm4, xmmword ptr [rsp + 40h]
         vmovups  xmm5, xmmword ptr [rsp + 50h]
+	vmovups  xmm6, xmmword ptr [rsp + 60h]
+	vmovups  xmm7, xmmword ptr [rsp + 70h]
+	vmovups  xmm8, xmmword ptr [rsp + 80h]
+	vmovups  xmm9, xmmword ptr [rsp + 90h]
+	vmovups  xmm10, xmmword ptr [rsp + 160]
+	vmovups  xmm11, xmmword ptr [rsp + 176]
+	vmovups  xmm12, xmmword ptr [rsp + 192]
+	vmovups  xmm13, xmmword ptr [rsp + 208]
+	vmovups  xmm14, xmmword ptr [rsp + 224]
+	vmovups  xmm15, xmmword ptr [rsp + 240]
 	
-        add     rsp, 60h
+        add     rsp, 256
 
 endm
 
