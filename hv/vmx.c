@@ -4,6 +4,7 @@
 #include "ia32.h"
 #include "arch.h"
 #include "vmcs.h"
+#include "log.h"
 #include "ept.h"
 
 #include <intrin.h>
@@ -226,6 +227,24 @@ AllocateVmmStateStructure()
         return STATUS_SUCCESS;
 }
 
+STATIC
+VOID
+FreeCoreVmxState(_In_ UINT32 Core)
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[Core];
+
+        if (vcpu->vmxon_region_va)
+                MmFreeContiguousMemory(vcpu->vmxon_region_va);
+        if (vcpu->vmcs_region_va)
+                MmFreeContiguousMemory(vcpu->vmcs_region_va);
+        if (vcpu->msr_bitmap_va)
+                MmFreeNonCachedMemory(vcpu->msr_bitmap_va, PAGE_SIZE);
+        if (vcpu->vmm_stack_va)
+                ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
+        if (vcpu->log_state.log_buffer)
+                ExFreePoolWithTag(vcpu->log_state.log_buffer, VMX_LOG_BUFFER_POOL_TAG);
+}
+
 VOID
 InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                        _In_opt_ PVOID DeferredContext,
@@ -235,6 +254,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
         NTSTATUS               status  = STATUS_ABANDONED;
         PVIRTUAL_MACHINE_STATE vcpu    = &vmm_state[KeGetCurrentProcessorNumber()];
         PDPC_CALL_CONTEXT      context = (PDPC_CALL_CONTEXT)DeferredContext;
+        UINT32                 core    = KeGetCurrentProcessorNumber();
 
         DEBUG_LOG("Core: %lx - Initiating VMX Operation state.", KeGetCurrentProcessorNumber());
 
@@ -244,10 +264,23 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 return;
         }
 
+#ifdef DEBUG
+
+        status = InitialiseVcpuLogger(vcpu);
+
+        if (!NT_SUCCESS(status)) {
+                DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
+                FreeCoreVmxState(core);
+                goto end;
+        }
+
+#endif
+
         status = EnableVmxOperationOnCore();
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
 
@@ -255,6 +288,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
 
@@ -262,6 +296,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateVmcsRegion failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
 
@@ -269,6 +304,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateVmmStack failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
 
@@ -276,6 +312,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("AllocateMsrBitmap failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
 
@@ -283,8 +320,11 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("InitiateVmmState failed with status %x", status);
+                FreeCoreVmxState(core);
                 goto end;
         }
+
+        DEBUG_LOG("Core: %lx - Initiation Status: %lx", core, status);
 end:
         context->status[KeGetCurrentProcessorNumber()] = status;
         KeSignalCallDpcSynchronize(SystemArgument2);
@@ -359,22 +399,6 @@ VmxVmCall(_In_ UINT64     VmCallId,
                 DEBUG_ERROR("VmCall failed wtih status %x", status);
 
         return status;
-}
-
-STATIC
-VOID
-FreeCoreVmxState(_In_ UINT32 Core)
-{
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[Core];
-
-        if (vcpu->vmxon_region_va)
-                MmFreeContiguousMemory(vcpu->vmxon_region_va);
-        if (vcpu->vmcs_region_va)
-                MmFreeContiguousMemory(vcpu->vmcs_region_va);
-        if (vcpu->msr_bitmap_va)
-                MmFreeNonCachedMemory(vcpu->msr_bitmap_va, PAGE_SIZE);
-        if (vcpu->vmm_stack_va)
-                ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
 }
 
 STATIC

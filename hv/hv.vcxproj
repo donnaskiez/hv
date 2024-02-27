@@ -103,7 +103,7 @@
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
       <AdditionalIncludeDirectories>includes/zydis/dependencies/zycore/include;includes/zydis/include;includes/zydis/src;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>ZYAN_NO_LIBC;ZYCORE_STATIC_BUILD;ZYDIS_STATIC_BUILD;ZYDIS_DISABLE_ENCODER;ZYDIS_DISABLE_FORMATTER;ZYDIS_DISABLE_AVX512;ZYDIS_DISABLE_KNC;_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ZYAN_NO_LIBC;ZYCORE_STATIC_BUILD;ZYDIS_STATIC_BUILD;ZYDIS_DISABLE_ENCODER;ZYDIS_DISABLE_FORMATTER;ZYDIS_DISABLE_AVX512;ZYDIS_DISABLE_KNC;_WIN64;_AMD64_;AMD64;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -179,6 +179,8 @@
     <ClCompile Include="driver.c" />
     <ClCompile Include="dispatch.c" />
     <ClCompile Include="ept.c" />
+    <ClCompile Include="lock.c" />
+    <ClCompile Include="log.c" />
     <ClCompile Include="vmcs.c" />
     <ClCompile Include="vmx.c" />
   </ItemGroup>
@@ -189,6 +191,8 @@
     <ClInclude Include="dispatch.h" />
     <ClInclude Include="ept.h" />
     <ClInclude Include="ia32.h" />
+    <ClInclude Include="lock.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="vmcs.h" />
     <ClInclude Include="vmx.h" />

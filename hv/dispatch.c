@@ -1,10 +1,10 @@
 #include "dispatch.h"
 
-#include "Zydis/Zydis.h"
 #include "vmx.h"
 #include "vmcs.h"
 #include <intrin.h>
 #include "arch.h"
+#include "log.h"
 
 FORCEINLINE
 VOID
@@ -315,6 +315,8 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         UINT64                 additional_rip_offset = 0;
         PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorIndex()];
 
+        HIGH_IRQL_LOG_SAFE("Hello from root!");
+
         // clang-format off
         switch (VmxVmRead(VMCS_EXIT_REASON)) {
         case VMX_EXIT_REASON_EXECUTE_CPUID:     DispatchExitReasonCPUID(Context);                                                       break;
@@ -329,6 +331,16 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         /* Increment our guest rip by the size of the exiting instruction since we've processed it
          */
         IncrementGuestRip();
+
+        /*
+         * If we are in DEBUG mode, lets queue our DPC routine that will flush our logs to the
+         * debugger.
+         */
+#if DEBUG
+        if (CheckToFlushLogs(state)) {
+                KeInsertQueueDpc(&state->log_state.dpc, NULL, NULL);
+        }
+#endif
 
         /*
          * If we are indeed exiting VMX operation, return TRUE to indicate to our handler that we
