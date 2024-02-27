@@ -315,8 +315,6 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         UINT64                 additional_rip_offset = 0;
         PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorIndex()];
 
-        HIGH_IRQL_LOG_SAFE("Hello from root!");
-
         // clang-format off
         switch (VmxVmRead(VMCS_EXIT_REASON)) {
         case VMX_EXIT_REASON_EXECUTE_CPUID:     DispatchExitReasonCPUID(Context);                                                       break;

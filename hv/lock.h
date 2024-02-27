@@ -3,12 +3,12 @@
 
 #include "common.h"
 
-/* Object that represents a lock to be used at irql = HIGH_LEVEL */
+/* Object that represents a lock to be used at irql >= DISPATCH_LEVEL */
 typedef ULONG_PTR HIGH_IRQL_LOCK, *PHIGH_IRQL_LOCK;
 
 /*
- * Its assumed that when these functions are called, the irql = HIGH_LEVEL. This means there is no
- * need for us to save the IRQL value and restore the previous IRQL value similar to how
+ * Its assumed that when these functions are called, the irql >= DISPATCH_LEVEL. This means there is
+ * no need for us to save the IRQL value and restore the previous IRQL value similar to how
  * KeAcquireSpinLock and the release function work.
  */
 

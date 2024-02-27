@@ -246,6 +246,25 @@ FreeCoreVmxState(_In_ UINT32 Core)
 }
 
 VOID
+FreeVmxStateDpcRoutine(_In_ PKDPC*    Dpc,
+                       _In_opt_ PVOID DeferredContext,
+                       _In_opt_ PVOID SystemArgument1,
+                       _In_opt_ PVOID SystemArgument2)
+{
+        UNREFERENCED_PARAMETER(Dpc);
+        UNREFERENCED_PARAMETER(DeferredContext);
+        UNREFERENCED_PARAMETER(SystemArgument1);
+        UNREFERENCED_PARAMETER(SystemArgument2);
+        FreeCoreVmxState(KeGetCurrentProcessorNumber());
+}
+
+VOID
+FreeVmxState()
+{
+        KeGenericCallDpc(FreeVmxStateDpcRoutine, NULL);
+}
+
+VOID
 InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                        _In_opt_ PVOID DeferredContext,
                        _In_opt_ PVOID SystemArgument1,
@@ -401,7 +420,6 @@ VmxVmCall(_In_ UINT64     VmCallId,
         return status;
 }
 
-STATIC
 VOID
 FreeGlobalVmmState()
 {
@@ -411,6 +429,18 @@ FreeGlobalVmmState()
         }
 }
 
+VOID
+FreeGlobalDriverState()
+{
+        if (driver_state) {
+                ExFreePoolWithTag(driver_state, POOLTAG);
+                driver_state = NULL;
+        }
+}
+
+/*
+ * TODO: there is a bug with this causing a fatal bugcheck.
+ */
 STATIC
 VOID
 TerminateVmxDpcRoutine(_In_ PKDPC*    Dpc,
@@ -603,6 +633,13 @@ PowerCallbackRoutine(_In_ PVOID CallbackContext, PVOID Argument1, PVOID Argument
                 if (!NT_SUCCESS(status))
                         DEBUG_ERROR("BroadcastVmxTermination failed with status %x", status);
         }
+}
+
+VOID
+UnregisterPowerCallback()
+{
+        ExUnregisterCallback(driver_state->power_callback);
+        ObDereferenceObject(driver_state->power_callback_object);
 }
 
 NTSTATUS

@@ -108,4 +108,16 @@ InitialisePowerCallback();
 NTSTATUS
 AllocateDriverState();
 
+VOID
+FreeVmxState();
+
+VOID
+FreeGlobalVmmState();
+
+VOID
+FreeGlobalDriverState();
+
+VOID
+UnregisterPowerCallback();
+
 #endif
