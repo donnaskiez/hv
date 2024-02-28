@@ -7,7 +7,17 @@
 #define DEBUG_LOG(fmt, ...)   DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-log: " fmt "\n", ##__VA_ARGS__)
 #define DEBUG_ERROR(fmt, ...) DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-error: " fmt "\n", ##__VA_ARGS__)
 
-#define POOLTAG 'pool'
+#define POOL_TAG_VMM_STATE 'smmv'
+#define POOL_TAG_DRIVER_STATE 'dsds'
+#define POOL_TAG_VMM_STACK 'kats'
+#define POOL_TAG_DPC_CONTEXT 'ccpd'
+#define POOL_TAG_STATUS_ARRAY 'tats'
+#define POOL_TAG_EPT_POINTER 'ptpe'
+#define POOL_TAG_EPT_PML4 '4lmp'
+#define POOL_TAG_EPT_PDPT 'tpdp'
+#define POOL_TAG_EPT_PD 'dpdp'
+#define POOL_TAG_EPT_PT 'tptp'
+#define POOL_TAG_EPT_GUEST_VIRTUAL 'ivug'
 
 #define STATIC static
 #define VOID   void

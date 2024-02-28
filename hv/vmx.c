@@ -161,7 +161,8 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 NTSTATUS
 AllocateDriverState()
 {
-        driver_state = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(DRIVER_STATE), POOLTAG);
+        driver_state =
+            ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(DRIVER_STATE), POOL_TAG_DRIVER_STATE);
 
         if (!driver_state)
                 return STATUS_MEMORY_NOT_ALLOCATED;
@@ -183,7 +184,8 @@ STATIC
 NTSTATUS
 AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
-        VmmState->vmm_stack_va = ExAllocatePool2(POOL_FLAG_NON_PAGED, VMX_HOST_STACK_SIZE, POOLTAG);
+        VmmState->vmm_stack_va =
+            ExAllocatePool2(POOL_FLAG_NON_PAGED, VMX_HOST_STACK_SIZE, POOL_TAG_VMM_STACK);
 
         if (!VmmState->vmm_stack_va) {
                 DEBUG_LOG("Error in allocating VMM Stack.");
@@ -220,7 +222,7 @@ AllocateVmmStateStructure()
 {
         vmm_state = ExAllocatePool2(POOL_FLAG_NON_PAGED,
                                     sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0),
-                                    POOLTAG);
+                                    POOL_TAG_VMM_STATE);
         if (!vmm_state) {
                 DEBUG_LOG("Failed to allocate vmm state");
                 return STATUS_MEMORY_NOT_ALLOCATED;
@@ -242,7 +244,7 @@ FreeCoreVmxState(_In_ UINT32 Core)
         if (vcpu->msr_bitmap_va)
                 MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
-                ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
+                ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
 #if DEBUG
         if (vcpu->log_state.log_buffer)
                 ExFreePoolWithTag(vcpu->log_state.log_buffer, VMX_LOG_BUFFER_POOL_TAG);
@@ -428,7 +430,7 @@ VOID
 FreeGlobalVmmState()
 {
         if (vmm_state) {
-                ExFreePoolWithTag(vmm_state, POOLTAG);
+                ExFreePoolWithTag(vmm_state, POOL_TAG_VMM_STATE);
                 vmm_state = NULL;
         }
 }
@@ -437,7 +439,7 @@ VOID
 FreeGlobalDriverState()
 {
         if (driver_state) {
-                ExFreePoolWithTag(driver_state, POOLTAG);
+                ExFreePoolWithTag(driver_state, POOL_TAG_DRIVER_STATE);
                 driver_state = NULL;
         }
 }
@@ -492,6 +494,7 @@ BroadcastVmxTermination()
          * the current thread and free the global vmm state array.
          */
         FreeGlobalVmmState();
+        FreeEptStructures(&driver_state->ept_configuration);
         return STATUS_SUCCESS;
 }
 
@@ -519,20 +522,20 @@ SetupVmxOperation()
         
         core_count = KeQueryActiveProcessorCount(NULL);
 
-        context =
-            ExAllocatePool2(POOL_FLAG_NON_PAGED, core_count * sizeof(DPC_CALL_CONTEXT), POOLTAG);
+        context = ExAllocatePool2(
+            POOL_FLAG_NON_PAGED, core_count * sizeof(DPC_CALL_CONTEXT), POOL_TAG_DPC_CONTEXT);
 
         if (!context)
                 goto end;
 
         context->status_count = core_count;
-        context->status =
-            ExAllocatePool2(POOL_FLAG_NON_PAGED, core_count * sizeof(NTSTATUS), POOLTAG);
+        context->status = ExAllocatePool2(
+            POOL_FLAG_NON_PAGED, core_count * sizeof(NTSTATUS), POOL_TAG_STATUS_ARRAY);
 
         if (!context->status)
                 goto end;
         
-        status = InitializeEptp(&pept);
+        status = InitializeEptp(&driver_state->ept_configuration);
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("Failed to initialise EPT");
@@ -540,7 +543,7 @@ SetupVmxOperation()
         }
 
         for (INT core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
-                context[core].eptp        = pept;
+                context[core].eptp        = driver_state->ept_configuration.ept;
                 context[core].guest_stack = NULL;
                 context->status[core]     = STATUS_UNSUCCESSFUL;
         }
@@ -584,9 +587,9 @@ SetupVmxOperation()
 
 end:
         if (context && context->status)
-                ExFreePoolWithTag(context->status, POOLTAG);
+                ExFreePoolWithTag(context->status, POOL_TAG_STATUS_ARRAY);
         if (context)
-                ExFreePoolWithTag(context, POOLTAG);
+                ExFreePoolWithTag(context, POOL_TAG_DPC_CONTEXT);
 
         return status;
 }

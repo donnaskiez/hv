@@ -4,6 +4,7 @@
 #include "driver.h"
 #include "ia32.h"
 #include "lock.h"
+#include "ept.h"
 
 typedef struct _DPC_CALL_CONTEXT {
         EPT_POINTER* eptp;
@@ -79,8 +80,9 @@ typedef struct _VIRTUAL_MACHINE_STATE {
 extern PVIRTUAL_MACHINE_STATE vmm_state;
 
 typedef struct _DRIVER_STATE {
-        PVOID            power_callback;
-        PCALLBACK_OBJECT power_callback_object;
+        PVOID             power_callback;
+        PCALLBACK_OBJECT  power_callback_object;
+        EPT_CONFIGURATION ept_configuration;
 
 } DRIVER_STATE, *PDRIVER_STATE;
 

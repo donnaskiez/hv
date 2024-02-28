@@ -27,6 +27,16 @@ DeviceCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
         return Irp->IoStatus.Status;
 }
 
+VOID
+DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
+{ 
+        DEBUG_LOG("Unloading driver...");
+        /* if this fails... Who cares!  xD*/
+        BroadcastVmxTermination();
+        UnregisterPowerCallback();
+        FreeGlobalDriverState();
+}
+
 /*
  * TODO: need to refactor this to safely return from vmx operation and also fix da leaks.
  */
@@ -56,8 +66,8 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
-                FreeGlobalDriverState();
                 UnregisterPowerCallback();
+                FreeGlobalDriverState();
                 return status;
         }
 
@@ -71,26 +81,28 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("IoCreateDevice failed with status %x", status);
+                BroadcastVmxTermination();
                 FreeVmxState();
-                FreeGlobalDriverState();
                 UnregisterPowerCallback();
+                FreeGlobalDriverState();
         }
 
         status = IoCreateSymbolicLink(&device_link, &device_name);
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("IoCreateSymbolicLink failed with status %x", status);
+                BroadcastVmxTermination();
                 FreeVmxState();
-                FreeGlobalDriverState();
                 UnregisterPowerCallback();
+                FreeGlobalDriverState();
                 IoDeleteDevice(&DriverObject->DeviceObject);
                 return status;
         }
 
         DriverObject->MajorFunction[IRP_MJ_CREATE] = DeviceCreate;
         DriverObject->MajorFunction[IRP_MJ_CLOSE]  = DeviceClose;
+        DriverObject->DriverUnload                 = DriverUnload;
 
         DEBUG_LOG("Driver entry complete");
-
         return status;
 }

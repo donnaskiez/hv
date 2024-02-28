@@ -2,10 +2,8 @@
 
 #include "vmx.h"
 
-#define NUM_PAGES 100
-
 NTSTATUS
-InitializeEptp(_Out_ EPT_POINTER** EptPointer)
+InitializeEptp(_Out_ PEPT_CONFIGURATION Configuration)
 {
         EPT_PML4E*   pml4          = NULL;
         EPT_PDPTE*   pdpt          = NULL;
@@ -14,9 +12,7 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
         EPT_POINTER* ept           = NULL;
         UINT64       guest_virtual = NULL;
 
-        *EptPointer = NULL;
-
-        ept = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+        ept = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOL_TAG_EPT_POINTER);
 
         if (!ept)
                 return STATUS_MEMORY_NOT_ALLOCATED;
@@ -28,62 +24,64 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
          */
         RtlZeroMemory(ept, PAGE_SIZE);
 
-        pml4 = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+        pml4 = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOL_TAG_EPT_PML4);
 
         if (!pml4) {
-                ExFreePoolWithTag(ept, POOLTAG);
+                ExFreePoolWithTag(ept, POOL_TAG_EPT_POINTER);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         RtlZeroMemory(pml4, PAGE_SIZE);
 
-        pdpt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+        pdpt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOL_TAG_EPT_PDPT);
 
         if (!pdpt) {
-                ExFreePoolWithTag(pml4, POOLTAG);
-                ExFreePoolWithTag(ept, POOLTAG);
+                ExFreePoolWithTag(pml4, POOL_TAG_EPT_PML4);
+                ExFreePoolWithTag(ept, POOL_TAG_EPT_POINTER);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         RtlZeroMemory(pdpt, PAGE_SIZE);
 
-        pd = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+        pd = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOL_TAG_EPT_PD);
 
         if (!pd) {
-                ExFreePoolWithTag(pdpt, POOLTAG);
-                ExFreePoolWithTag(pml4, POOLTAG);
-                ExFreePoolWithTag(ept, POOLTAG);
+                ExFreePoolWithTag(pdpt, POOL_TAG_EPT_PDPT);
+                ExFreePoolWithTag(pml4, POOL_TAG_EPT_PML4);
+                ExFreePoolWithTag(ept, POOL_TAG_EPT_POINTER);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         RtlZeroMemory(pd, PAGE_SIZE);
 
-        pt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOLTAG);
+        pt = ExAllocatePool2(POOL_FLAG_NON_PAGED, PAGE_SIZE, POOL_TAG_EPT_PT);
 
         if (!pt) {
-                ExFreePoolWithTag(pd, POOLTAG);
-                ExFreePoolWithTag(pdpt, POOLTAG);
-                ExFreePoolWithTag(pml4, POOLTAG);
-                ExFreePoolWithTag(ept, POOLTAG);
+                ExFreePoolWithTag(pd, POOL_TAG_EPT_PD);
+                ExFreePoolWithTag(pdpt, POOL_TAG_EPT_PDPT);
+                ExFreePoolWithTag(pml4, POOL_TAG_EPT_PML4);
+                ExFreePoolWithTag(ept, POOL_TAG_EPT_POINTER);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         RtlZeroMemory(pt, PAGE_SIZE);
 
-        guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED, NUM_PAGES * PAGE_SIZE, POOLTAG);
+        guest_virtual = ExAllocatePool2(POOL_FLAG_NON_PAGED,
+                                        EPT_GUEST_PAGE_ALLOCATION_COUNT * PAGE_SIZE,
+                                        POOL_TAG_EPT_GUEST_VIRTUAL);
 
         if (!guest_virtual) {
-                ExFreePoolWithTag(pt, POOLTAG);
-                ExFreePoolWithTag(pd, POOLTAG);
-                ExFreePoolWithTag(pdpt, POOLTAG);
-                ExFreePoolWithTag(pml4, POOLTAG);
-                ExFreePoolWithTag(ept, POOLTAG);
+                ExFreePoolWithTag(pt, POOL_TAG_EPT_PT);
+                ExFreePoolWithTag(pd, POOL_TAG_EPT_PD);
+                ExFreePoolWithTag(pdpt, POOL_TAG_EPT_PDPT);
+                ExFreePoolWithTag(pml4, POOL_TAG_EPT_PML4);
+                ExFreePoolWithTag(ept, POOL_TAG_EPT_POINTER);
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
         RtlZeroMemory(guest_virtual, PAGE_SIZE);
 
-        for (SIZE_T index = 0; index < NUM_PAGES; index++) {
+        for (SIZE_T index = 0; index < EPT_GUEST_PAGE_ALLOCATION_COUNT; index++) {
                 pt[index].Fields.Accessed        = FALSE;
                 pt[index].Fields.Dirty           = FALSE;
                 pt[index].Fields.MemoryType      = MEMORY_TYPE_WRITE_BACK;
@@ -140,7 +138,41 @@ InitializeEptp(_Out_ EPT_POINTER** EptPointer)
         ept->Fields.Reserved1                 = 0;
         ept->Fields.Reserved2                 = 0;
 
-        *EptPointer = ept;
+        Configuration->ept           = ept;
+        Configuration->pml4          = pml4;
+        Configuration->pdpt          = pdpt;
+        Configuration->pd            = pd;
+        Configuration->pt            = pt;
+        Configuration->guest_virtual = guest_virtual;
 
         return STATUS_SUCCESS;
+}
+
+VOID
+FreeEptStructures(_In_ PEPT_CONFIGURATION Configuration)
+{
+        if (Configuration->ept) {
+                ExFreePoolWithTag(Configuration->ept, POOL_TAG_EPT_POINTER);
+                Configuration->ept = NULL;
+        }
+        if (Configuration->pml4) {
+                ExFreePoolWithTag(Configuration->pml4, POOL_TAG_EPT_PML4);
+                Configuration->pml4 = NULL;
+        }
+        if (Configuration->pdpt) {
+                ExFreePoolWithTag(Configuration->pdpt, POOL_TAG_EPT_PDPT);
+                Configuration->pdpt = NULL;
+        }
+        if (Configuration->pd) {
+                ExFreePoolWithTag(Configuration->pd, POOL_TAG_EPT_PD);
+                Configuration->pd = NULL;
+        }
+        if (Configuration->pt) {
+                ExFreePoolWithTag(Configuration->pt, POOL_TAG_EPT_PT);
+                Configuration->pt = NULL;
+        }
+        if (Configuration->guest_virtual) {
+                ExFreePoolWithTag(Configuration->guest_virtual, POOL_TAG_EPT_GUEST_VIRTUAL);
+                Configuration->guest_virtual = NULL;
+        }
 }
