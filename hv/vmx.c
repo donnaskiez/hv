@@ -19,8 +19,12 @@ STATIC
 NTSTATUS
 EnableVmxOperationOnCore()
 {
-        CR4 cr4       = {0};
-        cr4.AsUInt    = __readcr4();
+        CR4 cr4    = {0};
+        cr4.AsUInt = __readcr4();
+
+        if (cr4.VmxEnable)
+                return STATUS_SUCCESS;
+
         cr4.VmxEnable = TRUE;
         __writecr4(cr4.AsUInt);
         return STATUS_SUCCESS;
@@ -186,11 +190,6 @@ AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
                 return STATUS_MEMORY_NOT_ALLOCATED;
         }
 
-        DEBUG_LOG("vmm stack va: %llx", VmmState->vmm_stack_va);
-        DEBUG_LOG("vmm stack top: %llx", VmmState->vmm_stack_va + VMX_HOST_STACK_SIZE);
-
-        memset(VmmState->vmm_stack_va, 0xCC, VMX_HOST_STACK_SIZE);
-
         return STATUS_SUCCESS;
 }
 
@@ -198,7 +197,10 @@ STATIC
 NTSTATUS
 AllocateMsrBitmap(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
-        VmmState->msr_bitmap_va = MmAllocateNonCachedMemory(PAGE_SIZE);
+        PHYSICAL_ADDRESS physical_max = {0};
+        physical_max.QuadPart = MAXULONG64;
+
+        VmmState->msr_bitmap_va = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
         if (!VmmState->msr_bitmap_va) {
                 DEBUG_LOG("Error in allocating MSRBitMap.");
@@ -238,7 +240,7 @@ FreeCoreVmxState(_In_ UINT32 Core)
         if (vcpu->vmcs_region_va)
                 MmFreeContiguousMemory(vcpu->vmcs_region_va);
         if (vcpu->msr_bitmap_va)
-                MmFreeNonCachedMemory(vcpu->msr_bitmap_va, PAGE_SIZE);
+                MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
 #if DEBUG
@@ -296,7 +298,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
         }
 
 #endif
-
+        
         status = EnableVmxOperationOnCore();
 
         if (!NT_SUCCESS(status)) {
@@ -304,7 +306,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-
+        
         status = AllocateVmxonRegion(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -312,7 +314,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-
+        
         status = AllocateVmcsRegion(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -320,7 +322,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-
+        
         status = AllocateVmmStack(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -328,7 +330,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-
+        
         status = AllocateMsrBitmap(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -336,7 +338,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-
+        
         status = InitiateVmmState(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -514,7 +516,7 @@ SetupVmxOperation()
         PDPC_CALL_CONTEXT context    = NULL;
         EPT_POINTER*      pept       = NULL;
         UINT32            core_count = 0;
-
+        
         core_count = KeQueryActiveProcessorCount(NULL);
 
         context =
@@ -529,7 +531,7 @@ SetupVmxOperation()
 
         if (!context->status)
                 goto end;
-
+        
         status = InitializeEptp(&pept);
 
         if (!NT_SUCCESS(status)) {
@@ -542,7 +544,7 @@ SetupVmxOperation()
                 context[core].guest_stack = NULL;
                 context->status[core]     = STATUS_UNSUCCESSFUL;
         }
-
+        
         status = AllocateVmmStateStructure();
 
         if (!NT_SUCCESS(status)) {
@@ -559,7 +561,7 @@ SetupVmxOperation()
          * and begin VMX operation on each core.
          */
         KeGenericCallDpc(InitialiseVmxOperation, context);
-
+        
         /* we will synchronise our DPCs so at this point all will have run */
         status = ValidateSuccessVmxInitiation(context);
 
