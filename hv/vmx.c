@@ -13,6 +13,28 @@ PDRIVER_STATE          driver_state = NULL;
 PVIRTUAL_MACHINE_STATE vmm_state    = NULL;
 
 /*
+ * Some wrapper functions to read from our vmm state structure so we dont have to write as much
+ * assembly.
+ */
+UINT64
+VmmReadGuestRip()
+{
+        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
+}
+
+UINT64
+VmmReadGuestRsp()
+{
+        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
+}
+
+UINT64
+VmmGetCoresVcpu()
+{
+        return &vmm_state[KeGetCurrentProcessorNumber()];
+}
+
+/*
  * Assuming the thread calling this is binded to a particular core
  */
 STATIC
@@ -200,7 +222,7 @@ NTSTATUS
 AllocateMsrBitmap(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 {
         PHYSICAL_ADDRESS physical_max = {0};
-        physical_max.QuadPart = MAXULONG64;
+        physical_max.QuadPart         = MAXULONG64;
 
         VmmState->msr_bitmap_va = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
 
@@ -300,7 +322,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
         }
 
 #endif
-        
+
         status = EnableVmxOperationOnCore();
 
         if (!NT_SUCCESS(status)) {
@@ -308,7 +330,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-        
+
         status = AllocateVmxonRegion(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -316,7 +338,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-        
+
         status = AllocateVmcsRegion(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -324,7 +346,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-        
+
         status = AllocateVmmStack(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -332,7 +354,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-        
+
         status = AllocateMsrBitmap(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -340,7 +362,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
-        
+
         status = InitiateVmmState(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -519,7 +541,7 @@ SetupVmxOperation()
         PDPC_CALL_CONTEXT context    = NULL;
         EPT_POINTER*      pept       = NULL;
         UINT32            core_count = 0;
-        
+
         core_count = KeQueryActiveProcessorCount(NULL);
 
         context = ExAllocatePool2(
@@ -529,12 +551,12 @@ SetupVmxOperation()
                 goto end;
 
         context->status_count = core_count;
-        context->status = ExAllocatePool2(
+        context->status       = ExAllocatePool2(
             POOL_FLAG_NON_PAGED, core_count * sizeof(NTSTATUS), POOL_TAG_STATUS_ARRAY);
 
         if (!context->status)
                 goto end;
-        
+
         status = InitializeEptp(&driver_state->ept_configuration);
 
         if (!NT_SUCCESS(status)) {
@@ -547,7 +569,7 @@ SetupVmxOperation()
                 context[core].guest_stack = NULL;
                 context->status[core]     = STATUS_UNSUCCESSFUL;
         }
-        
+
         status = AllocateVmmStateStructure();
 
         if (!NT_SUCCESS(status)) {
@@ -564,7 +586,7 @@ SetupVmxOperation()
          * and begin VMX operation on each core.
          */
         KeGenericCallDpc(InitialiseVmxOperation, context);
-        
+
         /* we will synchronise our DPCs so at this point all will have run */
         status = ValidateSuccessVmxInitiation(context);
 

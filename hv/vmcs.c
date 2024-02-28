@@ -5,6 +5,21 @@
 #include "arch.h"
 #include <intrin.h>
 
+/* Wrapper functions to read and write to and from the vmcs. */
+UINT64
+VmxVmRead(_In_ UINT64 VmcsField)
+{
+        UINT64 result = 0;
+        __vmx_vmread(VmcsField, &result);
+        return result;
+}
+
+VOID
+VmxVmWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value)
+{
+        __vmx_vmwrite(VmcsField, Value);
+}
+
 STATIC
 UINT32
 __segmentar(SEGMENT_SELECTOR* Selector)
@@ -36,11 +51,11 @@ STATIC
 UINT32
 AdjustMsrControl(_In_ UINT32 Control, _In_ UINT32 Msr)
 {
-        MSR msr     = {0};
-        msr.Content = __readmsr(Msr);
+        ULARGE_INTEGER msr = {0};
+        msr.QuadPart       = __readmsr(Msr);
 
-        Control &= msr.High;
-        Control |= msr.Low;
+        Control &= msr.HighPart;
+        Control |= msr.LowPart;
 
         return Control;
 }
@@ -340,37 +355,4 @@ SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
         VmcsWriteHostStateFields(GuestState);
 
         return STATUS_SUCCESS;
-}
-
-/* Wrapper functions to read and write to and from the vmcs. */
-UINT64
-VmxVmRead(_In_ UINT64 VmcsField)
-{
-        UINT64 result = 0;
-        __vmx_vmread(VmcsField, &result);
-        return result;
-}
-
-VOID
-VmxVmWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value)
-{
-        __vmx_vmwrite(VmcsField, Value);
-}
-
-UINT64
-VmmReadGuestRip()
-{
-        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
-}
-
-UINT64
-VmmReadGuestRsp()
-{
-        return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
-}
-
-UINT64
-VmmGetCoresVcpu()
-{
-        return &vmm_state[KeGetCurrentProcessorNumber()];
 }
