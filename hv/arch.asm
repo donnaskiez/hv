@@ -194,7 +194,7 @@ ExitVmx PROC
 
 	add rsp, 020h
 
-	mov [rsp+0e8h], rax		; store the rsp at "top" of our stack
+	mov [rsp+188h], rax		; store the rsp at "top" of our stack
 
 	sub rsp, 020h
 
@@ -204,7 +204,7 @@ ExitVmx PROC
 
 	mov rdx, rsp			; save our current rsp
 
-	mov rbx, [rsp+0e8h]		; read the guests that we stored on the current stack
+	mov rbx, [rsp+188h]		; read the guests that we stored on the current stack
 
 	mov rsp, rbx			; change our stack to the guests stack
 
@@ -214,7 +214,7 @@ ExitVmx PROC
                         
 	sub rbx,08h			; allocate some space on the guests stack
 
-	mov [rsp+0e8h], rbx		; store the guests stack on the exit handlers stack
+	mov [rsp+188h], rbx		; store the guests stack on the exit handlers stack
 
 	RESTORE_FP			; restore the floating point registers
 

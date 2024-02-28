@@ -241,8 +241,10 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeNonCachedMemory(vcpu->msr_bitmap_va, PAGE_SIZE);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOLTAG);
+#if DEBUG
         if (vcpu->log_state.log_buffer)
                 ExFreePoolWithTag(vcpu->log_state.log_buffer, VMX_LOG_BUFFER_POOL_TAG);
+#endif
 }
 
 VOID

@@ -4,6 +4,8 @@
 
 #include <stdarg.h>
 
+#if DEBUG
+
 STATIC
 VOID
 LogFlushLogsDpcRoutine(_In_ PKDPC*    Dpc,
@@ -90,3 +92,5 @@ LogToBuffer(PCSTR Format, ...)
 end:
         HighIrqlLockRelease(&log->lock);
 }
+
+#endif
