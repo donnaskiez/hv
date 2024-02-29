@@ -381,6 +381,8 @@ end:
 VOID
 VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 {
+        UNREFERENCED_PARAMETER(Context);
+
         NTSTATUS               status = STATUS_UNSUCCESSFUL;
         PVIRTUAL_MACHINE_STATE vcpu   = &vmm_state[KeGetCurrentProcessorNumber()];
 

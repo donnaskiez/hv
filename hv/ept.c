@@ -148,6 +148,12 @@ InitializeEptp(_Out_ PEPT_CONFIGURATION Configuration)
         return STATUS_SUCCESS;
 }
 
+/*
+ * Null them out because I store it in the global driver configuration which remains until driver
+ * unload, so if we return from sleep and re-initiate VMX operation we will use the
+ * EPT_CONFIGURATION structure, and since we check for null for errors its important we null them.
+ * Probably a better way to do this but I cant be bothored atm and its good enough.
+ */
 VOID
 FreeEptStructures(_In_ PEPT_CONFIGURATION Configuration)
 {

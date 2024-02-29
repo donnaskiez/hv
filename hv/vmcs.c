@@ -206,14 +206,14 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
         VmxVmWrite(VMCS_GUEST_TR_BASE, __segmentbase(&gdtr, &tr));
         VmxVmWrite(VMCS_GUEST_LDTR_BASE, __segmentbase(&gdtr, &ldtr));
 
-        VmxVmWrite(VMCS_GUEST_ES_LIMIT, __segmentlimit(__reades()));
-        VmxVmWrite(VMCS_GUEST_CS_LIMIT, __segmentlimit(__readcs()));
-        VmxVmWrite(VMCS_GUEST_SS_LIMIT, __segmentlimit(__readss()));
-        VmxVmWrite(VMCS_GUEST_DS_LIMIT, __segmentlimit(__readds()));
-        VmxVmWrite(VMCS_GUEST_FS_LIMIT, __segmentlimit(__readfs()));
-        VmxVmWrite(VMCS_GUEST_GS_LIMIT, __segmentlimit(__readgs()));
-        VmxVmWrite(VMCS_GUEST_TR_LIMIT, __segmentlimit(__readtr()));
-        VmxVmWrite(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(__readldtr()));
+        VmxVmWrite(VMCS_GUEST_ES_LIMIT, __segmentlimit(es.AsUInt));
+        VmxVmWrite(VMCS_GUEST_CS_LIMIT, __segmentlimit(cs.AsUInt));
+        VmxVmWrite(VMCS_GUEST_SS_LIMIT, __segmentlimit(ss.AsUInt));
+        VmxVmWrite(VMCS_GUEST_DS_LIMIT, __segmentlimit(ds.AsUInt));
+        VmxVmWrite(VMCS_GUEST_FS_LIMIT, __segmentlimit(fs.AsUInt));
+        VmxVmWrite(VMCS_GUEST_GS_LIMIT, __segmentlimit(gs.AsUInt));
+        VmxVmWrite(VMCS_GUEST_TR_LIMIT, __segmentlimit(tr.AsUInt));
+        VmxVmWrite(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(ldtr.AsUInt));
 
         VmxVmWrite(VMCS_GUEST_ES_ACCESS_RIGHTS, __segmentar(&es));
         VmxVmWrite(VMCS_GUEST_CS_ACCESS_RIGHTS, __segmentar(&cs));
@@ -234,13 +234,6 @@ VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVIRTUAL_MACHINE_STATE G
         VmxVmWrite(VMCS_GUEST_CR0, __readcr0());
         VmxVmWrite(VMCS_GUEST_CR3, __readcr3());
         VmxVmWrite(VMCS_GUEST_CR4, __readcr4());
-
-        /*
-         * fffff807`5347200b 0f03c8          lsl     ecx,eax
-         *
-         * the lsl instruction here causes a page fault on turning vmx back on after vmx is
-         * initiated again after returning from sleep
-         */
 
         VmxVmWrite(VMCS_GUEST_RFLAGS, __readrflags());
         VmxVmWrite(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
