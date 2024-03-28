@@ -309,6 +309,23 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         __vmx_off();
 }
 
+STATIC
+VOID
+DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
+{
+    UINT32 msr = Context->rcx;
+    __debugbreak();
+}
+
+STATIC
+VOID
+DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
+{
+    __writemsr((UINT32)Context->rcx, Context->rdx);
+    __debugbreak();
+}
+
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -322,6 +339,8 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_REASON_EXECUTE_VMCALL:    Context->rax = VmCallDispatcher(Context->rcx, Context->rdx, Context->r8, Context->r9);  break;
         case VMX_EXIT_REASON_MOV_CR:            DispatchExitReasonControlRegisterAccess(Context);                                       break;
         case VMX_EXIT_REASON_EXECUTE_WBINVD:    DispatchExitReasonWBINVD(Context);                                                      break;
+        //case VMX_EXIT_REASON_EXECUTE_RDMSR:     DispatchExitReasonRdmsr(Context);                                                       break;
+        //case VMX_EXIT_REASON_EXECUTE_WRMSR:     DispatchExitReasonWrmsr(Context);                                                       break;
         default: break;
         }
         // clang-format on

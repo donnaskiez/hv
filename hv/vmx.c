@@ -283,11 +283,11 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                 return status;
         }
 
-        UINT64 apic_id = __readmsr(IA32_X2APIC_APICID);
-        UINT64 tpr     = __readmsr(IA32_X2APIC_TPR);
+        // UINT64 apic_id = __readmsr(IA32_X2APIC_APICID);
+        // UINT32 tpr     = __readmsr(IA32_X2APIC_TPR);
 
-        *(UINT64*)(Vcpu->virtual_apic_va + APIC_ID)            = apic_id;
-        *(UINT64*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = tpr;
+        //*(UINT64*)(Vcpu->virtual_apic_va + APIC_ID)            = apic_id;
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = tpr;
 
         return status;
 }
@@ -306,8 +306,10 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
+#if APIC
         if (vcpu->virtual_apic_va)
                 MmFreeContiguousMemory(vcpu->virtual_apic_va);
+#endif
 #if DEBUG
         if (vcpu->log_state.log_buffer)
                 ExFreePoolWithTag(vcpu->log_state.log_buffer, VMX_LOG_BUFFER_POOL_TAG);
@@ -412,6 +414,8 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 goto end;
         }
 
+#if APIC
+
         status = InitialiseVirtualApicPage(vcpu);
 
         if (!NT_SUCCESS(status)) {
@@ -419,6 +423,8 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 goto end;
         }
+
+#endif
 
         DEBUG_LOG("Core: %lx - Initiation Status: %lx", core, status);
 end:

@@ -9,6 +9,8 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
 		Debug|x64 = Debug|x64
+		Release - Apic|ARM64 = Release - Apic|ARM64
+		Release - Apic|x64 = Release - Apic|x64
 		Release|ARM64 = Release|ARM64
 		Release|x64 = Release|x64
 	EndGlobalSection
@@ -19,6 +21,12 @@ Global
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|x64.ActiveCfg = Debug|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|x64.Build.0 = Debug|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|x64.Deploy.0 = Debug|x64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|ARM64.ActiveCfg = Release - Apic|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|ARM64.Build.0 = Release - Apic|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|ARM64.Deploy.0 = Release - Apic|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|x64.ActiveCfg = Release - Apic|x64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|x64.Build.0 = Release - Apic|x64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release - Apic|x64.Deploy.0 = Release - Apic|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|ARM64.ActiveCfg = Release|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|ARM64.Build.0 = Release|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|ARM64.Deploy.0 = Release|ARM64

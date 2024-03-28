@@ -5,6 +5,14 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Release - Apic|ARM64">
+      <Configuration>Release - Apic</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release - Apic|x64">
+      <Configuration>Release - Apic</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
@@ -47,6 +55,16 @@
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>KMDF</DriverType>
+    <DriverTargetPlatform>Universal</DriverTargetPlatform>
+    <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -56,6 +74,15 @@
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>KMDF</DriverType>
+    <DriverTargetPlatform>Universal</DriverTargetPlatform>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|ARM64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
@@ -83,6 +110,12 @@
     <TimeStampServer />
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
+    <TimeStampServer />
+    <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <TimeStampServer />
@@ -90,6 +123,12 @@
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <TimeStampServer />
+    <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
+    <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <TimeStampServer />
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
@@ -133,7 +172,46 @@
       </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'">
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
+    </DriverSign>
+    <ClCompile>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <AdditionalIncludeDirectories>includes/zydis/dependencies/zycore/include;includes/zydis/include;includes/zydis/src;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ZYAN_NO_LIBC;ZYCORE_STATIC_BUILD;ZYDIS_STATIC_BUILD;ZYDIS_DISABLE_ENCODER;ZYDIS_DISABLE_FORMATTER;ZYDIS_DISABLE_AVX512;ZYDIS_DISABLE_KNC;_WIN64;_AMD64_;AMD64;APIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Optimization>MaxSpeed</Optimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
+    </DriverSign>
+    <Link>
+      <AdditionalOptions>/PDBALTPATH:%_PDB% /NOVCFEATURE /NOCOFFGRPINFO %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+    </Link>
+    <ClCompile>
+      <AdditionalIncludeDirectories>includes/zydis/dependencies/zycore/include;includes/zydis/include;includes/zydis/src;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ZYAN_NO_LIBC;ZYCORE_STATIC_BUILD;ZYDIS_STATIC_BUILD;ZYDIS_DISABLE_ENCODER;ZYDIS_DISABLE_FORMATTER;ZYDIS_DISABLE_AVX512;ZYDIS_DISABLE_KNC;_ARM64_;ARM64;_USE_DECLSPECS_FOR_SAL=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Optimization>MaxSpeed</Optimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|ARM64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
       <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>

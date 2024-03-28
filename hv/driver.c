@@ -103,10 +103,10 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         DriverObject->MajorFunction[IRP_MJ_CLOSE]  = DeviceClose;
         DriverObject->DriverUnload                 = DriverUnload;
 
-        UINT64 apic_id = 0;
-        apic_id        = __readmsr(IA32_X2APIC_APICID);
+        //UINT64 apic_id = 0;
+        //apic_id        = __readmsr(IA32_X2APIC_APICID);
 
-        DEBUG_LOG("Core: %lx, ApicId: %llx", KeGetCurrentProcessorNumber(), apic_id);
+        //DEBUG_LOG("Core: %lx, ApicId: %llx", KeGetCurrentProcessorNumber(), apic_id);
 
         DEBUG_LOG("Driver entry complete");
         return status;
