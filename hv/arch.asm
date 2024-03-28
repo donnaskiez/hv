@@ -10,7 +10,6 @@ PUBLIC __readgs
 PUBLIC __readldtr
 PUBLIC __readtr
 PUBLIC __readrflags
-PUBLIC __readmsr
 PUBLIC __writemsr
 PUBLIC __lgdt
 PUBLIC __lar
@@ -343,18 +342,6 @@ __readrflags PROC
 	ret
 
 __readrflags ENDP
-
-__readmsr PROC
-
-	rdmsr
-
-	shl rdx, 32
-
-	or rax, rdx
-
-	ret
-
-__readmsr ENDP
 
 __writemsr PROC
 

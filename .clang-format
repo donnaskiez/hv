@@ -1,5 +1,4 @@
-﻿Language: Cpp
-BasedOnStyle: webkit
+﻿BasedOnStyle: webkit
 AccessModifierOffset: -4
 
 AlignAfterOpenBracket: Align
@@ -14,7 +13,6 @@ AlignOperands: true
 AlignTrailingComments: true
 
 AllowAllArgumentsOnNextLine: true
-AllowAllParametersOfDeclarationOnNextLine: true
 
 AllowShortBlocksOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
@@ -29,7 +27,6 @@ AlwaysBreakTemplateDeclarations: true #false
 BinPackArguments: false
 BinPackParameters: false
 
-ExperimentalAutoDetectBinPacking: false
 AllowAllParametersOfDeclarationOnNextLine: true
 
 BreakBeforeBraces: Stroustrup
@@ -80,7 +77,6 @@ SortIncludes: false
 
 SpaceAfterCStyleCast: false
 SpaceBeforeAssignmentOperators: true
-SpaceBeforeCtorInitializerColon: true
 SpaceBeforeCtorInitializerColon: true
 SpaceBeforeParens: ControlStatements
 SpaceBeforeRangeBasedForLoopColon: true

@@ -254,6 +254,45 @@ AllocateVmmStateStructure()
 }
 
 STATIC
+NTSTATUS
+AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+{
+        LARGE_INTEGER max     = {.QuadPart = MAXULONG64};
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
+
+        if (!Vcpu->virtual_apic_va) {
+                DEBUG_ERROR("Failed to allocate Virtual Apic Page");
+                return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        RtlSecureZeroMemory(Vcpu->virtual_apic_va, PAGE_SIZE);
+        Vcpu->virtual_apic_pa = MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
+        return STATUS_SUCCESS;
+}
+
+STATIC
+NTSTATUS
+InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+{
+        NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+        status = AllocateApicVirtualPage(Vcpu);
+
+        if (!NT_SUCCESS(status)) {
+                DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
+                return status;
+        }
+
+        UINT64 apic_id = __readmsr(IA32_X2APIC_APICID);
+        UINT64 tpr     = __readmsr(IA32_X2APIC_TPR);
+
+        *(UINT64*)(Vcpu->virtual_apic_va + APIC_ID)            = apic_id;
+        *(UINT64*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = tpr;
+
+        return status;
+}
+
+STATIC
 VOID
 FreeCoreVmxState(_In_ UINT32 Core)
 {
@@ -267,6 +306,8 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
+        if (vcpu->virtual_apic_va)
+                MmFreeContiguousMemory(vcpu->virtual_apic_va);
 #if DEBUG
         if (vcpu->log_state.log_buffer)
                 ExFreePoolWithTag(vcpu->log_state.log_buffer, VMX_LOG_BUFFER_POOL_TAG);
@@ -367,6 +408,14 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("InitiateVmmState failed with status %x", status);
+                FreeCoreVmxState(core);
+                goto end;
+        }
+
+        status = InitialiseVirtualApicPage(vcpu);
+
+        if (!NT_SUCCESS(status)) {
+                DEBUG_ERROR("InitialiseVirtualApicPage failed with status %x", status);
                 FreeCoreVmxState(core);
                 goto end;
         }

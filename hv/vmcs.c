@@ -266,6 +266,14 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls.UseMsrBitmaps                    = TRUE;
         proc_ctls.Cr3LoadExiting                   = TRUE;
         proc_ctls.Cr3StoreExiting                  = TRUE;
+        proc_ctls.UseTprShadow                     = TRUE;
+
+        if (proc_ctls.UseTprShadow) {
+                proc_ctls.Cr8LoadExiting  = FALSE;
+                proc_ctls.Cr8StoreExiting = FALSE;
+                VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS, GuestState->virtual_apic_pa);
+                VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
+        }
 
         VmxVmWrite(VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
                    AdjustMsrControl((UINT32)proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
@@ -278,6 +286,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         proc_ctls2.EnableRdtscp                      = TRUE;
         proc_ctls2.EnableInvpcid                     = TRUE;
         proc_ctls2.EnableXsaves                      = TRUE;
+        proc_ctls2.VirtualizeX2ApicMode              = TRUE;
+        // proc_ctls2.ApicRegisterVirtualization        = TRUE;
 
         VmxVmWrite(VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
                    AdjustMsrControl((UINT32)proc_ctls2.AsUInt, IA32_VMX_PROCBASED_CTLS2));

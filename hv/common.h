@@ -18,6 +18,7 @@
 #define POOL_TAG_EPT_PD 'dpdp'
 #define POOL_TAG_EPT_PT 'tptp'
 #define POOL_TAG_EPT_GUEST_VIRTUAL 'ivug'
+#define POOL_TAG_VIRTUAL_APIC 'cipa'
 
 #define STATIC static
 #define VOID   void

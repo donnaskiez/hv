@@ -16,10 +16,6 @@ VOID
 VmexitHandler();
 
 EXTERN
-ULONG64
-__readmsr(_In_ UINT32 Msr);
-
-EXTERN
 VOID
 __writemsr(_In_ UINT32 Register, _In_ UINT64 Value);
 
