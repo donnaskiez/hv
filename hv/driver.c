@@ -70,7 +70,10 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
                 FreeGlobalDriverState();
                 return status;
         }
-
+        //note lets check irql when using tpr shadowing after
+        DEBUG_LOG("curerent irql: %lx", KeGetCurrentIrql());
+        DEBUG_LOG("cr8: %lx", (UINT32)__readcr8());
+        // check why cr8 is @ f here
         status = IoCreateDevice(DriverObject,
                                 0,
                                 &device_name,

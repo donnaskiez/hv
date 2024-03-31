@@ -270,6 +270,16 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         return STATUS_SUCCESS;
 }
 
+typedef union {
+        struct {
+                UINT64 TaskPriorityRegisterThreshold : 4;
+                UINT64 VirtualTaskPriorityRegister : 7;
+                UINT64 Unused2 : 53;
+        };
+
+        UINT64 AsUInt;
+} VTPR;
+
 STATIC
 NTSTATUS
 InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
@@ -282,12 +292,15 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                 DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
                 return status;
         }
+        DEBUG_LOG("vapic; %llx", Vcpu->virtual_apic_va);
+        DEBUG_LOG("vapic phys: %llx", Vcpu->virtual_apic_pa);
 
-        // UINT64 apic_id = __readmsr(IA32_X2APIC_APICID);
-        // UINT32 tpr     = __readmsr(IA32_X2APIC_TPR);
+        VTPR vtpr                          = {0};
+        vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
+        vtpr.TaskPriorityRegisterThreshold = 0;
 
-        //*(UINT64*)(Vcpu->virtual_apic_va + APIC_ID)            = apic_id;
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = tpr;
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID)            = __readmsr(IA32_X2APIC_APICID);
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 
         return status;
 }
@@ -481,9 +494,11 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
                 DEBUG_LOG("VMX operation is not supported on this machine");
                 return status;
         }
+        DEBUG_LOG("before Ipi call");
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
+        DEBUG_LOG("after ipi call");
 
         /* lets make sure we entered VMX operation on ALL cores. If a core failed to enter, the
          * vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
@@ -643,6 +658,7 @@ SetupVmxOperation()
          * and begin VMX operation on each core.
          */
         KeGenericCallDpc(InitialiseVmxOperation, context);
+        DEBUG_LOG("after dpc call");
 
         /* we will synchronise our DPCs so at this point all will have run */
         status = ValidateSuccessVmxInitiation(context);
