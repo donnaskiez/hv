@@ -16,7 +16,8 @@ InjectHwExceptionIntoGuest(UINT32 Vector)
         interrupt.DeliverErrorCode              = FALSE;
         interrupt.Valid                         = TRUE;
 
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
+                   interrupt.AsUInt);
 }
 
 FORCEINLINE
@@ -29,7 +30,8 @@ InjectHwExceptionIntoGuestWithErrorCode(UINT32 Vector)
         interrupt.DeliverErrorCode              = TRUE;
         interrupt.Valid                         = TRUE;
 
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
+                   interrupt.AsUInt);
         VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE, interrupt.AsUInt);
 }
 
@@ -43,19 +45,22 @@ InjectNmiIntoGuest()
         interrupt.DeliverErrorCode              = FALSE;
         interrupt.Valid                         = TRUE;
 
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, interrupt.AsUInt);
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
+                   interrupt.AsUInt);
 }
 
 VOID
 IncrementGuestRip()
 {
         VmxVmWrite(VMCS_GUEST_RIP,
-                   VmxVmRead(VMCS_GUEST_RIP) + VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
+                   VmxVmRead(VMCS_GUEST_RIP) +
+                       VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
 STATIC
 UINT64
-RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
+RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
+                               _In_ UINT32         Register)
 {
         switch (Register) {
         case VMX_EXIT_QUALIFICATION_GENREG_RAX: return Context->rax;
@@ -80,7 +85,9 @@ RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register
 
 STATIC
 VOID
-WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register, _In_ UINT64 Value)
+WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
+                            _In_ UINT32         Register,
+                            _In_ UINT64         Value)
 {
         switch (Register) {
         case VMX_EXIT_QUALIFICATION_GENREG_RAX: Context->rax = Value; return;
@@ -112,8 +119,8 @@ VOID
 DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                           _In_ PGUEST_CONTEXT                 Context)
 {
-        UINT64 value =
-            RetrieveValueInContextRegister(Context, Qualification->GeneralPurposeRegister);
+        UINT64 value = RetrieveValueInContextRegister(
+            Context, Qualification->GeneralPurposeRegister);
 
         switch (Qualification->ControlRegister) {
         case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
@@ -140,16 +147,27 @@ VOID
 DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                             _In_ PGUEST_CONTEXT                 Context)
 {
-        // clang-format off
-
         switch (Qualification->ControlRegister) {
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR0: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR0)); break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR3: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR3)); break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR4: WriteValueInContextRegister(Context, Qualification->GeneralPurposeRegister, VmxVmRead(VMCS_GUEST_CR4)); break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
+                WriteValueInContextRegister(
+                    Context,
+                    Qualification->GeneralPurposeRegister,
+                    VmxVmRead(VMCS_GUEST_CR0));
+                break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
+                WriteValueInContextRegister(
+                    Context,
+                    Qualification->GeneralPurposeRegister,
+                    VmxVmRead(VMCS_GUEST_CR3));
+                break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
+                WriteValueInContextRegister(
+                    Context,
+                    Qualification->GeneralPurposeRegister,
+                    VmxVmRead(VMCS_GUEST_CR4));
+                break;
         default: break;
         }
-
-        // clang-format on
 }
 
 /*
@@ -179,19 +197,21 @@ VOID
 DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 {
         VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
-        qualification.AsUInt                        = VmxVmRead(VMCS_EXIT_QUALIFICATION);
-
-        // clang-format off
+        qualification.AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION);
 
         switch (qualification.AccessType) {
-        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:    DispatchExitReasonMovToCr(&qualification, Context);     break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_FROM_CR:  DispatchExitReasonMovFromCr(&qualification, Context);   break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_CLTS:         DispatchExitReasonCLTS(&qualification, Context);        break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_LMSW:         break;
-        default:                                         break;
+        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:
+                DispatchExitReasonMovToCr(&qualification, Context);
+                break;
+        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_FROM_CR:
+                DispatchExitReasonMovFromCr(&qualification, Context);
+                break;
+        case VMX_EXIT_QUALIFICATION_ACCESS_CLTS:
+                DispatchExitReasonCLTS(&qualification, Context);
+                break;
+        case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
+        default: break;
         }
-
-        // clang-format on
 }
 
 STATIC
@@ -209,9 +229,12 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
         /*
          * todo: implement some sort of caching mechanism
          */
-        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
+        PVIRTUAL_MACHINE_STATE state =
+            &vmm_state[KeGetCurrentProcessorNumber()];
 
-        __cpuidex(state->cache.cpuid.value, (INT32)GuestState->rax, (INT32)GuestState->rcx);
+        __cpuidex(state->cache.cpuid.value,
+                  (INT32)GuestState->rax,
+                  (INT32)GuestState->rcx);
 
         GuestState->rax = state->cache.cpuid.value[0];
         GuestState->rbx = state->cache.cpuid.value[1];
@@ -247,13 +270,11 @@ VmCallDispatcher(_In_ UINT64     HypercallId,
                  _In_opt_ UINT64 OptionalParameter2,
                  _In_opt_ UINT64 OptionalParameter3)
 {
-        // clang-format off
         switch (HypercallId) {
-        case VMX_HYPERCALL_TERMINATE_VMX:       DispatchVmCallTerminateVmx(); break;
-        case VMX_HYPERCALL_PING:                return DispatchVmCallPing();
+        case VMX_HYPERCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
+        case VMX_HYPERCALL_PING: return DispatchVmCallPing();
         default: break;
         }
-        // clang-format on      
 
         return STATUS_SUCCESS;
 }
@@ -263,23 +284,23 @@ VOID
 RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
 {
         /*
-         * Before we execute vmxoff, store the guests rip and rsp in our vmxoff state
-         * structure, this will allow us to use these values in the vmxoff part of our vmx
-         * exit handler to properly restore the stack and instruction pointer after we
-         * execute vmxoff
+         * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
+         * state structure, this will allow us to use these values in the vmxoff
+         * part of our vmx exit handler to properly restore the stack and
+         * instruction pointer after we execute vmxoff
          *
-         * The reason we must do this is since we are executing vmxoff, the rip and rsp will
-         * no longer be automatically updated by hardware from the vmcs, hence we need to
-         * save the 2 values and update the registers with the values during our exit
-         * handler before we call vmxoff
+         * The reason we must do this is since we are executing vmxoff, the rip
+         * and rsp will no longer be automatically updated by hardware from the
+         * vmcs, hence we need to save the 2 values and update the registers
+         * with the values during our exit handler before we call vmxoff
          */
         State->exit_state.guest_rip = VmxVmRead(VMCS_GUEST_RIP);
         State->exit_state.guest_rsp = VmxVmRead(VMCS_GUEST_RSP);
 
         /*
-         * Since vmx root operation makes use of the system cr3, we need to ensure we write
-         * the value of the guests previous cr3 before the exit took place to ensure they
-         * have access to the correct dtb
+         * Since vmx root operation makes use of the system cr3, we need to
+         * ensure we write the value of the guests previous cr3 before the exit
+         * took place to ensure they have access to the correct dtb
          */
         __writecr3(VmxVmRead(VMCS_GUEST_CR3));
 
@@ -309,61 +330,76 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         __vmx_off();
 }
 
-STATIC
 VOID
-DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
+DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
 {
-    UINT32 msr = Context->rcx;
-    __debugbreak();
+        // HIGH_IRQL_LOG_SAFE("Exit Reason: TPR_BELOW_THRESHOLD");
+        DEBUG_LOG("exit reason tpr threshold");
+        DEBUG_LOG("guest rip: %llx", VmxVmRead(VMCS_GUEST_RIP));
+        __debugbreak();
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        // VTPR*                  vtpr         = vcpu->virtual_apic_va +
+        // APIC_TASK_PRIORITY; vtpr->VirtualTaskPriorityRegister   = 0;
+        // vtpr->TaskPriorityRegisterThreshold = 1;
 }
-
-STATIC
-VOID
-DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
-{
-    __writemsr((UINT32)Context->rcx, Context->rdx);
-    __debugbreak();
-}
-
 
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
         UINT64                 additional_rip_offset = 0;
-        PVIRTUAL_MACHINE_STATE state                 = &vmm_state[KeGetCurrentProcessorIndex()];
+        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
 
-        // clang-format off
         switch (VmxVmRead(VMCS_EXIT_REASON)) {
-        case VMX_EXIT_REASON_EXECUTE_CPUID:     DispatchExitReasonCPUID(Context);                                                       break;
-        case VMX_EXIT_REASON_EXECUTE_INVD:      DispatchExitReasonINVD(Context);                                                        break;
-        case VMX_EXIT_REASON_EXECUTE_VMCALL:    Context->rax = VmCallDispatcher(Context->rcx, Context->rdx, Context->r8, Context->r9);  break;
-        case VMX_EXIT_REASON_MOV_CR:            DispatchExitReasonControlRegisterAccess(Context);                                       break;
-        case VMX_EXIT_REASON_EXECUTE_WBINVD:    DispatchExitReasonWBINVD(Context);                                                      break;
-        //case VMX_EXIT_REASON_EXECUTE_RDMSR:     DispatchExitReasonRdmsr(Context);                                                       break;
-        //case VMX_EXIT_REASON_EXECUTE_WRMSR:     DispatchExitReasonWrmsr(Context);                                                       break;
+        case VMX_EXIT_REASON_EXECUTE_CPUID:
+                DispatchExitReasonCPUID(Context);
+                break;
+        case VMX_EXIT_REASON_EXECUTE_INVD:
+                DispatchExitReasonINVD(Context);
+                break;
+        case VMX_EXIT_REASON_EXECUTE_VMCALL:
+                Context->rax = VmCallDispatcher(
+                    Context->rcx, Context->rdx, Context->r8, Context->r9);
+                break;
+        case VMX_EXIT_REASON_MOV_CR:
+                DispatchExitReasonControlRegisterAccess(Context);
+                break;
+        case VMX_EXIT_REASON_EXECUTE_WBINVD:
+                DispatchExitReasonWBINVD(Context);
+                break;
+
+        /*
+         * TPR_BELOW_THRESHOLD is a trap-like exit and will perform the
+         * exit-casuing instruction before invoking our handler, hence we
+         * shouldn't increment the rip.
+         */
+        case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
+                DispatchExitReasonTprBelowThreshold(Context);
+                goto no_rip_increment;
         default: break;
         }
-        // clang-format on
 
-        /* Increment our guest rip by the size of the exiting instruction since we've processed it
+        /*
+         * Increment our guest rip by the size of the exiting instruction since
+         * we've processed it
          */
         IncrementGuestRip();
 
         /*
-         * If we are in DEBUG mode, lets queue our DPC routine that will flush our logs to the
-         * debugger.
+         * If we are in DEBUG mode, lets queue our DPC routine that will flush
+         * our logs to the debugger.
          */
 #if DEBUG
         if (CheckToFlushLogs(state)) {
                 KeInsertQueueDpc(&state->log_state.dpc, NULL, NULL);
         }
 #endif
-
+no_rip_increment:
         /*
-         * If we are indeed exiting VMX operation, return TRUE to indicate to our handler that we
-         * have indeed exited VMX operation.
+         * If we are indeed exiting VMX operation, return TRUE to indicate to
+         * our handler that we have indeed exited VMX operation.
          */
-        if (InterlockedExchange(&state->exit_state.exit_vmx, state->exit_state.exit_vmx)) {
+        if (InterlockedExchange(&state->exit_state.exit_vmx,
+                                state->exit_state.exit_vmx)) {
                 RestoreGuestStateOnTerminateVmx(state);
                 return TRUE;
         }

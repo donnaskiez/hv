@@ -38,7 +38,8 @@ DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 }
 
 /*
- * TODO: need to refactor this to safely return from vmx operation and also fix da leaks.
+ * TODO: need to refactor this to safely return from vmx operation and also fix
+ * da leaks.
  */
 NTSTATUS
 DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
@@ -50,14 +51,16 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         status = AllocateDriverState();
 
         if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("AllocateDriverState failed with status %x", status);
+                DEBUG_ERROR("AllocateDriverState failed with status %x",
+                            status);
                 return status;
         }
 
         status = InitialisePowerCallback();
 
         if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
+                DEBUG_ERROR("InitialisePowerCallback failed with status %x",
+                            status);
                 FreeGlobalDriverState();
                 return status;
         }
@@ -90,7 +93,8 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         status = IoCreateSymbolicLink(&device_link, &device_name);
 
         if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("IoCreateSymbolicLink failed with status %x", status);
+                DEBUG_ERROR("IoCreateSymbolicLink failed with status %x",
+                            status);
                 BroadcastVmxTermination();
                 FreeVmxState();
                 UnregisterPowerCallback();

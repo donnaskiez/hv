@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hv", "hv\hv.vcxproj", "{83E
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug - APIC|ARM64 = Debug - APIC|ARM64
+		Debug - APIC|x64 = Debug - APIC|x64
 		Debug|ARM64 = Debug|ARM64
 		Debug|x64 = Debug|x64
 		Release - Apic|ARM64 = Release - Apic|ARM64
@@ -15,6 +17,12 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|ARM64.ActiveCfg = Debug - APIC|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|ARM64.Build.0 = Debug - APIC|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|ARM64.Deploy.0 = Debug - APIC|ARM64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.ActiveCfg = Debug - APIC|x64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.Build.0 = Debug - APIC|x64
+		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.Deploy.0 = Debug - APIC|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.ActiveCfg = Debug|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.Build.0 = Debug|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.Deploy.0 = Debug|ARM64

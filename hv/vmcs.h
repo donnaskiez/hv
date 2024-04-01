@@ -22,4 +22,7 @@ VmmReadGuestRsp();
 UINT64
 VmmGetCoresVcpu();
 
+BOOLEAN
+IsLocalApicPresent();
+
 #endif

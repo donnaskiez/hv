@@ -6,8 +6,9 @@
 #include "ia32.h"
 
 /*
- * Addresses used to setup extended page tables. This is simply a housekeeping structure allowing us
- * to more easily free the allocations on unload / termination.
+ * Addresses used to setup extended page tables. This is simply a housekeeping
+ * structure allowing us to more easily free the allocations on unload /
+ * termination.
  */
 typedef struct _EPT_CONFIGURATION {
         EPT_PML4E*   pml4;

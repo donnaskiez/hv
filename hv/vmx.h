@@ -47,8 +47,9 @@ typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
 #define VMX_LOG_BUFFER_SIZE          0x100000
 #define VMX_INIDIVIDUAL_LOG_MAX_SIZE 0x100
-#define VMX_MAX_LOG_ENTRIES_COUNT    VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE
-#define VMX_LOG_BUFFER_POOL_TAG      'rgol'
+#define VMX_MAX_LOG_ENTRIES_COUNT \
+        VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE
+#define VMX_LOG_BUFFER_POOL_TAG 'rgol'
 
 typedef struct _VCPU_LOG_STATE {
         volatile HIGH_IRQL_LOCK lock;
@@ -124,6 +125,16 @@ typedef struct _DRIVER_STATE {
         EPT_CONFIGURATION ept_configuration;
 
 } DRIVER_STATE, *PDRIVER_STATE;
+
+typedef union {
+        struct {
+                UINT32 TaskPriorityRegisterThreshold : 4;
+                UINT32 VirtualTaskPriorityRegister : 7;
+                UINT32 Unused2 : 32;
+        };
+
+        UINT32 AsUInt;
+} VTPR;
 
 VOID
 InitialiseVmxOperation(_In_ PKDPC*    Dpc,

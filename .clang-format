@@ -48,7 +48,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: AfterColon
 BreakStringLiterals: false
 
-ColumnLimit: 100
+ColumnLimit: 80
 CommentPragmas: '^begin_wpp|^end_wpp|^FUNC |^USESUFFIX |^USESUFFIX '
 
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
