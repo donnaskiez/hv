@@ -281,28 +281,20 @@ typedef union {
 } VTPR;
 
 STATIC
-NTSTATUS
+VOID
 InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        NTSTATUS status = STATUS_UNSUCCESSFUL;
-
-        status = AllocateApicVirtualPage(Vcpu);
-
-        if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
-                return status;
-        }
-        DEBUG_LOG("vapic; %llx", Vcpu->virtual_apic_va);
-        DEBUG_LOG("vapic phys: %llx", Vcpu->virtual_apic_pa);
-
-        VTPR vtpr                          = {0};
-        vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
+        VTPR vtpr = {0};
+        // vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
+        /*
+         * TPR register is a byte. first 4 bits are the tpr threshold, last 4 bits are the tpr
+         * value.
+         */
+        vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL; // 0xe0
         vtpr.TaskPriorityRegisterThreshold = 0;
 
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID)            = __readmsr(IA32_X2APIC_APICID);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID)            = __readmsr(IA32_X2APIC_APICID);
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
-
-        return status;
 }
 
 STATIC
@@ -429,12 +421,12 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
 #if APIC
 
-        status = InitialiseVirtualApicPage(vcpu);
+        status = AllocateApicVirtualPage(vcpu);
 
         if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("InitialiseVirtualApicPage failed with status %x", status);
+                DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
                 FreeCoreVmxState(core);
-                goto end;
+                return status;
         }
 
 #endif
@@ -460,6 +452,15 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
                 return;
         }
+
+        // DEBUG_LOG("core: %lx, irql: %lx, tpr: %lx",
+        //           (UINT32)KeGetCurrentProcessorNumber(),
+        //           (UINT32)KeGetCurrentIrql(),
+        //           (UINT32)__readmsr(IA32_X2APIC_TPR));
+
+#if APIC
+        InitialiseVirtualApicPage(vcpu);
+#endif
 
         __vmx_vmlaunch();
 
@@ -494,11 +495,9 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
                 DEBUG_LOG("VMX operation is not supported on this machine");
                 return status;
         }
-        DEBUG_LOG("before Ipi call");
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
-        DEBUG_LOG("after ipi call");
 
         /* lets make sure we entered VMX operation on ALL cores. If a core failed to enter, the
          * vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
@@ -658,7 +657,6 @@ SetupVmxOperation()
          * and begin VMX operation on each core.
          */
         KeGenericCallDpc(InitialiseVmxOperation, context);
-        DEBUG_LOG("after dpc call");
 
         /* we will synchronise our DPCs so at this point all will have run */
         status = ValidateSuccessVmxInitiation(context);
