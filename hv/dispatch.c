@@ -6,6 +6,9 @@
 #include "arch.h"
 #include "log.h"
 
+#define CPUID_HYPERVISOR_INTERFACE_VENDOR 0x40000000
+#define CPUID_HYPERVISOR_INTERFACE_LOL    0x40000001
+
 FORCEINLINE
 VOID
 InjectHwExceptionIntoGuest(UINT32 Vector)
@@ -226,15 +229,27 @@ STATIC
 VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 {
-        /*
-         * todo: implement some sort of caching mechanism
-         */
+        /* todo: implement some sort of caching mechanism */
         PVIRTUAL_MACHINE_STATE state =
             &vmm_state[KeGetCurrentProcessorNumber()];
 
         __cpuidex(state->cache.cpuid.value,
                   (INT32)GuestState->rax,
                   (INT32)GuestState->rcx);
+
+        /*
+         * Intel reserves CPUID Function levels 0x40000000 - 0x400000FF for
+         * software use. This allows us to setup our own CPUID based hypercall
+         * interface. For now we simple return the vendor, in this face
+         * fortnite!
+         */
+        switch (GuestState->rax) {
+        case CPUID_HYPERVISOR_INTERFACE_VENDOR:
+                state->cache.cpuid.value[0] = 'i';
+                state->cache.cpuid.value[1] = 'evol';
+                state->cache.cpuid.value[2] = 'trof';
+                state->cache.cpuid.value[3] = 'etin';
+        }
 
         GuestState->rax = state->cache.cpuid.value[0];
         GuestState->rbx = state->cache.cpuid.value[1];
@@ -333,10 +348,8 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
 VOID
 DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
 {
-        // HIGH_IRQL_LOG_SAFE("Exit Reason: TPR_BELOW_THRESHOLD");
         DEBUG_LOG("exit reason tpr threshold");
         DEBUG_LOG("guest rip: %llx", VmxVmRead(VMCS_GUEST_RIP));
-        __debugbreak();
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
         // VTPR*                  vtpr         = vcpu->virtual_apic_va +
         // APIC_TASK_PRIORITY; vtpr->VirtualTaskPriorityRegister   = 0;

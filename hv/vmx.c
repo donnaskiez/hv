@@ -508,8 +508,6 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
-        __debugbreak();
-        __writecr8(0);
 
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
