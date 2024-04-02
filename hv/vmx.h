@@ -51,6 +51,8 @@ typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
         VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE
 #define VMX_LOG_BUFFER_POOL_TAG 'rgol'
 
+#define VMX_APIC_TPR_THRESHOLD 0
+
 typedef struct _VCPU_LOG_STATE {
         volatile HIGH_IRQL_LOCK lock;
         /*
@@ -107,6 +109,7 @@ typedef struct _VIRTUAL_MACHINE_STATE {
         VMM_CACHE      cache;
         EXIT_STATE     exit_state;
         PGUEST_CONTEXT guest_context;
+
         UINT64         vmxon_region_pa;
         UINT64         vmxon_region_va;
         UINT64         vmcs_region_pa;
@@ -119,6 +122,13 @@ typedef struct _VIRTUAL_MACHINE_STATE {
         UINT64         virtual_apic_pa;
         UINT32         exception_bitmap;
         UINT32         exception_bitmap_mask;
+
+        IA32_VMX_PROCBASED_CTLS_REGISTER  proc_ctls;
+        IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
+        IA32_VMX_PINBASED_CTLS_REGISTER   pin_ctls;
+        IA32_VMX_EXIT_CTLS_REGISTER       exit_ctls;
+        IA32_VMX_ENTRY_CTLS_REGISTER      entry_ctls;
+
 #ifdef DEBUG
         VCPU_LOG_STATE log_state;
 #endif

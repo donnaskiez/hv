@@ -280,53 +280,58 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * VM-execution controls. If UseMsrBitmaps is not set, all RDMSR and
          * WRMSR instructions cause vm-exits.
          */
-        IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls = {0};
-        proc_ctls.ActivateSecondaryControls        = TRUE;
-        proc_ctls.UseMsrBitmaps                    = TRUE;
-        proc_ctls.Cr3LoadExiting                   = TRUE;
-        proc_ctls.Cr3StoreExiting                  = TRUE;
+        Vcpu->proc_ctls.ActivateSecondaryControls = TRUE;
+        Vcpu->proc_ctls.UseMsrBitmaps             = TRUE;
+        Vcpu->proc_ctls.Cr3LoadExiting            = TRUE;
+        Vcpu->proc_ctls.Cr3StoreExiting           = TRUE;
 
 #if APIC
         if (IsLocalApicPresent()) {
-                proc_ctls.UseTprShadow    = TRUE;
-                proc_ctls.Cr8LoadExiting  = FALSE;
-                proc_ctls.Cr8StoreExiting = FALSE;
+                Vcpu->proc_ctls.UseTprShadow    = TRUE;
+                Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
+                Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
-                VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
+                VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
         }
 #endif
 
-        VmxVmWrite(VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-                   AdjustMsrControl(proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
+        VmxVmWrite(
+            VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+            AdjustMsrControl(Vcpu->proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
 
-        IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2 = {0};
-        proc_ctls2.EnableRdtscp                      = TRUE;
-        proc_ctls2.EnableInvpcid                     = TRUE;
-        proc_ctls2.EnableXsaves                      = TRUE;
+        Vcpu->proc_ctls2.EnableRdtscp  = TRUE;
+        Vcpu->proc_ctls2.EnableInvpcid = TRUE;
+        Vcpu->proc_ctls2.EnableXsaves  = TRUE;
+
+#if APIC
+        if (IsLocalApicPresent()) {
+                Vcpu->proc_ctls2.VirtualizeX2ApicMode = TRUE;
+        }
+#endif
+
+        VmxVmWrite(VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+                   AdjustMsrControl(Vcpu->proc_ctls2.AsUInt,
+                                    IA32_VMX_PROCBASED_CTLS2));
+
+        Vcpu->pin_ctls.NmiExiting = FALSE;
 
         VmxVmWrite(
-            VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-            AdjustMsrControl(proc_ctls2.AsUInt, IA32_VMX_PROCBASED_CTLS2));
+            VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
+            AdjustMsrControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
 
-        IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls = {0};
-        pin_ctls.NmiExiting                      = FALSE;
+        Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
+        Vcpu->exit_ctls.HostAddressSpaceSize       = TRUE;
 
-        VmxVmWrite(VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
-                   AdjustMsrControl(pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
+        VmxVmWrite(
+            VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
+            AdjustMsrControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
 
-        IA32_VMX_EXIT_CTLS_REGISTER exit_ctls = {0};
-        exit_ctls.AcknowledgeInterruptOnExit  = TRUE;
-        exit_ctls.HostAddressSpaceSize        = TRUE;
+        Vcpu->entry_ctls.Ia32EModeGuest = TRUE;
 
-        VmxVmWrite(VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
-                   AdjustMsrControl(exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
-
-        IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls = {0};
-        entry_ctls.Ia32EModeGuest               = TRUE;
-
-        VmxVmWrite(VMCS_CTRL_VMENTRY_CONTROLS,
-                   AdjustMsrControl(entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
+        VmxVmWrite(
+            VMCS_CTRL_VMENTRY_CONTROLS,
+            AdjustMsrControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);

@@ -9,10 +9,15 @@
 #define CPUID_HYPERVISOR_INTERFACE_VENDOR 0x40000000
 #define CPUID_HYPERVISOR_INTERFACE_LOL    0x40000001
 
+#define VMX_CPUID_FUNCTION_LOW  0x40000000
+#define VMX_CPUID_FUNCTION_HIGH 0x400000FF
+
 #define CPUID_EAX 0
 #define CPUID_EBX 1
 #define CPUID_ECX 2
 #define CPUID_EDX 3
+
+#define VMX_BUGCHECK_INVALID_MTF_EXIT 0x0
 
 FORCEINLINE
 STATIC
@@ -24,6 +29,7 @@ IncrementGuestRip()
                        VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
+FORCEINLINE
 STATIC
 UINT64
 RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
@@ -50,6 +56,7 @@ RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
         }
 }
 
+FORCEINLINE
 STATIC
 VOID
 WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
@@ -181,6 +188,7 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
         }
 }
 
+FORCEINLINE
 STATIC
 VOID
 DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
@@ -189,6 +197,23 @@ DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
         __wbinvd();
 }
 
+/*
+ * Intel reserves CPUID Function levels 0x40000000 - 0x400000FF
+ * for software use. This allows us to setup our own CPUID based
+ * hypercall interface. For now we simple return the vendor, in
+ * this case i love fortnite!
+ */
+FORCEINLINE
+STATIC
+BOOLEAN
+IsCpuidFunctionAtHypervisorAltitude(_In_ UINT64 Rax)
+{
+        return Rax >= VMX_CPUID_FUNCTION_LOW && Rax <= VMX_CPUID_FUNCTION_HIGH
+                   ? TRUE
+                   : FALSE;
+}
+
+FORCEINLINE
 STATIC
 VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
@@ -197,22 +222,25 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
         PVIRTUAL_MACHINE_STATE state =
             &vmm_state[KeGetCurrentProcessorNumber()];
 
-        __cpuidex(state->cache.cpuid.value,
-                  (INT32)GuestState->rax,
-                  (INT32)GuestState->rcx);
-
-        /*
-         * Intel reserves CPUID Function levels 0x40000000 - 0x400000FF for
-         * software use. This allows us to setup our own CPUID based hypercall
-         * interface. For now we simple return the vendor, in this case
-         * i love fortnite!
-         */
-        switch (GuestState->rax) {
-        case CPUID_HYPERVISOR_INTERFACE_VENDOR:
-                state->cache.cpuid.value[CPUID_EAX] = 'i';
-                state->cache.cpuid.value[CPUID_EBX] = 'evol';
-                state->cache.cpuid.value[CPUID_ECX] = 'trof';
-                state->cache.cpuid.value[CPUID_EDX] = 'etin';
+        if (IsCpuidFunctionAtHypervisorAltitude(GuestState->rax)) {
+                switch (GuestState->rax) {
+                case CPUID_HYPERVISOR_INTERFACE_VENDOR:
+                        state->cache.cpuid.value[CPUID_EAX] = 'i';
+                        state->cache.cpuid.value[CPUID_EBX] = 'evol';
+                        state->cache.cpuid.value[CPUID_ECX] = 'trof';
+                        state->cache.cpuid.value[CPUID_EDX] = 'etin';
+                default:
+#if DEBUG
+                        HIGH_IRQL_LOG_SAFE(
+                            "Invalid HV CPUID Function identifier passed.");
+#endif
+                        break;
+                }
+        }
+        else {
+                __cpuidex(state->cache.cpuid.value,
+                          (INT32)GuestState->rax,
+                          (INT32)GuestState->rcx);
         }
 
         GuestState->rax = state->cache.cpuid.value[CPUID_EAX];
@@ -221,6 +249,7 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
         GuestState->rdx = state->cache.cpuid.value[CPUID_EDX];
 }
 
+FORCEINLINE
 STATIC
 VOID
 DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
@@ -228,6 +257,8 @@ DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
         __wbinvd();
 }
 
+FORCEINLINE
+STATIC
 VOID
 DispatchVmCallTerminateVmx()
 {
@@ -235,6 +266,7 @@ DispatchVmCallTerminateVmx()
         InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
+FORCEINLINE
 STATIC
 NTSTATUS
 DispatchVmCallPing()
@@ -259,6 +291,7 @@ VmCallDispatcher(_In_ UINT64     HypercallId,
 }
 
 FORCEINLINE
+STATIC
 VOID
 RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
 {
@@ -370,6 +403,7 @@ ShouldExceptionAdvanceGuestRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
         return TRUE;
 }
 
+FORCEINLINE
 STATIC
 BOOLEAN
 DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
@@ -389,6 +423,37 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
         }
 
         return ShouldExceptionAdvanceGuestRip(&intr);
+}
+
+/*
+ * If we are delivering an interruption type equal to 7 (Other) and the vector
+ * field is 0, vm-entry will cause an MTF vm-exit to be pending on the
+ * instruction boundary. This will occur even if the monitor trap flag VMCS
+ * control is set to 0.
+ */
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        /*
+         * Since we don't set the monitor trap flag vmcs ctrl, lets simply clear
+         * the mtf flag for the guest and continue execution.
+         */
+        if (!vcpu->proc_ctls.MonitorTrapFlag) {
+                RFLAGS flags    = {.AsUInt = Context->eflags};
+                flags.TrapFlag  = FALSE;
+                Context->eflags = flags.AsUInt;
+        }
+        else {
+                /* For now, just bugcheck */
+                KeBugCheckEx(VMX_BUGCHECK_INVALID_MTF_EXIT,
+                             VmxVmRead(VMCS_GUEST_RIP),
+                             Context->eflags,
+                             vcpu->proc_ctls.AsUInt,
+                             0);
+        }
 }
 
 BOOLEAN
@@ -432,6 +497,10 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 if (!DispatchExitReasonExceptionOrNmi(Context))
                         goto no_rip_increment;
                 break;
+
+        case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
+                DispatchExitReasonMonitorTrapFlag(Context);
+                goto no_rip_increment;
         default: break;
         }
 
@@ -441,15 +510,6 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
          */
         IncrementGuestRip();
 
-        /*
-         * If we are in DEBUG mode, lets queue our DPC routine that will flush
-         * our logs to the debugger.
-         */
-#if DEBUG
-        if (CheckToFlushLogs(state)) {
-                KeInsertQueueDpc(&state->log_state.dpc, NULL, NULL);
-        }
-#endif
 no_rip_increment:
         /*
          * If we are indeed exiting VMX operation, return TRUE to indicate to
