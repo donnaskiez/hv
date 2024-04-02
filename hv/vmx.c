@@ -195,12 +195,26 @@ AllocateDriverState()
 }
 
 STATIC
-NTSTATUS
-InitiateVmmState(_In_ PVIRTUAL_MACHINE_STATE VmmState)
+VOID
+InitialiseExceptionBitmap(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        VmmState->cache.cpuid.active  = FALSE;
-        VmmState->exit_state.exit_vmx = FALSE;
-        VmmState->state               = VMX_VCPU_STATE_OFF;
+        /*
+         * When an exception occurs, the processor will check the exception
+         * bitmap to determine whether or not it should cause a vm-exit. To
+         * start off we will simply exit on divide by zero exceptions.
+         */
+        Vcpu->exception_bitmap = SET_FLAG_U32(EXCEPTION_DIVIDED_BY_ZERO);
+}
+
+STATIC
+NTSTATUS
+InitiateVmmState(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+{
+        Vcpu->cache.cpuid.active  = FALSE;
+        Vcpu->exit_state.exit_vmx = FALSE;
+        Vcpu->state               = VMX_VCPU_STATE_OFF;
+
+        InitialiseExceptionBitmap(Vcpu);
         return STATUS_SUCCESS;
 }
 

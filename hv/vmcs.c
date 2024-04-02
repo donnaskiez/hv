@@ -273,7 +273,7 @@ IsLocalApicPresent()
 
 STATIC
 VOID
-VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
+VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
         /*
          * ActivateSecondaryControls activates the secondary processor-based
@@ -292,7 +292,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
                 proc_ctls.Cr8LoadExiting  = FALSE;
                 proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
-                           GuestState->virtual_apic_pa);
+                           Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
         }
 #endif
@@ -300,18 +300,10 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         VmxVmWrite(VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
                    AdjustMsrControl(proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
 
-        /*
-         * Ensure RDTSCP, INVPCID and XSAVES/XRSTORS do not raise an invalid
-         * opcode exception.
-         */
         IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2 = {0};
         proc_ctls2.EnableRdtscp                      = TRUE;
         proc_ctls2.EnableInvpcid                     = TRUE;
         proc_ctls2.EnableXsaves                      = TRUE;
-
-#if APIC
-        proc_ctls2.ApicRegisterVirtualization = TRUE;
-#endif
 
         VmxVmWrite(
             VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
@@ -322,8 +314,6 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         VmxVmWrite(VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
                    AdjustMsrControl(pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
-
-        VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, 0ul);
 
         IA32_VMX_EXIT_CTLS_REGISTER exit_ctls = {0};
         exit_ctls.AcknowledgeInterruptOnExit  = TRUE;
@@ -338,7 +328,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
         VmxVmWrite(VMCS_CTRL_VMENTRY_CONTROLS,
                    AdjustMsrControl(entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 
-        VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, GuestState->msr_bitmap_pa);
+        VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
+        VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }
 
 NTSTATUS

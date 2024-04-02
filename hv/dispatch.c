@@ -9,49 +9,13 @@
 #define CPUID_HYPERVISOR_INTERFACE_VENDOR 0x40000000
 #define CPUID_HYPERVISOR_INTERFACE_LOL    0x40000001
 
-FORCEINLINE
-VOID
-InjectHwExceptionIntoGuest(UINT32 Vector)
-{
-        VMENTRY_INTERRUPT_INFORMATION interrupt = {0};
-        interrupt.Vector                        = Vector;
-        interrupt.InterruptionType              = HardwareException;
-        interrupt.DeliverErrorCode              = FALSE;
-        interrupt.Valid                         = TRUE;
-
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
-                   interrupt.AsUInt);
-}
+#define CPUID_EAX 0
+#define CPUID_EBX 1
+#define CPUID_ECX 2
+#define CPUID_EDX 3
 
 FORCEINLINE
-VOID
-InjectHwExceptionIntoGuestWithErrorCode(UINT32 Vector)
-{
-        VMENTRY_INTERRUPT_INFORMATION interrupt = {0};
-        interrupt.Vector                        = Vector;
-        interrupt.InterruptionType              = HardwareException;
-        interrupt.DeliverErrorCode              = TRUE;
-        interrupt.Valid                         = TRUE;
-
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
-                   interrupt.AsUInt);
-        VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE, interrupt.AsUInt);
-}
-
-FORCEINLINE
-VOID
-InjectNmiIntoGuest()
-{
-        VMENTRY_INTERRUPT_INFORMATION interrupt = {0};
-        interrupt.Vector                        = Nmi;
-        interrupt.InterruptionType              = NonMaskableInterrupt;
-        interrupt.DeliverErrorCode              = FALSE;
-        interrupt.Valid                         = TRUE;
-
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
-                   interrupt.AsUInt);
-}
-
+STATIC
 VOID
 IncrementGuestRip()
 {
@@ -240,21 +204,21 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
         /*
          * Intel reserves CPUID Function levels 0x40000000 - 0x400000FF for
          * software use. This allows us to setup our own CPUID based hypercall
-         * interface. For now we simple return the vendor, in this face
-         * fortnite!
+         * interface. For now we simple return the vendor, in this case
+         * i love fortnite!
          */
         switch (GuestState->rax) {
         case CPUID_HYPERVISOR_INTERFACE_VENDOR:
-                state->cache.cpuid.value[0] = 'i';
-                state->cache.cpuid.value[1] = 'evol';
-                state->cache.cpuid.value[2] = 'trof';
-                state->cache.cpuid.value[3] = 'etin';
+                state->cache.cpuid.value[CPUID_EAX] = 'i';
+                state->cache.cpuid.value[CPUID_EBX] = 'evol';
+                state->cache.cpuid.value[CPUID_ECX] = 'trof';
+                state->cache.cpuid.value[CPUID_EDX] = 'etin';
         }
 
-        GuestState->rax = state->cache.cpuid.value[0];
-        GuestState->rbx = state->cache.cpuid.value[1];
-        GuestState->rcx = state->cache.cpuid.value[2];
-        GuestState->rdx = state->cache.cpuid.value[3];
+        GuestState->rax = state->cache.cpuid.value[CPUID_EAX];
+        GuestState->rbx = state->cache.cpuid.value[CPUID_EBX];
+        GuestState->rcx = state->cache.cpuid.value[CPUID_ECX];
+        GuestState->rdx = state->cache.cpuid.value[CPUID_EDX];
 }
 
 STATIC
@@ -345,6 +309,8 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         __vmx_off();
 }
 
+FORCEINLINE
+STATIC
 VOID
 DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
 {
@@ -354,6 +320,75 @@ DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
         // VTPR*                  vtpr         = vcpu->virtual_apic_va +
         // APIC_TASK_PRIORITY; vtpr->VirtualTaskPriorityRegister   = 0;
         // vtpr->TaskPriorityRegisterThreshold = 1;
+}
+
+FORCEINLINE
+STATIC
+VOID
+InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
+{
+        VMENTRY_INTERRUPT_INFORMATION intr = {
+            .Vector           = ExitInterrupt->Vector,
+            .DeliverErrorCode = ExitInterrupt->ErrorCodeValid,
+            .InterruptionType = ExitInterrupt->InterruptionType,
+            .Valid            = ExitInterrupt->Valid};
+
+        /*
+         * If bits 31 (Valid) and 11 (ErrorCodeValid) the vm-exit interruption
+         * error code VMCS field receives the error code that would've been
+         * pushed onto the stack by the exception.
+         */
+        if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
+                VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
+                           VmxVmRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
+        }
+
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
+                   intr.AsUInt);
+}
+
+/*
+ * If vm-entry successfully injects an event with interruption type external
+ * interrupt, NMI or hardware exception the current guest RIP is pushed onto the
+ * stack.
+ *
+ * if vm-entry successfully injects an event with interruption type software
+ * interrupt, privileged software exception or software exception the current
+ * guest RIP is incremented by the vm-entry instruction length before being
+ * pushed onto the stack, hence we do not advance the guest rip in this case.
+ */
+FORCEINLINE
+STATIC
+BOOLEAN
+ShouldExceptionAdvanceGuestRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
+{
+        if (ExitInformation->InterruptionType == SoftwareInterrupt ||
+            ExitInformation->InterruptionType == PrivilegedSoftwareException ||
+            ExitInformation->InterruptionType == SoftwareException)
+                return FALSE;
+
+        return TRUE;
+}
+
+STATIC
+BOOLEAN
+DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
+{
+        VMEXIT_INTERRUPT_INFORMATION intr = {
+            .AsUInt = VmxVmRead(VMCS_VMEXIT_INTERRUPTION_INFORMATION)};
+
+#if DEBUG
+        HIGH_IRQL_LOG_SAFE("Core: %lx - Vector: %lx, Interruption type: %lx",
+                           KeGetCurrentProcessorNumber(),
+                           intr.Vector,
+                           intr.InterruptionType);
+#endif
+
+        switch (intr.Vector) {
+        case EXCEPTION_DIVIDED_BY_ZERO: InjectExceptionOnVmEntry(&intr); break;
+        }
+
+        return ShouldExceptionAdvanceGuestRip(&intr);
 }
 
 BOOLEAN
@@ -388,6 +423,15 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
                 DispatchExitReasonTprBelowThreshold(Context);
                 goto no_rip_increment;
+
+        /*
+         * If DispatchExitReasonExceptionOrNmi returns FALSE, we don't advanced
+         * the guest rip, else we do as normal.
+         */
+        case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
+                if (!DispatchExitReasonExceptionOrNmi(Context))
+                        goto no_rip_increment;
+                break;
         default: break;
         }
 

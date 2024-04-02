@@ -53,9 +53,15 @@ typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
 typedef struct _VCPU_LOG_STATE {
         volatile HIGH_IRQL_LOCK lock;
-        KDPC                    dpc;
-        PVOID                   log_buffer;
-        volatile UINT32         current_log_count;
+        /*
+         * Given that our core flushing mechanism only flushes when the buffer
+         * is full, lets create a timer that flushes the logs every X period
+         * regardless of the state of the buffer.
+         */
+        KTIMER          timer;
+        KDPC            dpc;
+        PVOID           log_buffer;
+        volatile UINT32 current_log_count;
 
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
@@ -111,11 +117,15 @@ typedef struct _VIRTUAL_MACHINE_STATE {
         UINT64         msr_bitmap_pa;
         UINT64         virtual_apic_va;
         UINT64         virtual_apic_pa;
+        UINT32         exception_bitmap;
+        UINT32         exception_bitmap_mask;
 #ifdef DEBUG
         VCPU_LOG_STATE log_state;
 #endif
 
 } VIRTUAL_MACHINE_STATE, *PVIRTUAL_MACHINE_STATE;
+
+#define SET_FLAG_U32(n) (1U << (n))
 
 extern PVIRTUAL_MACHINE_STATE vmm_state;
 

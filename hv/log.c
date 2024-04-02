@@ -1,8 +1,12 @@
 #include "log.h"
 
-#include <ntstrsafe.h>
+#include "common.h"
 
+#include <ntstrsafe.h>
 #include <stdarg.h>
+
+/* flush them every 1 second */
+#define LOGS_FLUSH_TIMER_INVOKE_TIME 1000
 
 #if DEBUG
 
@@ -26,6 +30,9 @@ LogFlushLogsDpcRoutine(_In_ PKDPC*    Dpc,
 
         HighIrqlLockAcquire(&log->lock);
 
+        if (!log->current_log_count)
+                goto unlock;
+
         for (UINT64 index = 0; index < log->current_log_count; index++) {
                 PCSTR string = (UINT64)log->log_buffer +
                                index * VMX_INIDIVIDUAL_LOG_MAX_SIZE;
@@ -34,17 +41,30 @@ LogFlushLogsDpcRoutine(_In_ PKDPC*    Dpc,
 
         RtlZeroMemory(log->log_buffer, VMX_LOG_BUFFER_SIZE);
         log->current_log_count = 0;
+
+unlock:
         HighIrqlLockRelease(&log->lock);
 }
 
 NTSTATUS
 InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
+        LARGE_INTEGER due_time            = {.QuadPart = ABSOLUTE(SECONDS(1))};
         Vcpu->log_state.current_log_count = 0;
 
         KeInitializeDpc(
             &Vcpu->log_state.dpc, LogFlushLogsDpcRoutine, &Vcpu->log_state);
         HighIrqlLockInitialise(&Vcpu->log_state.lock);
+
+        /*
+         * Set our timer to flush the logs every DUE_TIME_SECONDS amount, in
+         * this case lets stick with 1 second.
+         */
+        KeInitializeTimer(&Vcpu->log_state.timer);
+        KeSetTimerEx(&Vcpu->log_state.timer,
+                     due_time,
+                     LOGS_FLUSH_TIMER_INVOKE_TIME,
+                     &Vcpu->log_state.dpc);
 
         Vcpu->log_state.log_buffer = ExAllocatePool2(
             POOL_FLAG_NON_PAGED, VMX_LOG_BUFFER_SIZE, VMX_LOG_BUFFER_POOL_TAG);
