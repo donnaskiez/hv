@@ -52,9 +52,16 @@ InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         LARGE_INTEGER due_time            = {.QuadPart = ABSOLUTE(SECONDS(1))};
         Vcpu->log_state.current_log_count = 0;
 
+        HighIrqlLockInitialise(&Vcpu->log_state.lock);
+
+        Vcpu->log_state.log_buffer = ExAllocatePool2(
+            POOL_FLAG_NON_PAGED, VMX_LOG_BUFFER_SIZE, VMX_LOG_BUFFER_POOL_TAG);
+
+        if (!Vcpu->log_state.log_buffer)
+                return STATUS_MEMORY_NOT_ALLOCATED;
+
         KeInitializeDpc(
             &Vcpu->log_state.dpc, LogFlushLogsDpcRoutine, &Vcpu->log_state);
-        HighIrqlLockInitialise(&Vcpu->log_state.lock);
 
         /*
          * Set our timer to flush the logs every DUE_TIME_SECONDS amount, in
@@ -65,12 +72,6 @@ InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                      due_time,
                      LOGS_FLUSH_TIMER_INVOKE_TIME,
                      &Vcpu->log_state.dpc);
-
-        Vcpu->log_state.log_buffer = ExAllocatePool2(
-            POOL_FLAG_NON_PAGED, VMX_LOG_BUFFER_SIZE, VMX_LOG_BUFFER_POOL_TAG);
-
-        if (!Vcpu->log_state.log_buffer)
-                return STATUS_MEMORY_NOT_ALLOCATED;
 
         return STATUS_SUCCESS;
 }
