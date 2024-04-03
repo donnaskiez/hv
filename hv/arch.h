@@ -13,7 +13,7 @@ SaveStateAndVirtualizeCore(_In_ PDPC_CALL_CONTEXT Context);
 
 EXTERN
 VOID
-VmexitHandler();
+VmExitHandler();
 
 EXTERN
 VOID
@@ -24,13 +24,10 @@ VOID
 __writecr0(_In_ UINT64 Value);
 
 EXTERN VOID
-__writecr4(_In_ UINT64 Value);
-
-EXTERN VOID
 __lgdt(_In_ PVOID Value);
 
 EXTERN NTSTATUS INLINE
-__vmx_vmcall(_In_ UINT64 VmcallNumber,
+__vmx_vmcall(_In_ UINT64 VmCallNumber,
              _In_ UINT64 OptionalParam1,
              _In_ UINT64 OptionalParam2,
              _In_ UINT64 OptionalParam3);
@@ -56,10 +53,5 @@ EXTERN UINT16 __readgs(VOID);
 EXTERN UINT16 __readldtr(VOID);
 
 EXTERN UINT16 __readtr(VOID);
-
-EXTERN UINT64 __readrflags(VOID);
-
-EXTERN UINT16
-__sldt();
 
 #endif

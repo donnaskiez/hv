@@ -301,8 +301,9 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * TPR register is a byte. first 4 bits are the tpr threshold, last 4
          * bits are the tpr value.
          */
-        vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
-        vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
+        // vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
+         vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL;
+         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
 
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 }
@@ -474,11 +475,6 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 return;
         }
 
-        // DEBUG_LOG("core: %lx, irql: %lx, tpr: %lx",
-        //           (UINT32)KeGetCurrentProcessorNumber(),
-        //           (UINT32)KeGetCurrentIrql(),
-        //           (UINT32)__readmsr(IA32_X2APIC_TPR));
-
 #if APIC
         InitialiseVirtualApicPage(vcpu);
 #endif
@@ -523,8 +519,6 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
 
-        DEBUG_LOG("msr tpr: %lx", (UINT32)__readmsr(IA32_X2APIC_TPR));
-        BroadcastVmxTermination();
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
         return ValidateVmxLaunch();

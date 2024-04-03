@@ -157,7 +157,7 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
         VmxVmWrite(VMCS_HOST_RSP,
                    GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE);
-        VmxVmWrite(VMCS_HOST_RIP, VmexitHandler);
+        VmxVmWrite(VMCS_HOST_RIP, VmExitHandler);
 
         VmxVmWrite(VMCS_HOST_FS_BASE, __readmsr(IA32_FS_BASE));
         VmxVmWrite(VMCS_HOST_GS_BASE, __readmsr(IA32_GS_BASE));
@@ -244,7 +244,7 @@ VmcsWriteGuestStateFields(_In_ PVOID                  StackPointer,
         VmxVmWrite(VMCS_GUEST_CR3, __readcr3());
         VmxVmWrite(VMCS_GUEST_CR4, __readcr4());
 
-        VmxVmWrite(VMCS_GUEST_RFLAGS, __readrflags());
+        VmxVmWrite(VMCS_GUEST_RFLAGS, __readeflags());
         VmxVmWrite(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
         VmxVmWrite(VMCS_GUEST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
         VmxVmWrite(VMCS_GUEST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));

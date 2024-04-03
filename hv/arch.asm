@@ -1,5 +1,18 @@
+title  "Arch"
 
-; custom intrinsic functions
+; Module Name:
+;
+;   arch.asm
+;
+; Abstract:
+;
+;	Implements a variety of Intel x86 specific functions, ranging from custom intrinsic
+;	functions to core vmx operations such as exit handling, vmx initiation and vmx 
+;	termination.
+;
+
+;	The list of custom instrinsic functions. These are required if the Microsoft included
+;	intrin.h file does not provide an equivalent intrinsic.
 
 PUBLIC __readcs
 PUBLIC __readds
@@ -9,32 +22,31 @@ PUBLIC __readfs
 PUBLIC __readgs
 PUBLIC __readldtr
 PUBLIC __readtr
-PUBLIC __readrflags
 PUBLIC __writemsr
 PUBLIC __lgdt
 PUBLIC __lar
 PUBLIC __sgdt
-PUBLIC __sldt
 
-PUBLIC __writecr0 
-PUBLIC __writecr4
+; Wrapper function for the vmcall instruction. 
 
 PUBLIC __vmx_vmcall
 
-; standard vmm handler functions
+; Core vmx handler functions, which include the initiation of vmx operation, handling of 
+; vm-exits and termination of vmx operation.
 
 PUBLIC SaveStateAndVirtualizeCore
-PUBLIC VmexitHandler
+PUBLIC VmExitHandler
 PUBLIC VmxRestoreState
 
-; extern functions
+; External functions required to be linked against this file.
 
 EXTERN VmExitDispatcher:PROC
 EXTERN VirtualizeCore:PROC
-
 EXTERN VmmReadGuestRip:PROC
 EXTERN VmmReadGuestRsp:PROC
 EXTERN VmmGetCoresVcpu:PROC
+
+;	The states that a vcpu can be at.
 
 VMX_VCPU_STATE_OFF        EQU 0
 VMX_VCPU_STATE_RUNNING    EQU 1
@@ -42,7 +54,9 @@ VMX_VCPU_STATE_TERMINATED EQU 2
 
 .code _text
 
-; save general purpose registers to the stack, matching our GUEST_CONTEXT structure
+; 
+;	Save general purpose registers to the stack, matching our GUEST_CONTEXT structure
+;
 
 SAVE_GP macro
 
@@ -65,6 +79,10 @@ SAVE_GP macro
 
 endm
 
+; 
+;	Restores general purpose registers, previously saved via the SAVE_GP macro
+;
+
 RESTORE_GP macro
 
 	pop rax
@@ -86,16 +104,17 @@ RESTORE_GP macro
 
 endm
 
-	; save floating point registers
-	; vmovups allows us to store them in an unaligned address
-	; which is not ideal and should be fixed.
-
-	; todo: Instead we should align the stack and use the movaps instruction
+;
+;	Save the floating point registers to the stack
+;
+;	Note: Currently we use vmovups which allows us to move an xmm register into an
+;		  unaligned memory location which is inefficient. We should align the stack
+;		  and use movaps instead.
+;
 
 SAVE_FP macro
 
 	sub     rsp, 256
-
 	vmovups  xmmword ptr [rsp +  0h], xmm0
 	vmovups  xmmword ptr [rsp + 10h], xmm1
 	vmovups  xmmword ptr [rsp + 20h], xmm2
@@ -115,14 +134,18 @@ SAVE_FP macro
 
 endm
 
+;
+;	Restore the previously saved floating point registers.
+;
+
 RESTORE_FP macro
 
-        vmovups  xmm0, xmmword ptr [rsp +  0h]
-        vmovups  xmm1, xmmword ptr [rsp + 10h]
-        vmovups  xmm2, xmmword ptr [rsp + 20h]
-        vmovups  xmm3, xmmword ptr [rsp + 30h]
-        vmovups  xmm4, xmmword ptr [rsp + 40h]
-        vmovups  xmm5, xmmword ptr [rsp + 50h]
+    vmovups  xmm0, xmmword ptr [rsp +  0h]
+    vmovups  xmm1, xmmword ptr [rsp + 10h]
+    vmovups  xmm2, xmmword ptr [rsp + 20h]
+    vmovups  xmm3, xmmword ptr [rsp + 30h]
+    vmovups  xmm4, xmmword ptr [rsp + 40h]
+    vmovups  xmm5, xmmword ptr [rsp + 50h]
 	vmovups  xmm6, xmmword ptr [rsp + 60h]
 	vmovups  xmm7, xmmword ptr [rsp + 70h]
 	vmovups  xmm8, xmmword ptr [rsp + 80h]
@@ -133,288 +156,561 @@ RESTORE_FP macro
 	vmovups  xmm13, xmmword ptr [rsp + 208]
 	vmovups  xmm14, xmmword ptr [rsp + 224]
 	vmovups  xmm15, xmmword ptr [rsp + 240]
-	
-        add     rsp, 256
+	add     rsp, 256
 
 endm
 
-VmexitHandler PROC
+;++
+;
+; VOID
+; VmExitHandler ()
+;
+; Routine Description:
+;
+;	This routine is jumped to by the CPU on a vm-exit. It handles the saving of
+;	guest state, handling of the vm-exit and restoring the guest state. It also 
+;	optionally exits vmx operation.
+;
+; Arguments:
+;
+;	None.
+;
+; Return Value:
+;
+;   None.
+;
+;--
+
+VmExitHandler PROC
 
 	push 0				; ensure the stack is aligned
-
-	pushfq				; push eflags
-
-	SAVE_GP				; save general purpose registers	
-
+	pushfq			
+	SAVE_GP				
 	SAVE_FP
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
 
 	mov rcx, rsp
-
-	sub rsp, 20h			; allocate some space for the shadow stack
-
-	CALL VmExitDispatcher		; call our vm exit dispatcher	
-
-	add rsp, 20h			; increment stack pointer to free our shadow stack space
-
-	cmp al, 1			; check if the return value from our exit dispatcher is 1 (true)
+	sub rsp, 20h			
+	CALL VmExitDispatcher		
+	add rsp, 20h		
 	
-	je ExitVmx			; jump to ExitVmx routine if we returned true
+	; VmExitDispatcher will return a boolean value, if the return value is 
+	; true it indicates that vmx operation must terminate. If so jump to our
+	; ExitVmx routine.
 
-	RESTORE_FP			; restore fp registers
+	cmp al, 1			
+	je ExitVmx			
+	RESTORE_FP			
+	RESTORE_GP			
+	popfq				
+	vmresume			
 	
-	RESTORE_GP			; restore gp registers
+VmExitHandler ENDP
 
-	popfq				; restore eflags 
-
-	vmresume			; resume vmx execution
-	
-VmexitHandler ENDP
+;++
+;
+; VOID
+; ExitVmx (
+;	IN PGUEST_CONTEXT Context 
+;	)
+;
+; Routine Description:
+;
+;	Routine is invoked by our exit handler if we are to exit vmx operation. Will
+;	restore the guest state using the Context structure aswell as additional
+;	information stored before __vmx_off() was called.
+;
+; Arguments:
+;
+;	Context - Guest context structure.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
 ExitVmx PROC
 
 	push rax	
-
 	sub rsp, 020h
-
 	call VmmGetCoresVcpu
-	
 	add rsp, 020h
+
+	; Set our vmm_state->state equal to VMX_CPU_STATE_TERMINATED indicating
+	; that vmx operation has been terminated on the vpu.
 
 	mov [rax], dword ptr VMX_VCPU_STATE_TERMINATED
 
+	; Since during a regular vm-exit, the cpu will restore the guest RSP and RIP 
+	; via the vcpu's VMCS structure, we must retrieve them from our vcpu's 
+	; vmm_state->exit_state structure. We store both values from the VMCS before
+	; we called __vmx_off().
+
 	pop rax
-
 	sub rsp, 020h 
-
-	call VmmReadGuestRsp		; get our guests rsp before we called vmxoff
-
+	call VmmReadGuestRsp		
 	add rsp, 020h
-
-	mov [rsp+188h], rax		; store the rsp at "top" of our stack
-
+	mov [rsp+188h], rax		
 	sub rsp, 020h
-
-	call VmmReadGuestRip		; get out guests rip before we called vmxoff
-
+	call VmmReadGuestRip
 	add rsp, 020h
 
-	mov rdx, rsp			; save our current rsp
+	; Save our hosts RSP
 
-	mov rbx, [rsp+188h]		; read the guests that we stored on the current stack
+	mov rdx, rsp
 
-	mov rsp, rbx			; change our stack to the guests stack
+	; Switch to our guests stack 
+
+	mov rbx, [rsp+188h]		
+	mov rsp, rbx			
+
+	; Store the guests RIP on the guest stack
 
 	push rax			; push the guests rip to our new stack
 
-	mov rsp, rdx			; restore our previous exit handlers stack
-                        
-	sub rbx,08h			; allocate some space on the guests stack
+	; Switch back to our hosts stack
 
-	mov [rsp+188h], rbx		; store the guests stack on the exit handlers stack
+	mov rsp, rdx	
+	
+	; Store our guests stack at the top of our host stack
 
-	RESTORE_FP			; restore the floating point registers
+	sub rbx,08h			
+	mov [rsp+188h], rbx
 
-	RESTORE_GP			; restore the general purpose registers
+	; Restore guests GP, FP and flags, switch to guest stack and jump to 
+	; guests rip
 
-	popfq				; restore eflags register
-
-	pop rsp				; pop the guests stack back into rsp (we stored this as the top of our exit handlers stack)
-
-	ret				; pop the instruction pointer from the top of the stack (the guests previous rip)
+	RESTORE_FP
+	RESTORE_GP
+	popfq
+	pop rsp	
+	ret
 
 ExitVmx ENDP
 
-; Save the future guests state before we initialise vmx operation
-
-; This functions runs at IRQL = IPI_LEVEL
+;++
+;
+; VOID
+; SaveStateAndVirtualizeCore ()
+;
+; Routine Description:
+;
+;	Store the guests current state and call VirtualizeCore, which will
+;	initiate vmx operation on the current core. This routine is executed
+;	at IRQL = IPI_LEVEL.
+;
+; Arguments:
+;
+;	None.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
 SaveStateAndVirtualizeCore PROC PUBLIC
 
 	SAVE_GP
-
+	SAVE_FP
 	sub rsp, 28h
-
 	mov rdx, rsp
-
 	call VirtualizeCore	
+
+	; We should never reach this ret instruction. If we do, VirtualizeCore will
+	; log the error and set the vcpu's vmm_state->state to terminated.
 
 	ret
 
 SaveStateAndVirtualizeCore ENDP 
 
-; will be used to restore the state of the guest to before we called SaveStateAndVirtualizeCore
-
-; Since we are virtualizing an already running operating system, once vmx operation is initiated
-
-; we will set the guest rip to this function which will restore the guest to the state before 
-
-; we called SaveStateAndVirtualizeCore
+;++
+;
+; VOID
+; VmxRestoreState ()
+;
+; Routine Description:
+;
+;	Restores the initial guest state previously saved via 
+;	SaveStateAndVirtualizeCore. At this point we are executing as the guest.
+;
+; Arguments:
+;
+;	None.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
 VmxRestoreState PROC
 
 	add rsp, 28h
-
-	; We can overwrite rax since we are gonna restore it anyway
-	
 	call VmmGetCoresVcpu
-
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
-
+	RESTORE_FP
 	RESTORE_GP
-	
 	ret
 	
 VmxRestoreState ENDP
 
+;++
+;
+; UINT64
+; __readcs ()
+;
+; Routine Description:
+;
+;   Reads the value of the CS (Code Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   rax - The value of the CS register.
+;
+;--
+
 __readcs PROC
 
-	mov rax, cs
-
-	ret
+    mov rax, cs        
+    ret                
 
 __readcs ENDP
 
+;++
+;
+; UINT64
+; __readds ()
+;
+; Routine Description:
+;
+;   Reads the value of the DS (Data Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   rax - The value of the DS register.
+;
+;--
+
 __readds PROC
 
-	mov rax, ds
-
-	ret
+    mov rax, ds        
+    ret                
 
 __readds ENDP
 
+;++
+;
+; UINT64
+; __reades ()
+;
+; Routine Description:
+;
+;   Reads the value of the ES (Extra Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;	rax - The value of the ES register.
+;
+;--
+
 __reades PROC
 
-	mov rax, es
-
-	ret
+    mov rax, es     
+    ret                
 
 __reades ENDP
 
+;++
+;
+; UINT64
+; __readss ()
+;
+; Routine Description:
+;
+;   Reads the value of the SS (Stack Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   The value of the SS register.
+;
+;--
+
 __readss PROC
 
-	mov rax, ss
-
-	ret
+    mov rax, ss        
+    ret                
 
 __readss ENDP
 
+;++
+;
+; UINT64
+; __readfs ()
+;
+; Routine Description:
+;
+;   Reads the value of the FS (FS Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   The value of the FS register.
+;
+;--
+
 __readfs PROC
 
-	mov rax, fs
-
-	ret
+    mov rax, fs        
+    ret               
 
 __readfs ENDP
 
+;++
+;
+; UINT64
+; __readgs ()
+;
+; Routine Description:
+;
+;   Reads the value of the GS (GS Segment) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   The value of the GS register.
+;
+;--
+
 __readgs PROC
 
-	mov rax, gs
-
-	ret
+    mov rax, gs        
+    ret               
 
 __readgs ENDP
 
+;++
+;
+; UINT64
+; __readldtr ()
+;
+; Routine Description:
+;
+;   Reads the value of the LDTR (Local Descriptor Table Register) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   The value of the LDTR register.
+;
+;--
+
 __readldtr PROC
 
-	sldt rax
-
-	ret
+    sldt rax            ; Load the value of the LDTR register into RAX
+    ret                ; Return to the caller
 
 __readldtr ENDP
 
+;++
+;
+; UINT64
+; __readtr ()
+;
+; Routine Description:
+;
+;   Reads the value of the TR (Task Register) register.
+;
+; Arguments:
+;
+;   None.
+;
+; Return Value:
+;
+;   The value of the TR register.
+;
+;--
+
 __readtr PROC
 
-	str rax
-
-	ret
+    str rax            
+    ret                
 
 __readtr ENDP
 
-__readrflags PROC
-
-	pushfq
-
-	pop rax
-
-	ret
-
-__readrflags ENDP
+;++
+;
+; VOID
+; __writemsr (IN UINT64 Value)
+;
+; Routine Description:
+;
+;   Writes the value specified in RDX:RAX to the specified Model-Specific 
+;	Register (MSR).
+;
+; Arguments:
+;
+;   Value - The value to write to the MSR.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
 __writemsr PROC
 
-	mov rax, rdx
-
-	shr rdx, 32
-
-	wrmsr
-
-	ret
+    mov rax, rdx        
+    shr rdx, 32        
+    wrmsr               
+    ret                 
 
 __writemsr ENDP
 
-__writecr0 PROC
-
-	mov cr0, rcx
-
-	ret
-
-__writecr0 ENDP
-
-__writecr4 PROC
-
-	mov cr4, rcx
-
-	ret
-
-__writecr4 ENDP
+;++
+;
+; VOID
+; __lgdt (IN PVOID BaseAddress)
+;
+; Routine Description:
+;
+;   Loads the Global Descriptor Table (GDT) register with the descriptor table 
+;	located at the specified address.
+;
+; Arguments:
+;
+;   BaseAddress - The address of the GDT descriptor table.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
 __lgdt PROC
 
-	lgdt fword ptr [rcx]
-	
-	ret
+    lgdt fword ptr [rcx]    
+    ret                    
 
 __lgdt ENDP
 
 
+;++
+;
+; NTSTATUS INLINE
+; __vmx_vmcall(_In_ UINT64 VmCallNumber,
+;              _In_ UINT64 OptionalParam1,
+;              _In_ UINT64 OptionalParam2,
+;              _In_ UINT64 OptionalParam3);
+;
+; Routine Description:
+;
+;   Executes a VM call instruction (VMCALL) to transition from VMX non-root operation 
+;	to VMX root operation.
+;
+; Arguments:
+;
+;   VmcallNumber   - The number specifying the VM call to be made.
+;   OptionalParam1 - The first optional parameter for the VM call.
+;   OptionalParam2 - The second optional parameter for the VM call.
+;   OptionalParam3 - The third optional parameter for the VM call.
+;
+; Return Value:
+;
+;   NTSTATUS - The status of the VM call execution.
+;
+;--
+
 __vmx_vmcall PROC
     
-	pushfq
-
-	vmcall       
-
-	popfq
-
-	ret
+    pushfq      
+    vmcall      
+    popfq      
+    ret         
 
 __vmx_vmcall ENDP
 
+;++
+;
+; UINT64
+; __lar (IN UINT64 Selector)
+;
+; Routine Description:
+;
+;   Loads Access Rights byte (AR byte) of a segment descriptor into RAX based 
+;	on the selector in RCX.
+;
+; Arguments:
+;
+;   Selector - The segment selector to load the access rights rom
+;
+; Return Value:
+;
+;   The AR byte of the segment descriptor.
+;
+;--
+
 __lar PROC
 
-	lar rax, rcx
-
-	ret
+    lar rax, rcx     
+    ret              
 
 __lar ENDP
 
-__sgdt PROC
-	
-	sgdt [rcx]
+;++
+;
+; VOID
+; __sgdt (IN PVOID BaseAddress)
+;
+; Routine Description:
+;
+;   Stores the contents of the Global Descriptor Table (GDT) register at the 
+;	specified address.
+;
+; Arguments:
+;
+;   BaseAddress - The address where the GDT contents will be stored.
+;
+; Return Value:
+;
+;   None.
+;
+;--
 
-	ret
+__sgdt PROC
+    
+    sgdt [rcx]   
+    ret           
 
 __sgdt ENDP
-
-__sldt PROC
-
-	sldt ax
-
-	ret
-
-__sldt ENDP
 
 
 END

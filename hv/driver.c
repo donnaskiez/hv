@@ -37,10 +37,6 @@ DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
         FreeGlobalDriverState();
 }
 
-/*
- * TODO: need to refactor this to safely return from vmx operation and also fix
- * da leaks.
- */
 NTSTATUS
 DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
