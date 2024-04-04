@@ -160,6 +160,50 @@ RESTORE_FP macro
 
 endm
 
+;
+;	Saves the debug registers
+;
+
+SAVE_DEBUG macro
+
+	sub rsp, 28h
+	push rax
+	mov rax, dr0
+	mov [rsp + 8], rax
+	mov rax, dr1
+	mov [rsp + 16], rax
+	mov rax, dr2
+	mov [rsp + 24], rax
+	mov rax, dr3
+	mov [rsp + 32], rax
+	mov rax, dr6
+	mov [rsp + 40], rax
+	pop rax
+
+endm
+
+;
+;	Restore the debug registers
+;
+
+RESTORE_DEBUG macro
+
+	push rax
+	mov rax, [rsp + 8]
+	mov dr0, rax
+	mov rax, [rsp + 16]
+	mov dr1, rax
+	mov rax, [rsp + 24]
+	mov dr2, rax
+	mov rax, [rsp + 32]
+	mov dr3, rax
+	mov rax, [rsp + 40]
+	mov dr6, rax
+	pop rax
+	add rsp, 28h
+
+endm
+
 ;++
 ;
 ; VOID
@@ -187,6 +231,7 @@ VmExitHandler PROC
 	pushfq			
 	SAVE_GP				
 	SAVE_FP
+	SAVE_DEBUG
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -201,7 +246,8 @@ VmExitHandler PROC
 	; ExitVmx routine.
 
 	cmp al, 1			
-	je ExitVmx			
+	je ExitVmx	
+	RESTORE_DEBUG
 	RESTORE_FP			
 	RESTORE_GP			
 	popfq				
@@ -283,6 +329,7 @@ ExitVmx PROC
 	; Restore guests GP, FP and flags, switch to guest stack and jump to 
 	; guests rip
 
+	RESTORE_DEBUG
 	RESTORE_FP
 	RESTORE_GP
 	popfq
