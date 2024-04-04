@@ -456,6 +456,28 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
         }
 }
 
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonWrsmr(_In_ PGUEST_CONTEXT Context)
+{
+        LARGE_INTEGER msr = {0};
+        msr.LowPart       = (UINT32)Context->rax;
+        msr.HighPart      = (UINT32)Context->rdx;
+        __writemsr((UINT32)Context->rcx, msr.QuadPart);
+}
+
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
+{
+        LARGE_INTEGER msr = {0};
+        msr.QuadPart      = __readmsr((UINT32)Context->rcx);
+        Context->rax      = msr.LowPart;
+        Context->rdx      = msr.HighPart;
+}
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -501,6 +523,12 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
                 DispatchExitReasonMonitorTrapFlag(Context);
                 goto no_rip_increment;
+        case VMX_EXIT_REASON_EXECUTE_WRMSR:
+                DispatchExitReasonWrsmr(Context);
+                break;
+        case VMX_EXIT_REASON_EXECUTE_RDMSR:
+                DispatchExitReasonRdmsr(Context);
+                break;
         default: break;
         }
 

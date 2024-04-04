@@ -271,6 +271,18 @@ IsLocalApicPresent()
         return features.CpuidFeatureInformationEdx.ApicOnChip ? TRUE : FALSE;
 }
 
+#define QWORD_BIT_COUNT 64
+
+STATIC
+VOID
+SetBitInBitmap(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
+{
+    
+        UINT32 index  = Bit / QWORD_BIT_COUNT;
+        UINT32 offset = Bit % QWORD_BIT_COUNT;
+        Bitmap[index] |= (1ull << offset);
+}
+
 STATIC
 VOID
 VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
@@ -334,6 +346,9 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
             AdjustMsrControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
+
+        SetBitInBitmap(Vcpu->msr_bitmap_va, IA32_X2APIC_APICID);
+
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }
 
