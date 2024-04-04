@@ -302,8 +302,8 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * bits are the tpr value.
          */
         // vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
-         vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL;
-         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
+        vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL;
+        vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
 
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 }
@@ -327,6 +327,7 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->virtual_apic_va);
 #endif
 #if DEBUG
+        CleanupLoggerOnUnload(vcpu);
         if (vcpu->log_state.log_buffer)
                 ExFreePoolWithTag(vcpu->log_state.log_buffer,
                                   VMX_LOG_BUFFER_POOL_TAG);
@@ -707,6 +708,9 @@ SetupVmxOperation()
                 BroadcastVmxTermination();
                 goto end;
         }
+
+        UINT32 test = __readmsr(IA32_X2APIC_APICID);
+        DEBUG_LOG("test: %lx", test);
 
 end:
         if (context && context->status)

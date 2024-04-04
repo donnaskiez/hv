@@ -277,7 +277,6 @@ STATIC
 VOID
 SetBitInBitmap(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
 {
-    
         UINT32 index  = Bit / QWORD_BIT_COUNT;
         UINT32 offset = Bit % QWORD_BIT_COUNT;
         Bitmap[index] |= (1ull << offset);
@@ -347,7 +346,12 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 
-        SetBitInBitmap(Vcpu->msr_bitmap_va, IA32_X2APIC_APICID);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_APICID);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_VERSION);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_APICID);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_VERSION);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }

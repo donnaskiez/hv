@@ -46,6 +46,13 @@ unlock:
         HighIrqlLockRelease(&log->lock);
 }
 
+VOID
+CleanupLoggerOnUnload(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+{
+        KeFlushQueuedDpcs();
+        KeCancelTimer(&Vcpu->log_state.timer);
+}
+
 NTSTATUS
 InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {

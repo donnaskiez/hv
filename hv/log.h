@@ -16,4 +16,7 @@ LogToBuffer(PCSTR Format, ...);
 BOOLEAN
 CheckToFlushLogs(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
 
+VOID
+CleanupLoggerOnUnload(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+
 #endif

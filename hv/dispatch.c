@@ -459,12 +459,27 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonWrsmr(_In_ PGUEST_CONTEXT Context)
+DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
 {
         LARGE_INTEGER msr = {0};
         msr.LowPart       = (UINT32)Context->rax;
         msr.HighPart      = (UINT32)Context->rdx;
         __writemsr((UINT32)Context->rcx, msr.QuadPart);
+#if DEBUG
+        HIGH_IRQL_LOG_SAFE(
+            "Wrmsr - rax: %llx, rcx: %llx", Context->rax, Context->rcx);
+#endif
+}
+
+#define X2APIC_MSR_LOW  0x800
+#define X2APIC_MSR_HIGH 0x83f
+
+FORCEINLINE
+STATIC
+BOOLEAN
+IsMsrReadX2Apic(UINT32 Ecx)
+{
+        return Ecx >= X2APIC_MSR_LOW && Ecx <= X2APIC_MSR_HIGH ? TRUE : FALSE;
 }
 
 FORCEINLINE
@@ -476,6 +491,9 @@ DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
         msr.QuadPart      = __readmsr((UINT32)Context->rcx);
         Context->rax      = msr.LowPart;
         Context->rdx      = msr.HighPart;
+#if DEBUG
+        HIGH_IRQL_LOG_SAFE("Rdmsr: rcx: %llx", Context->rcx);
+#endif
 }
 
 BOOLEAN
@@ -524,7 +542,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 DispatchExitReasonMonitorTrapFlag(Context);
                 goto no_rip_increment;
         case VMX_EXIT_REASON_EXECUTE_WRMSR:
-                DispatchExitReasonWrsmr(Context);
+                DispatchExitReasonWrmsr(Context);
                 break;
         case VMX_EXIT_REASON_EXECUTE_RDMSR:
                 DispatchExitReasonRdmsr(Context);

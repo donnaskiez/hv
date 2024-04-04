@@ -68,11 +68,11 @@ typedef struct _VCPU_LOG_STATE {
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
-        //UINT64 dr0;
-        //UINT64 dr1;
-        //UINT64 dr2;
-        //UINT64 dr3;
-        //UINT64 dr6;
+        // UINT64 dr0;
+        // UINT64 dr1;
+        // UINT64 dr2;
+        // UINT64 dr3;
+        // UINT64 dr6;
         M128A  Xmm0;
         M128A  Xmm1;
         M128A  Xmm2;
@@ -109,24 +109,31 @@ typedef struct _GUEST_CONTEXT {
 
 } GUEST_CONTEXT, *PGUEST_CONTEXT;
 
+typedef struct _MSR_BITMAP {
+        UINT8 msr_low_read[1000];
+        UINT8 msr_high_read[1000];
+        UINT8 msr_low_write[1000];
+        UINT8 msr_high_write[1000];
+} MSR_BITMAP, *PMSR_BITMAP;
+
 typedef struct _VIRTUAL_MACHINE_STATE {
         VCPU_STATE     state;
         VMM_CACHE      cache;
         EXIT_STATE     exit_state;
         PGUEST_CONTEXT guest_context;
 
-        UINT64         vmxon_region_pa;
-        UINT64         vmxon_region_va;
-        UINT64         vmcs_region_pa;
-        UINT64         vmcs_region_va;
-        UINT64         eptp_va;
-        UINT64         vmm_stack_va;
-        UINT64         msr_bitmap_va;
-        UINT64         msr_bitmap_pa;
-        UINT64         virtual_apic_va;
-        UINT64         virtual_apic_pa;
-        UINT32         exception_bitmap;
-        UINT32         exception_bitmap_mask;
+        UINT64      vmxon_region_pa;
+        UINT64      vmxon_region_va;
+        UINT64      vmcs_region_pa;
+        UINT64      vmcs_region_va;
+        UINT64      eptp_va;
+        UINT64      vmm_stack_va;
+        PMSR_BITMAP msr_bitmap_va;
+        PMSR_BITMAP msr_bitmap_pa;
+        UINT64      virtual_apic_va;
+        UINT64      virtual_apic_pa;
+        UINT32      exception_bitmap;
+        UINT32      exception_bitmap_mask;
 
         IA32_VMX_PROCBASED_CTLS_REGISTER  proc_ctls;
         IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
