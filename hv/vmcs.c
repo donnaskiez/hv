@@ -317,7 +317,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 #if APIC
         if (IsLocalApicPresent()) {
-                Vcpu->proc_ctls2.VirtualizeX2ApicMode = TRUE;
+                Vcpu->proc_ctls2.VirtualizeX2ApicMode = FALSE;
         }
 #endif
 
@@ -350,8 +350,10 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_VERSION);
         SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_APICID);
         SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_VERSION);
+#ifndef APIC
         SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
         SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
+#endif
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }
