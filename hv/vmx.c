@@ -301,14 +301,14 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * TPR register is a byte. first 4 bits are the tpr threshold, last 4
          * bits are the tpr value.
          */
-        vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
+        vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL;
         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
-            __readmsr(IA32_X2APIC_APICID);
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
-            __readmsr(IA32_X2APIC_VERSION);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
+        //    __readmsr(IA32_X2APIC_APICID);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
+        //    __readmsr(IA32_X2APIC_VERSION);
 }
 
 STATIC

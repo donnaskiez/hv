@@ -101,11 +101,15 @@ __vapic_write_32(_In_ UINT32 Value, _In_ UINT32 Register)
 FORCEINLINE
 STATIC
 VOID
-__vapic_read_32(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
+__vapic_read_32(_In_ PGUEST_CONTEXT                 Context,
+                _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
+                _In_ UINT32                         ApicRegister)
 {
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
         PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
-        (UINT32) Context->rax = vtpr->VirtualTaskPriorityRegister;
+        WriteValueInContextRegister(Context,
+                                    Qualification->GeneralPurposeRegister,
+                                    (UINT32)vtpr->VirtualTaskPriorityRegister);
 #if DEBUG
         HIGH_IRQL_LOG_SAFE("tpr read: %lx", vtpr->VirtualTaskPriorityRegister);
 #endif
@@ -170,7 +174,7 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                     VmxVmRead(VMCS_GUEST_CR4));
                 break;
         case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
-                __vapic_read_32(Context, APIC_TASK_PRIORITY);
+                __vapic_read_32(Context, Qualification, APIC_TASK_PRIORITY);
                 break;
         default: break;
         }
@@ -225,8 +229,10 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
          * we shouldnt increment the guest rip.
          */
         if (qualification.ControlRegister ==
-            VMX_EXIT_QUALIFICATION_REGISTER_CR8)
+            VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
+                // DEBUG_LOG("cr8 exiting");
                 return TRUE;
+        }
 
         return FALSE;
 }
