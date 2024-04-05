@@ -549,6 +549,121 @@ DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 #endif
 }
 
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
+{
+        VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
+            .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
+
+        HIGH_IRQL_LOG_SAFE("IO instruction exit.");
+
+        PUINT64 out_register = &Context->rax;
+        UINT32  count        = qual.RepPrefixed ? (UINT32)Context->rcx : 1;
+
+        /* String based IO reads/writes use rsi for out and rdi for in. */
+        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+                out_register = &Context->rsi;
+                if (qual.DirectionOfAccess ==
+                    VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
+                        out_register = &Context->rdi;
+                }
+        }
+
+        if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
+                if (qual.StringInstruction ==
+                    VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+                        switch (qual.SizeOfAccess) {
+                        case 1:
+                                __inbytestring(qual.PortNumber,
+                                               (UINT8)out_register,
+                                               qual.SizeOfAccess);
+                                break;
+                        case 2:
+                                __inbytestring(qual.PortNumber,
+                                               (UINT16)out_register,
+                                               qual.SizeOfAccess);
+                                break;
+                        case 3:
+                                __inbytestring(qual.PortNumber,
+                                               (UINT32)out_register,
+                                               qual.SizeOfAccess);
+                                break;
+                        }
+                }
+                else {
+                        switch (qual.SizeOfAccess) {
+                        case 1:
+                                *out_register = __inbyte(qual.PortNumber);
+                                break;
+                        case 2:
+                                *out_register = __inword(qual.PortNumber);
+                                break;
+                        case 3:
+                                *out_register = __indword(qual.PortNumber);
+                                break;
+                        }
+                }
+        }
+        else {
+                if (qual.StringInstruction ==
+                    VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+                        switch (qual.SizeOfAccess) {
+                        case 1:
+                                __outbytestring(qual.PortNumber,
+                                                (UINT8)out_register,
+                                                qual.SizeOfAccess);
+                                break;
+                        case 2:
+                                __outbytestring(qual.PortNumber,
+                                                (UINT16)out_register,
+                                                qual.SizeOfAccess);
+                                break;
+                        case 4:
+                                __outbytestring(qual.PortNumber,
+                                                (UINT32)out_register,
+                                                qual.SizeOfAccess);
+                                break;
+                        }
+                }
+                else {
+                        switch (qual.SizeOfAccess) {
+                        case 1:
+                                __outbyte(qual.PortNumber,
+                                          (UINT8)*out_register);
+                                break;
+                        case 2:
+                                __outbyte(qual.PortNumber,
+                                          (UINT8)*out_register);
+                                break;
+                        case 3:
+                                __outbyte(qual.PortNumber,
+                                          (UINT8)*out_register);
+                                break;
+                        }
+                }
+        }
+
+        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+                PUINT64 reg = qual.DirectionOfAccess ==
+                                      VMX_EXIT_QUALIFICATION_DIRECTION_IN
+                                  ? &Context->rdi
+                                  : &Context->rsi;
+
+                if (Context->eflags & EFLAGS_DIRECTION_FLAG_BIT) {
+                        reg -= count * qual.SizeOfAccess;
+                }
+                else {
+                        reg += count * qual.SizeOfAccess;
+                }
+
+                if (qual.RepPrefixed) {
+                        Context->rcx = 0;
+                }
+        }
+}
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -600,6 +715,9 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 break;
         case VMX_EXIT_REASON_EXECUTE_RDMSR:
                 DispatchExitReasonRdmsr(Context);
+                break;
+        case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
+                DispatchExitReasonIoInstruction(Context);
                 break;
         default: break;
         }

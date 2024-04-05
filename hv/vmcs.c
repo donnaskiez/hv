@@ -295,6 +295,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.UseMsrBitmaps             = TRUE;
         Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
         Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
+        Vcpu->proc_ctls.UnconditionalIoExiting    = TRUE;
 
 #if CR8_EXITING
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
@@ -343,17 +344,20 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
             VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
             AdjustMsrControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
 
-        Vcpu->entry_ctls.Ia32EModeGuest = TRUE;
+        Vcpu->entry_ctls.Ia32EModeGuest    = TRUE;
+        Vcpu->entry_ctls.LoadDebugControls = TRUE;
 
         VmxVmWrite(
             VMCS_CTRL_VMENTRY_CONTROLS,
             AdjustMsrControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 
+        Vcpu->exception_bitmap |= EXCEPTION_DIVIDED_BY_ZERO;
+
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 
 #ifndef APIC
-        //SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
-        //SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
+        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
 #endif
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
