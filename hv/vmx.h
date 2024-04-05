@@ -166,7 +166,7 @@ typedef union {
         };
 
         UINT32 AsUInt;
-} VTPR;
+} VTPR, *PVTPR;
 
 VOID
 InitialiseVmxOperation(_In_ PKDPC*    Dpc,

@@ -303,8 +303,12 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          */
         vtpr.VirtualTaskPriorityRegister   = __readmsr(IA32_X2APIC_TPR);
         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
-
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
+
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
+            __readmsr(IA32_X2APIC_APICID);
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
+            __readmsr(IA32_X2APIC_VERSION);
 }
 
 STATIC
@@ -321,10 +325,8 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
-#if APIC
         if (vcpu->virtual_apic_va)
                 MmFreeContiguousMemory(vcpu->virtual_apic_va);
-#endif
 #if DEBUG
         CleanupLoggerOnUnload(vcpu);
         if (vcpu->log_state.log_buffer)
@@ -435,8 +437,6 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 goto end;
         }
 
-#if APIC
-
         if (!IsLocalApicPresent()) {
                 DEBUG_ERROR("Local APIC is not present.");
                 goto end;
@@ -450,8 +450,6 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 return status;
         }
-
-#endif
 
 end:
         DEBUG_LOG("Core: %lx - Initiation Status: %lx", core, status);
@@ -475,10 +473,7 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 return;
         }
 
-#if APIC
         InitialiseVirtualApicPage(vcpu);
-#endif
-
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */

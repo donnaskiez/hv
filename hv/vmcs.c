@@ -293,8 +293,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          */
         Vcpu->proc_ctls.ActivateSecondaryControls = TRUE;
         Vcpu->proc_ctls.UseMsrBitmaps             = TRUE;
-        Vcpu->proc_ctls.Cr3LoadExiting            = TRUE;
-        Vcpu->proc_ctls.Cr3StoreExiting           = TRUE;
+        Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
+        Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
+
+#ifndef APIC
+        Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
+        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
+#endif
 
 #if APIC
         if (IsLocalApicPresent()) {
@@ -346,116 +351,10 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_APICID);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_VERSION);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_PPR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_EOI);
 #ifndef APIC
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        //SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        //SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
 #endif
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_LDR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_SIVR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ISR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TMR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_IRR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ESR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_LVT_CMCI);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_ICR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_LVT_TIMER);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_LVT_THERMAL);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_LVT_PMI);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_LVT_LINT0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_LVT_LINT1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_LVT_ERROR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_INIT_COUNT);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read,
-                       IA32_X2APIC_CUR_COUNT);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_DIV_CONF);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_SELF_IPI);
-
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_APICID);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_VERSION);
-#ifndef APIC
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
-#endif
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_PPR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_EOI);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_LDR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_SIVR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ISR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TMR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR2);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR3);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR4);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR5);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR6);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_IRR7);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ESR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_CMCI);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_ICR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_TIMER);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_THERMAL);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_LVT_PMI);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_LINT0);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_LINT1);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_LVT_ERROR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_INIT_COUNT);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_CUR_COUNT);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_DIV_CONF);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write,
-                       IA32_X2APIC_SELF_IPI);
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }

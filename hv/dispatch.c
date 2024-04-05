@@ -84,6 +84,33 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
         }
 }
 
+FORCEINLINE
+STATIC
+VOID
+__vapic_write_32(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
+        vtpr->VirtualTaskPriorityRegister = (UINT32)Context->rcx;
+        __writecr8((UINT32)Context->rcx);
+#if DEBUG
+        HIGH_IRQL_LOG_SAFE("tpr write: %lx", vtpr->VirtualTaskPriorityRegister);
+#endif
+}
+
+FORCEINLINE
+STATIC
+VOID
+__vapic_read_32(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
+        (UINT32) Context->rax = vtpr->VirtualTaskPriorityRegister;
+#if DEBUG
+        HIGH_IRQL_LOG_SAFE("tpr read: %lx", vtpr->VirtualTaskPriorityRegister);
+#endif
+}
+
 /*
  * Write the value of the designated general purpose register into the
  * designated control register
@@ -107,6 +134,8 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
         case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
+                __vapic_write_32(Context, APIC_TASK_PRIORITY);
                 return;
         default: return;
         }
@@ -139,6 +168,9 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                     Context,
                     Qualification->GeneralPurposeRegister,
                     VmxVmRead(VMCS_GUEST_CR4));
+                break;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
+                __vapic_read_32(Context, APIC_TASK_PRIORITY);
                 break;
         default: break;
         }
