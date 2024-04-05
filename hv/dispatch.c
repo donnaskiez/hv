@@ -138,9 +138,11 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
         case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
+#if CR8_EXITING
         case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
                 __vapic_write_32((UINT32)value, APIC_TASK_PRIORITY);
                 return;
+#endif
         default: return;
         }
 }
@@ -173,9 +175,11 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                     Qualification->GeneralPurposeRegister,
                     VmxVmRead(VMCS_GUEST_CR4));
                 break;
+#if CR8_EXITING
         case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
                 __vapic_read_32(Context, Qualification, APIC_TASK_PRIORITY);
                 break;
+#endif
         default: break;
         }
 }

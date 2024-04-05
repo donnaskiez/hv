@@ -703,9 +703,6 @@ SetupVmxOperation()
                 goto end;
         }
 
-        UINT32 test = __readmsr(IA32_X2APIC_APICID);
-        DEBUG_LOG("test: %lx", test);
-
 end:
         if (context && context->status)
                 ExFreePoolWithTag(context->status, POOL_TAG_STATUS_ARRAY);
