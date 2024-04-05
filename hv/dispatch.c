@@ -87,12 +87,12 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
 FORCEINLINE
 STATIC
 VOID
-__vapic_write_32(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
+__vapic_write_32(_In_ UINT32 Value, _In_ UINT32 Register)
 {
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
         PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
-        vtpr->VirtualTaskPriorityRegister = (UINT32)Context->rcx;
-        __writecr8((UINT32)Context->rcx);
+        vtpr->VirtualTaskPriorityRegister = Value;
+        __writecr8(vtpr->VirtualTaskPriorityRegister);
 #if DEBUG
         HIGH_IRQL_LOG_SAFE("tpr write: %lx", vtpr->VirtualTaskPriorityRegister);
 #endif
@@ -135,7 +135,7 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
         case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
-                __vapic_write_32(Context, APIC_TASK_PRIORITY);
+                __vapic_write_32((UINT32)value, APIC_TASK_PRIORITY);
                 return;
         default: return;
         }
@@ -199,7 +199,7 @@ DispatchExitReasonCLTS(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
 }
 
 STATIC
-VOID
+BOOLEAN
 DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 {
         VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
@@ -218,6 +218,17 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
         default: break;
         }
+
+        /*
+         * MOV to CR8 and MOV from CR8 are trap-like exits, where the
+         * instruction completes before the vmx host handler is invoked, hence
+         * we shouldnt increment the guest rip.
+         */
+        if (qualification.ControlRegister ==
+            VMX_EXIT_QUALIFICATION_REGISTER_CR8)
+                return TRUE;
+
+        return FALSE;
 }
 
 FORCEINLINE
@@ -546,7 +557,8 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                     Context->rcx, Context->rdx, Context->r8, Context->r9);
                 break;
         case VMX_EXIT_REASON_MOV_CR:
-                DispatchExitReasonControlRegisterAccess(Context);
+                if (DispatchExitReasonControlRegisterAccess(Context))
+                        goto no_rip_increment;
                 break;
         case VMX_EXIT_REASON_EXECUTE_WBINVD:
                 DispatchExitReasonWBINVD(Context);
