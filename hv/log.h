@@ -5,7 +5,12 @@
 
 #include "vmx.h"
 
-#define HIGH_IRQL_LOG_SAFE(fmt, ...) LogToBuffer("hv-root: " fmt, ##__VA_ARGS__)
+#ifdef DEBUG
+#        define HIGH_IRQL_LOG_SAFE(fmt, ...) \
+                LogToBuffer("hv-root: " fmt, ##__VA_ARGS__)
+#else
+#        define HIGH_IRQL_LOG_SAFE(fmt, ...)
+#endif
 
 NTSTATUS
 InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu);

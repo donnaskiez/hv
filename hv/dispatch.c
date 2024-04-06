@@ -549,6 +549,124 @@ DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 #endif
 }
 
+/*
+ * String based I/O reads/writes use RSI for OUT and RDI for IN. Else we use RAX
+ * as we would for any other call.
+ */
+FORCEINLINE
+STATIC
+PUINT64
+GetIoInstructionOutputRegister(
+    _In_ PGUEST_CONTEXT                         Context,
+    _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
+{
+        if (Qualification->StringInstruction ==
+            VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+                return Qualification->DirectionOfAccess ==
+                               VMX_EXIT_QUALIFICATION_DIRECTION_IN
+                           ? &Context->rdi
+                           : &Context->rsi;
+        }
+
+        return &Context->rax;
+}
+
+/*
+ * If the associated IN / OUT instruction is prefixed with REP, the string
+ * instruction will be repeated the number of times specified in the count
+ * register (ECX) or until the indicated position of the ZF flag is no longer
+ * met.
+ */
+FORCEINLINE
+STATIC
+UINT32
+GetIoInstructionRepeatCount(
+    _In_ PGUEST_CONTEXT                         Context,
+    _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
+{
+        return Qualification->RepPrefixed ? (UINT32)Context->rcx : 1;
+}
+
+FORCEINLINE
+STATIC
+VOID
+HandleIoInStringOrByte(_In_ UINT16     PortNumber,
+                       _Inout_ PUINT32 OutRegister,
+                       _In_ UINT32     AccessSize,
+                       _In_ BOOLEAN    String)
+{
+        if (String) {
+                switch (AccessSize) {
+                case 1:
+                        __inbytestring(
+                            PortNumber, (PUINT8)OutRegister, AccessSize);
+                        break;
+                case 2:
+                        __inwordstring(
+                            PortNumber, (PUINT16)OutRegister, AccessSize);
+                        break;
+                case 3:
+                        __indwordstring(
+                            PortNumber, (PUINT32)OutRegister, AccessSize);
+                        break;
+                }
+        }
+        else {
+                switch (AccessSize) {
+                case 1: *OutRegister = __inbyte(PortNumber); break;
+                case 2: *OutRegister = __inword(PortNumber); break;
+                case 3: *OutRegister = __indword(PortNumber); break;
+                }
+        }
+}
+
+FORCEINLINE
+STATIC
+VOID
+HandleIoOutStringOrByte(_In_ UINT16     PortNumber,
+                        _Inout_ PUINT32 OutRegister,
+                        _In_ UINT32     AccessSize,
+                        _In_ BOOLEAN    String)
+{
+        if (String) {
+                switch (AccessSize) {
+                case 1:
+                        __outbytestring(
+                            PortNumber, (PUINT8)OutRegister, AccessSize);
+                        break;
+                case 2:
+                        __outwordstring(
+                            PortNumber, (PUINT16)OutRegister, AccessSize);
+                        break;
+                case 3:
+                        __outdwordstring(
+                            PortNumber, (PUINT32)OutRegister, AccessSize);
+                        break;
+                }
+        }
+        else {
+                switch (AccessSize) {
+                case 1: __outbyte(PortNumber, (UINT8)*OutRegister); break;
+                case 2: __outword(PortNumber, (UINT16)*OutRegister); break;
+                case 3: __outdword(PortNumber, (UINT32)*OutRegister); break;
+                }
+        }
+}
+
+FORCEINLINE
+STATIC
+VOID
+UpdateDirectionFlagRegister(_Inout_ PUINT64     Output,
+                            _In_ PGUEST_CONTEXT Context,
+                            _In_ UINT32         Repetitions,
+                            _In_ UINT32         AccessSize)
+{
+        if (Context->eflags & EFLAGS_DIRECTION_FLAG_BIT)
+                (UINT32)* Output -= Repetitions * AccessSize;
+        else
+                (UINT32)* Output += Repetitions * AccessSize;
+}
+
 FORCEINLINE
 STATIC
 VOID
@@ -557,111 +675,32 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
         VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
             .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
 
-        HIGH_IRQL_LOG_SAFE("IO instruction exit.");
+        // check tss io bitmap -> if take insert gp fault
 
-        PUINT64 out_register = &Context->rax;
-        UINT32  count        = qual.RepPrefixed ? (UINT32)Context->rcx : 1;
-
-        /* String based IO reads/writes use rsi for out and rdi for in. */
-        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
-                out_register = &Context->rsi;
-                if (qual.DirectionOfAccess ==
-                    VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
-                        out_register = &Context->rdi;
-                }
-        }
+        PUINT64 output      = GetIoInstructionOutputRegister(Context, &qual);
+        UINT32  repetitions = GetIoInstructionRepeatCount(Context, &qual);
 
         if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
-                if (qual.StringInstruction ==
-                    VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
-                        switch (qual.SizeOfAccess) {
-                        case 1:
-                                __inbytestring(qual.PortNumber,
-                                               (UINT8)out_register,
-                                               qual.SizeOfAccess);
-                                break;
-                        case 2:
-                                __inbytestring(qual.PortNumber,
-                                               (UINT16)out_register,
-                                               qual.SizeOfAccess);
-                                break;
-                        case 3:
-                                __inbytestring(qual.PortNumber,
-                                               (UINT32)out_register,
-                                               qual.SizeOfAccess);
-                                break;
-                        }
-                }
-                else {
-                        switch (qual.SizeOfAccess) {
-                        case 1:
-                                *out_register = __inbyte(qual.PortNumber);
-                                break;
-                        case 2:
-                                *out_register = __inword(qual.PortNumber);
-                                break;
-                        case 3:
-                                *out_register = __indword(qual.PortNumber);
-                                break;
-                        }
-                }
+                HandleIoInStringOrByte(qual.PortNumber,
+                                       (PUINT32)output,
+                                       qual.SizeOfAccess,
+                                       qual.StringInstruction);
         }
         else {
-                if (qual.StringInstruction ==
-                    VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
-                        switch (qual.SizeOfAccess) {
-                        case 1:
-                                __outbytestring(qual.PortNumber,
-                                                (UINT8)out_register,
-                                                qual.SizeOfAccess);
-                                break;
-                        case 2:
-                                __outbytestring(qual.PortNumber,
-                                                (UINT16)out_register,
-                                                qual.SizeOfAccess);
-                                break;
-                        case 4:
-                                __outbytestring(qual.PortNumber,
-                                                (UINT32)out_register,
-                                                qual.SizeOfAccess);
-                                break;
-                        }
-                }
-                else {
-                        switch (qual.SizeOfAccess) {
-                        case 1:
-                                __outbyte(qual.PortNumber,
-                                          (UINT8)*out_register);
-                                break;
-                        case 2:
-                                __outbyte(qual.PortNumber,
-                                          (UINT8)*out_register);
-                                break;
-                        case 3:
-                                __outbyte(qual.PortNumber,
-                                          (UINT8)*out_register);
-                                break;
-                        }
-                }
+                HandleIoOutStringOrByte(qual.PortNumber,
+                                        (PUINT32)output,
+                                        qual.SizeOfAccess,
+                                        qual.StringInstruction);
         }
 
-        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
-                PUINT64 reg = qual.DirectionOfAccess ==
-                                      VMX_EXIT_QUALIFICATION_DIRECTION_IN
-                                  ? &Context->rdi
-                                  : &Context->rsi;
-
-                if (Context->eflags & EFLAGS_DIRECTION_FLAG_BIT) {
-                        reg -= count * qual.SizeOfAccess;
-                }
-                else {
-                        reg += count * qual.SizeOfAccess;
-                }
-
-                if (qual.RepPrefixed) {
-                        Context->rcx = 0;
-                }
-        }
+        /*
+         * RCX contains the number of iterations that the I/O instruction will
+         * run, update the register to ensure the instruction is executed the
+         * correct number of times.
+         */
+        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING)
+                UpdateDirectionFlagRegister(
+                    output, Context, repetitions, qual.SizeOfAccess);
 }
 
 BOOLEAN
