@@ -84,6 +84,36 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
         }
 }
 
+#define CPL_KERNEL 0
+#define CPL_USER   3
+
+/*
+ * CS or SS segment selector contain the current protection level (CPL) for the
+ * currently executing program.
+ */
+FORCEINLINE
+STATIC
+UINT16
+ProbeGuestCurrentProtectionLevel()
+{
+        SEGMENT_SELECTOR cs = {.AsUInt =
+                                   (UINT16)VmxVmRead(VMCS_GUEST_CS_SELECTOR)};
+        return cs.RequestPrivilegeLevel;
+}
+
+FORCEINLINE
+STATIC
+VOID
+InjectGuestWithGpFault()
+{
+        VMENTRY_INTERRUPT_INFORMATION gp = {0};
+        gp.DeliverErrorCode              = FALSE;
+        gp.InterruptionType              = HardwareException;
+        gp.Valid                         = TRUE;
+        gp.Vector                        = GeneralProtection;
+        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
+}
+
 FORCEINLINE
 STATIC
 VOID
@@ -119,6 +149,7 @@ __vapic_read_32(_In_ PGUEST_CONTEXT                 Context,
  * Write the value of the designated general purpose register into the
  * designated control register
  */
+FORCEINLINE
 STATIC
 VOID
 DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
@@ -128,14 +159,52 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
             Context, Qualification->GeneralPurposeRegister);
 
         switch (Qualification->ControlRegister) {
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR0:;
+                CR0 cr0 = {.AsUInt = value};
+                CR3 cr3 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR3)};
+
+                /* Setting any of the CR4 reserved bits causes a #GP */
+                if (cr0.Fields.Reserved1 || cr0.Fields.Reserved2 ||
+                    cr0.Fields.Reserved3 || cr0.Fields.Reserved4) {
+                        InjectGuestWithGpFault();
+                        return;
+                }
+
+                /* Clearing the PG bit in 64 bit mode causes a #GP */
+                if (!cr0.Fields.PagingEnable) {
+                        InjectGuestWithGpFault();
+                        return;
+                }
+
+                /* Setting the PagingEnable bit with ProtectionEnable
+                 * bit not set raises #GP */
+                if (cr0.Fields.PagingEnable && !cr0.Fields.ProtectionEnable) {
+                        InjectGuestWithGpFault();
+                        return;
+                }
+
+                /* Setting the CacheDisable flag while the
+                 * NotWriteThrough flag is set raises #GP */
+                if (!cr0.Fields.CacheDisable && cr0.Fields.NotWriteThrough) {
+                        InjectGuestWithGpFault();
+                        return;
+                }
+
                 VmxVmWrite(VMCS_GUEST_CR0, value);
                 VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
                 return;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR3:;
                 VmxVmWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
                 return;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR4:;
+                CR4 cr4 = {.AsUInt = value};
+
+                /* Setting reserved bits raises #GP */
+                if (cr4.Reserved1 || cr4.Reserved2) {
+                        InjectGuestWithGpFault();
+                        return;
+                }
+
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
 #if CR8_EXITING
@@ -202,6 +271,11 @@ DispatchExitReasonCLTS(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
         cr0.AsUInt              = VmxVmRead(VMCS_GUEST_CR0);
         cr0.Fields.TaskSwitched = FALSE;
 
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
+                InjectGuestWithGpFault();
+                return;
+        }
+
         VmxVmWrite(VMCS_GUEST_CR0, cr0.AsUInt);
         VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
 }
@@ -212,6 +286,11 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 {
         VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
         qualification.AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION);
+
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
+                InjectGuestWithGpFault();
+                return FALSE;
+        }
 
         switch (qualification.AccessType) {
         case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:
@@ -232,11 +311,12 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
          * instruction completes before the vmx host handler is invoked, hence
          * we shouldnt increment the guest rip.
          */
+#if CR8_EXITING
         if (qualification.ControlRegister ==
             VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
-                // DEBUG_LOG("cr8 exiting");
                 return TRUE;
         }
+#endif
 
         return FALSE;
 }
@@ -408,9 +488,7 @@ DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
         // vtpr->TaskPriorityRegisterThreshold = 1;
 }
 
-FORCEINLINE
-STATIC
-VOID
+FORCEINLINE STATIC VOID
 InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 {
         VMENTRY_INTERRUPT_INFORMATION intr = {
@@ -420,9 +498,9 @@ InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
             .Valid            = ExitInterrupt->Valid};
 
         /*
-         * If bits 31 (Valid) and 11 (ErrorCodeValid) the vm-exit interruption
-         * error code VMCS field receives the error code that would've been
-         * pushed onto the stack by the exception.
+         * If bits 31 (Valid) and 11 (ErrorCodeValid) the vm-exit
+         * interruption error code VMCS field receives the error code
+         * that would've been pushed onto the stack by the exception.
          */
         if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
                 VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
@@ -434,14 +512,15 @@ InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 }
 
 /*
- * If vm-entry successfully injects an event with interruption type external
- * interrupt, NMI or hardware exception the current guest RIP is pushed onto the
- * stack.
+ * If vm-entry successfully injects an event with interruption type
+ * external interrupt, NMI or hardware exception the current guest RIP
+ * is pushed onto the stack.
  *
- * if vm-entry successfully injects an event with interruption type software
- * interrupt, privileged software exception or software exception the current
- * guest RIP is incremented by the vm-entry instruction length before being
- * pushed onto the stack, hence we do not advance the guest rip in this case.
+ * if vm-entry successfully injects an event with interruption type
+ * software interrupt, privileged software exception or software
+ * exception the current guest RIP is incremented by the vm-entry
+ * instruction length before being pushed onto the stack, hence we do
+ * not advance the guest rip in this case.
  */
 FORCEINLINE
 STATIC
@@ -479,10 +558,10 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 }
 
 /*
- * If we are delivering an interruption type equal to 7 (Other) and the vector
- * field is 0, vm-entry will cause an MTF vm-exit to be pending on the
- * instruction boundary. This will occur even if the monitor trap flag VMCS
- * control is set to 0.
+ * If we are delivering an interruption type equal to 7 (Other) and the
+ * vector field is 0, vm-entry will cause an MTF vm-exit to be pending
+ * on the instruction boundary. This will occur even if the monitor trap
+ * flag VMCS control is set to 0.
  */
 FORCEINLINE
 STATIC
@@ -491,8 +570,9 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 {
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
         /*
-         * Since we don't set the monitor trap flag vmcs ctrl, lets simply clear
-         * the mtf flag for the guest and continue execution.
+         * Since we don't set the monitor trap flag vmcs ctrl, lets
+         * simply clear the mtf flag for the guest and continue
+         * execution.
          */
         if (!vcpu->proc_ctls.MonitorTrapFlag) {
                 RFLAGS flags    = {.AsUInt = Context->eflags};
@@ -517,6 +597,12 @@ DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
         LARGE_INTEGER msr = {0};
         msr.LowPart       = (UINT32)Context->rax;
         msr.HighPart      = (UINT32)Context->rdx;
+
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
+                InjectGuestWithGpFault();
+                return;
+        }
+
         __writemsr((UINT32)Context->rcx, msr.QuadPart);
 #if DEBUG
         HIGH_IRQL_LOG_SAFE(
@@ -541,17 +627,23 @@ VOID
 DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 {
         LARGE_INTEGER msr = {0};
-        msr.QuadPart      = __readmsr((UINT32)Context->rcx);
-        Context->rax      = msr.LowPart;
-        Context->rdx      = msr.HighPart;
+
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
+                InjectGuestWithGpFault();
+                return;
+        }
+
+        msr.QuadPart = __readmsr((UINT32)Context->rcx);
+        Context->rax = msr.LowPart;
+        Context->rdx = msr.HighPart;
 #if DEBUG
         HIGH_IRQL_LOG_SAFE("Rdmsr: rcx: %llx", Context->rcx);
 #endif
 }
 
 /*
- * String based I/O reads/writes use RSI for OUT and RDI for IN. Else we use RAX
- * as we would for any other call.
+ * String based I/O reads/writes use RSI for OUT and RDI for IN. Else we
+ * use RAX as we would for any other call.
  */
 FORCEINLINE
 STATIC
@@ -572,10 +664,10 @@ GetIoInstructionOutputRegister(
 }
 
 /*
- * If the associated IN / OUT instruction is prefixed with REP, the string
- * instruction will be repeated the number of times specified in the count
- * register (ECX) or until the indicated position of the ZF flag is no longer
- * met.
+ * If the associated IN / OUT instruction is prefixed with REP, the
+ * string instruction will be repeated the number of times specified in
+ * the count register (ECX) or until the indicated position of the ZF
+ * flag is no longer met.
  */
 FORCEINLINE
 STATIC
@@ -667,6 +759,29 @@ UpdateDirectionFlagRegister(_Inout_ PUINT64     Output,
                 (UINT32)* Output += Repetitions * AccessSize;
 }
 
+#define KPCR_TSS_BASE_OFFSET 0x008
+
+FORCEINLINE
+STATIC
+BOOLEAN
+IsIoPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
+{
+        TASK_STATE_SEGMENT_64* tss =
+            *(TASK_STATE_SEGMENT_64**)(GuestKpcr + KPCR_TSS_BASE_OFFSET);
+
+        /* If no tss lets just return true e.e */
+        if (!tss)
+                return TRUE;
+
+        UINT64 bitmap     = (UINT64)tss + tss->IoMapBase;
+        UINT64 byte_index = Port / sizeof(UINT64);
+        UINT64 bit_index  = Port % sizeof(UINT64);
+        UINT8  byte       = *(UINT8*)(bitmap + byte_index);
+
+        /* if port bit is 0, its available, else its not. */
+        return byte & (1 << bit_index) ? FALSE : TRUE;
+}
+
 FORCEINLINE
 STATIC
 VOID
@@ -674,8 +789,23 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
 {
         VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
             .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
+        UINT64 guest_kpcr  = VmxVmRead(VMCS_GUEST_GS_BASE);
+        EFLAGS guest_flags = {.AsUInt = Context->eflags};
 
-        // check tss io bitmap -> if take insert gp fault
+        /* If CPL > IOPL, raise #GP */
+        if (ProbeGuestCurrentProtectionLevel() > guest_flags.IoPrivilegeLevel) {
+                InjectGuestWithGpFault();
+                return;
+        }
+
+        /*
+         * If the specified I/O port permission bit is set, the operation is not
+         * allowed -> raise #GP
+         */
+        if (!IsIoPortAvailable(guest_kpcr, qual.PortNumber)) {
+                InjectGuestWithGpFault();
+                return;
+        }
 
         PUINT64 output      = GetIoInstructionOutputRegister(Context, &qual);
         UINT32  repetitions = GetIoInstructionRepeatCount(Context, &qual);
@@ -694,9 +824,9 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
         }
 
         /*
-         * RCX contains the number of iterations that the I/O instruction will
-         * run, update the register to ensure the instruction is executed the
-         * correct number of times.
+         * RCX contains the number of iterations that the I/O
+         * instruction will run, update the register to ensure the
+         * instruction is executed the correct number of times.
          */
         if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING)
                 UpdateDirectionFlagRegister(
@@ -730,16 +860,16 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 
         /*
          * TPR_BELOW_THRESHOLD is a trap-like exit and will perform the
-         * exit-casuing instruction before invoking our handler, hence we
-         * shouldn't increment the rip.
+         * exit-casuing instruction before invoking our handler, hence
+         * we shouldn't increment the rip.
          */
         case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
                 DispatchExitReasonTprBelowThreshold(Context);
                 goto no_rip_increment;
 
         /*
-         * If DispatchExitReasonExceptionOrNmi returns FALSE, we don't advanced
-         * the guest rip, else we do as normal.
+         * If DispatchExitReasonExceptionOrNmi returns FALSE, we don't
+         * advanced the guest rip, else we do as normal.
          */
         case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
                 if (!DispatchExitReasonExceptionOrNmi(Context))
@@ -762,15 +892,16 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         }
 
         /*
-         * Increment our guest rip by the size of the exiting instruction since
-         * we've processed it
+         * Increment our guest rip by the size of the exiting
+         * instruction since we've processed it
          */
         IncrementGuestRip();
 
 no_rip_increment:
         /*
-         * If we are indeed exiting VMX operation, return TRUE to indicate to
-         * our handler that we have indeed exited VMX operation.
+         * If we are indeed exiting VMX operation, return TRUE to
+         * indicate to our handler that we have indeed exited VMX
+         * operation.
          */
         if (InterlockedExchange(&state->exit_state.exit_vmx,
                                 state->exit_state.exit_vmx)) {
