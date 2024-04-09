@@ -296,6 +296,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
         Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
         Vcpu->proc_ctls.UnconditionalIoExiting    = TRUE;
+        //Vcpu->proc_ctls.MovDrExiting              = TRUE;
 
 #if CR8_EXITING
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
@@ -339,6 +340,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
         Vcpu->exit_ctls.HostAddressSpaceSize       = TRUE;
+        Vcpu->exit_ctls.SaveDebugControls          = TRUE;
 
         VmxVmWrite(
             VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,

@@ -104,14 +104,38 @@ ProbeGuestCurrentProtectionLevel()
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithGpFault()
+InjectHardwareException(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
 {
         VMENTRY_INTERRUPT_INFORMATION gp = {0};
-        gp.DeliverErrorCode              = FALSE;
+        gp.DeliverErrorCode              = DeliverErrorCode;
         gp.InterruptionType              = HardwareException;
         gp.Valid                         = TRUE;
-        gp.Vector                        = GeneralProtection;
+        gp.Vector                        = Vector;
         VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
+}
+
+FORCEINLINE
+STATIC
+VOID
+InjectGuestWithUdFault()
+{
+        InjectHardwareException(InvalidOpcode, FALSE);
+}
+
+FORCEINLINE
+STATIC
+VOID
+InjectGuestWithGpFault()
+{
+        InjectHardwareException(GeneralProtection, FALSE);
+}
+
+FORCEINLINE
+STATIC
+VOID
+InjectGuestWithDbFault()
+{
+        InjectHardwareException(Debug, FALSE);
 }
 
 FORCEINLINE
@@ -833,6 +857,52 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
                     output, Context, repetitions, qual.SizeOfAccess);
 }
 
+FORCEINLINE
+
+
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
+{
+        VMX_EXIT_QUALIFICATION_MOV_DR qual = {
+            .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
+        CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
+        DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
+        //PUINT64 gpr = qual
+        
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL)
+                return;
+
+        /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
+         * #UD */
+        if (cr4.DebuggingExtensions &&
+                qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
+            qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
+                InjectGuestWithUdFault();
+                return;
+        }
+
+        /* any dr register access while DR7.GD = 1, raise #DB */
+        if (dr7.GeneralDetect) {
+                InjectGuestWithDbFault();
+                return;
+        }
+
+
+}
+
+STATIC
+VOID
+DumpDebugRegisters(_In_ PGUEST_CONTEXT Context)
+{
+        DEBUG_LOG("dr0: %llx", Context->dr0);
+        DEBUG_LOG("dr1: %llx", Context->dr1);
+        DEBUG_LOG("dr2: %llx", Context->dr2);
+        DEBUG_LOG("dr3: %llx", Context->dr3);
+        DEBUG_LOG("dr6: %llx", Context->dr6);
+}
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -887,6 +957,9 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 break;
         case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
                 DispatchExitReasonIoInstruction(Context);
+                break;
+        case VMX_EXIT_REASON_MOV_DR:
+                DispatchExitReasonDebugRegisterAccess(Context);
                 break;
         default: break;
         }

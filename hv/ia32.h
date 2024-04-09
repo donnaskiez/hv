@@ -18425,6 +18425,8 @@ typedef union
 #define VMX_EXIT_QUALIFICATION_REGISTER_DR1                          0x00000001
 #define VMX_EXIT_QUALIFICATION_REGISTER_DR2                          0x00000002
 #define VMX_EXIT_QUALIFICATION_REGISTER_DR3                          0x00000003
+#define VMX_EXIT_QUALIFICATION_REGISTER_DR4                          0x00000004
+#define VMX_EXIT_QUALIFICATION_REGISTER_DR5                          0x00000005
 #define VMX_EXIT_QUALIFICATION_REGISTER_DR6                          0x00000006
 #define VMX_EXIT_QUALIFICATION_REGISTER_DR7                          0x00000007
 		UINT64 Reserved1 : 1;
