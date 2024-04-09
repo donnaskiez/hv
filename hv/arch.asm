@@ -233,6 +233,13 @@ VmExitHandler PROC
 	SAVE_FP
 	SAVE_DEBUG
 
+	; Load the saved host debug register state after saving the guest 
+	; debug register state. This ensures 2 things:
+	;
+	;	1. The guest does not receive leaked host values
+	;	2. The continuous debug state remains valid across vmexits
+	;	   and entries. (mostly)
+
 	sub rsp, 20h
 	call LoadHostDebugRegisterState
 	add rsp, 20h
@@ -251,6 +258,10 @@ VmExitHandler PROC
 
 	cmp al, 1			
 	je ExitVmx	
+
+	; Store the final values of the host debug register state before we restore
+	; the guests debug register state. This will allow us to reload the host
+	; debug state on the next vmexit.
 
 	sub rsp, 20h
 	call StoreHostDebugRegisterState
@@ -303,6 +314,10 @@ ExitVmx PROC
 	; via the vcpu's VMCS structure, we must retrieve them from our vcpu's 
 	; vmm_state->exit_state structure. We store both values from the VMCS before
 	; we called __vmx_off().
+	;
+	; It's also important to note that theres no need to save the host debug state
+	; since we are exiting vmx operation, and instead we simply restore the guest 
+	; state from the GUEST_CONTEXT structure on the stack
 
 	pop rax
 	sub rsp, 020h 

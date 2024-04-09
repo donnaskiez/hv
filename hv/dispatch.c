@@ -863,7 +863,46 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
                     output, Context, repetitions, qual.SizeOfAccess);
 }
 
+#define DEBUG_DR0 0
+#define DEBUG_DR1 1
+#define DEBUG_DR2 2
+#define DEBUG_DR3 3
+#define DEBUG_DR6 6
+#define DEBUG_DR7 7
+
 FORCEINLINE
+STATIC
+VOID
+WriteToDebugRegister(_In_ PGUEST_CONTEXT Context,
+                     _In_ UINT8          Register,
+                     _In_ UINT64         Value)
+{
+        switch (Register) {
+        case DEBUG_DR0: Context->dr0 = Value; break;
+        case DEBUG_DR1: Context->dr1 = Value; break;
+        case DEBUG_DR2: Context->dr2 = Value; break;
+        case DEBUG_DR3: Context->dr3 = Value; break;
+        case DEBUG_DR6: Context->dr6 = Value; break;
+        case DEBUG_DR7: Context->dr7 = Value; break;
+        default: return;
+        }
+}
+
+FORCEINLINE
+STATIC
+UINT64
+ReadDebugRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
+{
+        switch (Register) {
+        case DEBUG_DR0: return Context->dr0;
+        case DEBUG_DR1: return Context->dr1;
+        case DEBUG_DR2: return Context->dr2;
+        case DEBUG_DR3: return Context->dr3;
+        case DEBUG_DR6: return Context->dr6;
+        case DEBUG_DR7: return Context->dr7;
+        default: return 0;
+        }
+}
 
 FORCEINLINE
 STATIC
@@ -874,7 +913,6 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
             .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
         CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
         DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
-        // PUINT64 gpr = qual
 
         if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL)
                 return;
@@ -882,7 +920,7 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
         /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
          * #UD */
         if (cr4.DebuggingExtensions &&
-                qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
+            qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
             qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
                 InjectGuestWithUdFault();
                 return;
@@ -892,6 +930,20 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
         if (dr7.GeneralDetect) {
                 InjectGuestWithDbFault();
                 return;
+        }
+
+        if (qual.DirectionOfAccess ==
+            VMX_EXIT_QUALIFICATION_DIRECTION_MOV_TO_DR) {
+                WriteToDebugRegister(Context,
+                                     qual.DebugRegister,
+                                     RetrieveValueInContextRegister(
+                                         Context, qual.GeneralPurposeRegister));
+        }
+        else {
+                WriteValueInContextRegister(
+                    Context,
+                    qual.GeneralPurposeRegister,
+                    ReadDebugRegister(Context, qual.DebugRegister));
         }
 }
 
@@ -904,17 +956,21 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
  * currently isnt perfect, as placing breakpoints at certain key positions such
  * as before the host state is loaded can cause some errors, for now though its
  * good enough.
+ *
+ * General implementation idea can be found in this openbsd patch:
+ * https://reviews.freebsd.org/D13229
  */
+
 VOID
 LoadHostDebugRegisterState()
 {
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
-        __writedr(0, vcpu->debug_state.dr0);
-        __writedr(1, vcpu->debug_state.dr1);
-        __writedr(2, vcpu->debug_state.dr2);
-        __writedr(3, vcpu->debug_state.dr3);
-        __writedr(6, vcpu->debug_state.dr6);
-        __writedr(7, vcpu->debug_state.dr7);
+        __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
+        __writedr(DEBUG_DR1, vcpu->debug_state.dr1);
+        __writedr(DEBUG_DR2, vcpu->debug_state.dr2);
+        __writedr(DEBUG_DR3, vcpu->debug_state.dr3);
+        __writedr(DEBUG_DR6, vcpu->debug_state.dr6);
+        __writedr(DEBUG_DR7, vcpu->debug_state.dr7);
         __writemsr(IA32_DEBUGCTL, vcpu->debug_state.debug_ctl);
 }
 
@@ -922,12 +978,12 @@ VOID
 StoreHostDebugRegisterState()
 {
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
-        vcpu->debug_state.dr0       = __readdr(0);
-        vcpu->debug_state.dr1       = __readdr(1);
-        vcpu->debug_state.dr2       = __readdr(2);
-        vcpu->debug_state.dr3       = __readdr(3);
-        vcpu->debug_state.dr6       = __readdr(6);
-        vcpu->debug_state.dr7       = __readdr(7);
+        vcpu->debug_state.dr0       = __readdr(DEBUG_DR0);
+        vcpu->debug_state.dr1       = __readdr(DEBUG_DR1);
+        vcpu->debug_state.dr2       = __readdr(DEBUG_DR2);
+        vcpu->debug_state.dr3       = __readdr(DEBUG_DR3);
+        vcpu->debug_state.dr6       = __readdr(DEBUG_DR6);
+        vcpu->debug_state.dr7       = __readdr(DEBUG_DR7);
         vcpu->debug_state.debug_ctl = __readmsr(IA32_DEBUGCTL);
 }
 

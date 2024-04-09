@@ -296,7 +296,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
         Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
         Vcpu->proc_ctls.UnconditionalIoExiting    = TRUE;
-        //Vcpu->proc_ctls.MovDrExiting              = TRUE;
+        Vcpu->proc_ctls.MovDrExiting              = TRUE;
 
 #if CR8_EXITING
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
@@ -305,12 +305,17 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 #if APIC
         if (IsLocalApicPresent()) {
+                DEBUG_LOG("apic is present, enabling tpr shadow");
                 Vcpu->proc_ctls.UseTprShadow    = TRUE;
                 Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
                 Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
+        }
+        else
+        {
+                DEBUG_LOG("apic not present");
         }
 #endif
 

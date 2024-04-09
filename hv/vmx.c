@@ -276,13 +276,16 @@ STATIC
 NTSTATUS
 AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        LARGE_INTEGER max     = {.QuadPart = MAXULONG64};
-        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
+        LARGE_INTEGER max = {.QuadPart = MAXULONG64};
+        LARGE_INTEGER low = {0};
 
-        if (!Vcpu->virtual_apic_va) {
-                DEBUG_ERROR("Failed to allocate Virtual Apic Page");
-                return STATUS_INSUFFICIENT_RESOURCES;
-        }
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
+            PAGE_SIZE, low, max, low, MmNonCached);
+
+         if (!Vcpu->virtual_apic_va) {
+                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
+                 return STATUS_INSUFFICIENT_RESOURCES;
+         }
 
         DEBUG_LOG("vapic: %llx", Vcpu->virtual_apic_va);
 
@@ -305,6 +308,11 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 
+        //DEBUG_LOG("core: %lx - tpr: %llx, current tpr %lx",
+        //          KeGetCurrentProcessorNumber(),
+        //          Vcpu->virtual_apic_va + APIC_TASK_PRIORITY,
+        //          (UINT32)__readmsr(IA32_X2APIC_TPR));
+        //__debugbreak();
         //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
         //    __readmsr(IA32_X2APIC_APICID);
         //*(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
@@ -466,6 +474,8 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
         NTSTATUS               status = STATUS_UNSUCCESSFUL;
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
+        InitialiseVirtualApicPage(vcpu);
+
         status = SetupVmcs(vcpu, StackPointer);
 
         if (!NT_SUCCESS(status)) {
@@ -473,7 +483,6 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 return;
         }
 
-        InitialiseVirtualApicPage(vcpu);
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
