@@ -35,6 +35,7 @@ typedef struct _VMM_CACHE {
 typedef struct _EXIT_STATE {
         UINT64  guest_rip;
         UINT64  guest_rsp;
+        UINT64  guest_debug_ctl;
         BOOLEAN exit_vmx;
 
 } EXIT_STATE, *PEXIT_STATE;
@@ -117,8 +118,7 @@ typedef struct _MSR_BITMAP {
         UINT8 msr_high_write[1000];
 } MSR_BITMAP, *PMSR_BITMAP;
 
-typedef struct _HOST_DEBUG_STATE
-{
+typedef struct _HOST_DEBUG_STATE {
         UINT64 dr0;
         UINT64 dr1;
         UINT64 dr2;

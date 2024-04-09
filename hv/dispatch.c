@@ -467,6 +467,12 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         State->exit_state.guest_rsp = VmxVmRead(VMCS_GUEST_RSP);
 
         /*
+         * As with the guest RSP and RIP, we need to restore the guests DEBUGCTL
+         * msr.
+         */
+        __writemsr(IA32_DEBUGCTL, VmxVmRead(VMCS_GUEST_DEBUGCTL));
+
+        /*
          * Since vmx root operation makes use of the system cr3, we need to
          * ensure we write the value of the guests previous cr3 before the exit
          * took place to ensure they have access to the correct dtb
