@@ -68,11 +68,11 @@ typedef struct _VCPU_LOG_STATE {
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
-        UINT64 dr0;
-        UINT64 dr1;
-        UINT64 dr2;
-        UINT64 dr3;
-        UINT64 dr6;
+        //UINT64 dr0;
+        //UINT64 dr1;
+        //UINT64 dr2;
+        //UINT64 dr3;
+        //UINT64 dr6;
         M128A  Xmm0;
         M128A  Xmm1;
         M128A  Xmm2;

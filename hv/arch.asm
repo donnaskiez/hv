@@ -225,7 +225,7 @@ VmExitHandler PROC
 	pushfq			
 	SAVE_GP				
 	SAVE_FP
-	SAVE_DEBUG
+	; SAVE_DEBUG
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -241,7 +241,7 @@ VmExitHandler PROC
 
 	cmp al, 1			
 	je ExitVmx	
-	RESTORE_DEBUG
+	; RESTORE_DEBUG
 	RESTORE_FP			
 	RESTORE_GP			
 	popfq				

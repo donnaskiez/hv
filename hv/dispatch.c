@@ -896,11 +896,11 @@ STATIC
 VOID
 DumpDebugRegisters(_In_ PGUEST_CONTEXT Context)
 {
-        DEBUG_LOG("dr0: %llx", Context->dr0);
-        DEBUG_LOG("dr1: %llx", Context->dr1);
-        DEBUG_LOG("dr2: %llx", Context->dr2);
-        DEBUG_LOG("dr3: %llx", Context->dr3);
-        DEBUG_LOG("dr6: %llx", Context->dr6);
+        //DEBUG_LOG("dr0: %llx", Context->dr0);
+        //DEBUG_LOG("dr1: %llx", Context->dr1);
+        //DEBUG_LOG("dr2: %llx", Context->dr2);
+        //DEBUG_LOG("dr3: %llx", Context->dr3);
+        //DEBUG_LOG("dr6: %llx", Context->dr6);
 }
 
 BOOLEAN
