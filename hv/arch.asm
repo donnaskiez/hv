@@ -165,7 +165,7 @@ endm
 ;
 
 SAVE_DEBUG macro
-
+	int 3
 	mov rax, dr0
 	push rax
 	mov rax, dr1
@@ -184,17 +184,17 @@ endm
 ;
 
 RESTORE_DEBUG macro
-
+	int 3
 	pop rax
-	mov dr0, rax
-	pop rax
-	mov dr1, rax
-	pop rax
-	mov dr2, rax
+	mov dr6, rax
 	pop rax
 	mov dr3, rax
 	pop rax
-	mov dr6, rax
+	mov dr2, rax
+	pop rax
+	mov dr1, rax
+	pop rax
+	mov dr0, rax
 
 endm
 
@@ -222,10 +222,10 @@ endm
 VmExitHandler PROC
 
 	push 0				; ensure the stack is aligned
-	pushfq			
+	pushfq		
 	SAVE_GP				
 	SAVE_FP
-	; SAVE_DEBUG
+	SAVE_DEBUG
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -241,7 +241,7 @@ VmExitHandler PROC
 
 	cmp al, 1			
 	je ExitVmx	
-	; RESTORE_DEBUG
+	RESTORE_DEBUG
 	RESTORE_FP			
 	RESTORE_GP			
 	popfq				
