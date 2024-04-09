@@ -308,7 +308,7 @@ ExitVmx PROC
 	sub rsp, 020h 
 	call VmmReadGuestRsp		
 	add rsp, 020h
-	mov [rsp+188h], rax		
+	mov [rsp+01b8h], rax		
 	sub rsp, 020h
 	call VmmReadGuestRip
 	add rsp, 020h
@@ -319,7 +319,7 @@ ExitVmx PROC
 
 	; Switch to our guests stack 
 
-	mov rbx, [rsp+188h]		
+	mov rbx, [rsp+01b8h]		
 	mov rsp, rbx			
 
 	; Store the guests RIP on the guest stack
@@ -333,7 +333,7 @@ ExitVmx PROC
 	; Store our guests stack at the top of our host stack
 
 	sub rbx,08h			
-	mov [rsp+188h], rbx
+	mov [rsp+01b8h], rbx
 
 	; Restore guests GP, FP and flags, switch to guest stack and jump to 
 	; guests rip
