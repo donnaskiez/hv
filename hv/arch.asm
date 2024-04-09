@@ -45,6 +45,8 @@ EXTERN VirtualizeCore:PROC
 EXTERN VmmReadGuestRip:PROC
 EXTERN VmmReadGuestRsp:PROC
 EXTERN VmmGetCoresVcpu:PROC
+EXTERN LoadHostDebugRegisterState:PROC
+EXTERN StoreHostDebugRegisterState:PROC
 
 ;	The states that a vcpu can be at.
 
@@ -165,8 +167,10 @@ endm
 ;
 
 SAVE_DEBUG macro
-	int 3
-	mov rax, dr0
+
+	mov rax, dr7
+	push rax
+	mov rax, dr6
 	push rax
 	mov rax, dr1
 	push rax
@@ -174,7 +178,7 @@ SAVE_DEBUG macro
 	push rax
 	mov rax, dr3
 	push rax
-	mov rax, dr6
+	mov rax, dr0
 	push rax
 
 endm
@@ -184,7 +188,9 @@ endm
 ;
 
 RESTORE_DEBUG macro
-	int 3
+
+	pop rax
+	mov dr7, rax
 	pop rax
 	mov dr6, rax
 	pop rax
@@ -227,12 +233,16 @@ VmExitHandler PROC
 	SAVE_FP
 	SAVE_DEBUG
 
+	sub rsp, 20h
+	call LoadHostDebugRegisterState
+	add rsp, 20h
+
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
 
 	mov rcx, rsp
 	sub rsp, 20h			
-	CALL VmExitDispatcher		
+	call VmExitDispatcher		
 	add rsp, 20h		
 	
 	; VmExitDispatcher will return a boolean value, if the return value is 
@@ -241,6 +251,11 @@ VmExitHandler PROC
 
 	cmp al, 1			
 	je ExitVmx	
+
+	sub rsp, 20h
+	call StoreHostDebugRegisterState
+	add rsp, 20h
+
 	RESTORE_DEBUG
 	RESTORE_FP			
 	RESTORE_GP			
@@ -323,7 +338,7 @@ ExitVmx PROC
 	; Restore guests GP, FP and flags, switch to guest stack and jump to 
 	; guests rip
 
-	; RESTORE_DEBUG
+	RESTORE_DEBUG
 	RESTORE_FP
 	RESTORE_GP
 	popfq
@@ -357,6 +372,10 @@ SaveStateAndVirtualizeCore PROC PUBLIC
 
 	SAVE_GP
 	SAVE_FP
+	SAVE_DEBUG
+
+	call StoreHostDebugRegisterState
+
 	sub rsp, 28h
 	mov rdx, rsp
 	call VirtualizeCore	
@@ -393,6 +412,10 @@ VmxRestoreState PROC
 	add rsp, 28h
 	call VmmGetCoresVcpu
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
+
+	call StoreHostDebugRegisterState
+
+	RESTORE_DEBUG
 	RESTORE_FP
 	RESTORE_GP
 	ret

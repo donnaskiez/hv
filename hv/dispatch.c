@@ -859,7 +859,6 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
 
 FORCEINLINE
 
-
 FORCEINLINE
 STATIC
 VOID
@@ -869,8 +868,8 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
             .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
         CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
         DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
-        //PUINT64 gpr = qual
-        
+        // PUINT64 gpr = qual
+
         if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL)
                 return;
 
@@ -888,19 +887,42 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
                 InjectGuestWithDbFault();
                 return;
         }
-
-
 }
 
-STATIC
+/*
+ * Assuming no debug state is stored upon vmexit, it would mean the host makes
+ * use of the guests debug register state. This can make debugging hard and very
+ * buggy. To combat this, we should store the hosts state on vmexit and vmentry
+ * in the associated vcpu. This allows us to keep track of both the guest and
+ * the hosts debug state seperately, allowing for (mostly) easy debugging. It
+ * currently isnt perfect, as placing breakpoints at certain key positions such
+ * as before the host state is loaded can cause some errors, for now though its
+ * good enough.
+ */
 VOID
-DumpDebugRegisters(_In_ PGUEST_CONTEXT Context)
+LoadHostDebugRegisterState()
 {
-        DEBUG_LOG("dr0: %llx", Context->dr0);
-        DEBUG_LOG("dr1: %llx", Context->dr1);
-        DEBUG_LOG("dr2: %llx", Context->dr2);
-        DEBUG_LOG("dr3: %llx", Context->dr3);
-        DEBUG_LOG("dr6: %llx", Context->dr6);
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+        __writedr(0, vcpu->debug_state.dr0);
+        __writedr(1, vcpu->debug_state.dr1);
+        __writedr(2, vcpu->debug_state.dr2);
+        __writedr(3, vcpu->debug_state.dr3);
+        __writedr(6, vcpu->debug_state.dr6);
+        __writedr(7, vcpu->debug_state.dr7);
+        __writemsr(IA32_DEBUGCTL, vcpu->debug_state.debug_ctl);
+}
+
+VOID
+StoreHostDebugRegisterState()
+{
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+        vcpu->debug_state.dr0       = __readdr(0);
+        vcpu->debug_state.dr1       = __readdr(1);
+        vcpu->debug_state.dr2       = __readdr(2);
+        vcpu->debug_state.dr3       = __readdr(3);
+        vcpu->debug_state.dr6       = __readdr(6);
+        vcpu->debug_state.dr7       = __readdr(7);
+        vcpu->debug_state.debug_ctl = __readmsr(IA32_DEBUGCTL);
 }
 
 BOOLEAN

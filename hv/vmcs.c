@@ -340,14 +340,14 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
         Vcpu->exit_ctls.HostAddressSpaceSize       = TRUE;
-        //Vcpu->exit_ctls.SaveDebugControls          = TRUE;
+        Vcpu->exit_ctls.SaveDebugControls          = TRUE;
 
         VmxVmWrite(
             VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
             AdjustMsrControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
 
         Vcpu->entry_ctls.Ia32EModeGuest    = TRUE;
-        //Vcpu->entry_ctls.LoadDebugControls = TRUE;
+        Vcpu->entry_ctls.LoadDebugControls = TRUE;
 
         VmxVmWrite(
             VMCS_CTRL_VMENTRY_CONTROLS,

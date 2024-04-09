@@ -8,4 +8,10 @@
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT GuestState);
 
+VOID
+LoadHostDebugRegisterState();
+
+VOID
+StoreHostDebugRegisterState();
+
 #endif

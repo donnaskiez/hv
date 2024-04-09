@@ -68,6 +68,7 @@ typedef struct _VCPU_LOG_STATE {
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
+        UINT64 dr7;
         UINT64 dr6;
         UINT64 dr3;
         UINT64 dr2;
@@ -116,6 +117,18 @@ typedef struct _MSR_BITMAP {
         UINT8 msr_high_write[1000];
 } MSR_BITMAP, *PMSR_BITMAP;
 
+typedef struct _HOST_DEBUG_STATE
+{
+        UINT64 dr0;
+        UINT64 dr1;
+        UINT64 dr2;
+        UINT64 dr3;
+        UINT64 dr6;
+        UINT64 dr7;
+        UINT64 debug_ctl;
+
+} HOST_DEBUG_STATE, *PHOST_DEBUG_STATE;
+
 typedef struct _VIRTUAL_MACHINE_STATE {
         VCPU_STATE     state;
         VMM_CACHE      cache;
@@ -134,6 +147,8 @@ typedef struct _VIRTUAL_MACHINE_STATE {
         UINT64      virtual_apic_pa;
         UINT32      exception_bitmap;
         UINT32      exception_bitmap_mask;
+
+        HOST_DEBUG_STATE debug_state;
 
         IA32_VMX_PROCBASED_CTLS_REGISTER  proc_ctls;
         IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
