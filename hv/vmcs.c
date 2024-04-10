@@ -315,13 +315,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         if (IsLocalApicPresent()) {
                 IA32_APIC_BASE_REGISTER apic    = {.AsUInt =
                                                        __readmsr(IA32_APIC_BASE)};
-                Vcpu->proc_ctls.UseTprShadow    = FALSE;
+                Vcpu->proc_ctls.UseTprShadow    = TRUE;
                 Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
                 Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
-                VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
+                //VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
         }
 #endif
 
@@ -334,19 +334,19 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls2.EnableXsaves  = TRUE;
 
 #if APIC
-        if (IsLocalApicPresent()) {
-                Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
-                Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
+        //if (IsLocalApicPresent()) {
+        //        Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
+        //        Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
 
-                /*
-                 * If we are in X2 Apic Mode, disable MMIO apic register access
-                 * virtualization, and instead enable X2 Apic Virtualization.
-                 */
-                if (IsApicInX2ApicMode()) {
-                        Vcpu->proc_ctls2.VirtualizeX2ApicMode   = TRUE;
-                        Vcpu->proc_ctls2.VirtualizeApicAccesses = FALSE;
-                }
-        }
+        //        /*
+        //         * If we are in X2 Apic Mode, disable MMIO apic register access
+        //         * virtualization, and instead enable X2 Apic Virtualization.
+        //         */
+        //        if (IsApicInX2ApicMode()) {
+        //                Vcpu->proc_ctls2.VirtualizeX2ApicMode   = TRUE;
+        //                Vcpu->proc_ctls2.VirtualizeApicAccesses = FALSE;
+        //        }
+        //}
 #endif
 
         VmxVmWrite(VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,

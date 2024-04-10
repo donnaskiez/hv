@@ -479,7 +479,8 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
                 return;
         }
-
+        DEBUG_LOG("about to vmlaunch");
+        __debugbreak();
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
@@ -519,10 +520,6 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
-
-        __debugbreak();
-        DEBUG_LOG("apic id: %llx", __readmsr(IA32_X2APIC_APICID));
-        __debugbreak();
 
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
