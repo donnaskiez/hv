@@ -287,11 +287,12 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                  return STATUS_INSUFFICIENT_RESOURCES;
          }
 
-        DEBUG_LOG("vapic: %llx", Vcpu->virtual_apic_va);
-
         RtlSecureZeroMemory(Vcpu->virtual_apic_va, PAGE_SIZE);
         Vcpu->virtual_apic_pa =
             MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
+
+        DEBUG_LOG("vapic: %llx", Vcpu->virtual_apic_va);
+        DEBUG_LOG("vapic phys: %llx", Vcpu->virtual_apic_pa);
         return STATUS_SUCCESS;
 }
 
@@ -522,6 +523,15 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
 
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
+
+        DEBUG_LOG("cr8: %llx", __readcr8());
+        __debugbreak();
+        __writecr8(5);
+        UINT64 test = __readcr8();
+        DEBUG_LOG("test: %llx", test);
+        __writecr8(0);
+        DEBUG_LOG("cr8 post: %llx", __readcr8());
+        __debugbreak();
 
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/

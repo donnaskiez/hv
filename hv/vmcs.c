@@ -282,6 +282,8 @@ SetBitInBitmap(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
         Bitmap[index] |= (1ull << offset);
 }
 
+#define MSR_IA32_APICBASE_BASE (0xfffff << 12)
+
 STATIC
 VOID
 VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
@@ -295,8 +297,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.UseMsrBitmaps             = TRUE;
         Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
         Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
-        Vcpu->proc_ctls.UnconditionalIoExiting    = TRUE;
-        Vcpu->proc_ctls.MovDrExiting              = TRUE;
+        Vcpu->proc_ctls.UnconditionalIoExiting    = FALSE;
+        Vcpu->proc_ctls.MovDrExiting              = FALSE;
 
 #if CR8_EXITING
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
@@ -312,6 +314,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
+                VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS,
+                           __readmsr(IA32_APIC_BASE) & MSR_IA32_APICBASE_BASE);
         }
         else
         {
@@ -330,6 +334,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 #if APIC
         if (IsLocalApicPresent()) {
                 Vcpu->proc_ctls2.VirtualizeX2ApicMode = FALSE;
+                Vcpu->proc_ctls2.VirtualizeApicAccesses = TRUE;
         }
 #endif
 
