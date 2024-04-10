@@ -282,10 +282,10 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
             PAGE_SIZE, low, max, low, MmNonCached);
 
-         if (!Vcpu->virtual_apic_va) {
-                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
-                 return STATUS_INSUFFICIENT_RESOURCES;
-         }
+        if (!Vcpu->virtual_apic_va) {
+                DEBUG_ERROR("Failed to allocate Virtual Apic Page");
+                return STATUS_INSUFFICIENT_RESOURCES;
+        }
 
         RtlSecureZeroMemory(Vcpu->virtual_apic_va, PAGE_SIZE);
         Vcpu->virtual_apic_pa =
@@ -305,19 +305,15 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * TPR register is a byte. first 4 bits are the tpr threshold, last 4
          * bits are the tpr value.
          */
-        vtpr.VirtualTaskPriorityRegister   = IPI_LEVEL;
+        vtpr.VirtualTaskPriorityRegister   = __readcr8();
         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 
-        //DEBUG_LOG("core: %lx - tpr: %llx, current tpr %lx",
-        //          KeGetCurrentProcessorNumber(),
-        //          Vcpu->virtual_apic_va + APIC_TASK_PRIORITY,
-        //          (UINT32)__readmsr(IA32_X2APIC_TPR));
-        //__debugbreak();
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
-        //    __readmsr(IA32_X2APIC_APICID);
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
-        //    __readmsr(IA32_X2APIC_VERSION);
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) = 10;
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
+            __readmsr(IA32_X2APIC_VERSION);
+        *(UINT32*)(Vcpu->virtual_apic_va + APIC_PROCESSOR_PRIORITY) =
+            __readmsr(IA32_X2APIC_PPR);
 }
 
 STATIC
@@ -524,13 +520,8 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
 
-        DEBUG_LOG("cr8: %llx", __readcr8());
         __debugbreak();
-        __writecr8(5);
-        UINT64 test = __readcr8();
-        DEBUG_LOG("test: %llx", test);
-        __writecr8(0);
-        DEBUG_LOG("cr8 post: %llx", __readcr8());
+        DEBUG_LOG("apic id: %llx", __readmsr(IA32_X2APIC_APICID));
         __debugbreak();
 
         /* lets make sure we entered VMX operation on ALL cores. If a core
