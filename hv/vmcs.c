@@ -313,18 +313,17 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 #if APIC
         if (IsLocalApicPresent()) {
-                IA32_APIC_BASE_REGISTER apic    = {.AsUInt =
-                                                       __readmsr(IA32_APIC_BASE)};
+                // IA32_APIC_BASE_REGISTER apic    = {.AsUInt =
+                //                                        __readmsr(IA32_APIC_BASE)};
                 Vcpu->proc_ctls.UseTprShadow    = TRUE;
                 Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
                 Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
-                //VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
+                // VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
         }
 #endif
-
         VmxVmWrite(
             VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
             AdjustMsrControl(Vcpu->proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
@@ -334,12 +333,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls2.EnableXsaves  = TRUE;
 
 #if APIC
-        //if (IsLocalApicPresent()) {
-        //        Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
-        //        Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
+        // if (IsLocalApicPresent()) {
+        //         Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
+        //         Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
 
         //        /*
-        //         * If we are in X2 Apic Mode, disable MMIO apic register access
+        //         * If we are in X2 Apic Mode, disable MMIO apic register
+        //         access
         //         * virtualization, and instead enable X2 Apic Virtualization.
         //         */
         //        if (IsApicInX2ApicMode()) {
@@ -378,10 +378,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 
-#ifndef APIC
-        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
-        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
-#endif
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }

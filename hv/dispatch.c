@@ -624,20 +624,23 @@ STATIC
 VOID
 DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
 {
-        LARGE_INTEGER msr = {0};
-        msr.LowPart       = (UINT32)Context->rax;
-        msr.HighPart      = (UINT32)Context->rdx;
+        LARGE_INTEGER          msr  = {0};
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
         if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
                 InjectGuestWithGpFault();
                 return;
         }
 
-        __writemsr((UINT32)Context->rcx, msr.QuadPart);
-#if DEBUG
-        HIGH_IRQL_LOG_SAFE(
-            "Wrmsr - rax: %llx, rcx: %llx", Context->rax, Context->rcx);
-#endif
+        if (Context->rcx == IA32_X2APIC_TPR) {
+                *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) =
+                    (UINT32)Context->rcx << 4;
+        }
+        else {
+                msr.LowPart  = (UINT32)Context->rax;
+                msr.HighPart = (UINT32)Context->rdx;
+                __writemsr((UINT32)Context->rcx, msr.QuadPart);
+        }
 }
 
 #define X2APIC_MSR_LOW  0x800
@@ -656,19 +659,25 @@ STATIC
 VOID
 DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 {
-        LARGE_INTEGER msr = {0};
+        LARGE_INTEGER          msr  = {0};
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
         if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
                 InjectGuestWithGpFault();
                 return;
         }
 
-        msr.QuadPart = __readmsr((UINT32)Context->rcx);
-        Context->rax = msr.LowPart;
-        Context->rdx = msr.HighPart;
-#if DEBUG
-        HIGH_IRQL_LOG_SAFE("Rdmsr: rcx: %llx", Context->rcx);
-#endif
+        if ((UINT32)Context->rcx == IA32_X2APIC_TPR) {
+                Context->rax = 0;
+                (UINT32) Context->rax =
+                    *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) >> 4;
+                Context->rdx = 0;
+        }
+        else {
+                msr.QuadPart = __readmsr((UINT32)Context->rcx);
+                Context->rax = msr.LowPart;
+                Context->rdx = msr.HighPart;
+        }
 }
 
 /*
@@ -920,7 +929,7 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
         /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
          * #UD */
         if (cr4.DebuggingExtensions &&
-            qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
+                qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
             qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
                 InjectGuestWithUdFault();
                 return;

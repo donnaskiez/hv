@@ -279,8 +279,10 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         LARGE_INTEGER max = {.QuadPart = MAXULONG64};
         LARGE_INTEGER low = {0};
 
-        Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
-            PAGE_SIZE, low, max, low, MmNonCached);
+        // Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
+        //     PAGE_SIZE, low, max, low, MmNonCached);
+
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
 
         if (!Vcpu->virtual_apic_va) {
                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
@@ -291,8 +293,12 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->virtual_apic_pa =
             MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
 
-        DEBUG_LOG("vapic: %llx", Vcpu->virtual_apic_va);
-        DEBUG_LOG("vapic phys: %llx", Vcpu->virtual_apic_pa);
+        DEBUG_LOG("core: %lx - vapic: %llx",
+                  KeGetCurrentProcessorNumber(),
+                  Vcpu->virtual_apic_va);
+        DEBUG_LOG("core: %lx - vapic phys: %llx",
+                  KeGetCurrentProcessorNumber(),
+                  Vcpu->virtual_apic_pa);
         return STATUS_SUCCESS;
 }
 
@@ -309,11 +315,12 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
         *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
 
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) = 10;
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
-            __readmsr(IA32_X2APIC_VERSION);
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_PROCESSOR_PRIORITY) =
-            __readmsr(IA32_X2APIC_PPR);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
+        //    __readmsr(IA32_X2APIC_APICID);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
+        //    __readmsr(IA32_X2APIC_VERSION);
+        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_PROCESSOR_PRIORITY) =
+        //    __readmsr(IA32_X2APIC_PPR);
 }
 
 STATIC
@@ -479,8 +486,7 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 DEBUG_ERROR("SetupVmcs failed with status %x", status);
                 return;
         }
-        DEBUG_LOG("about to vmlaunch");
-        __debugbreak();
+
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
