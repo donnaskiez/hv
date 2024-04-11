@@ -386,6 +386,7 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
                         state->cache.cpuid.value[CPUID_EBX] = 'evol';
                         state->cache.cpuid.value[CPUID_ECX] = 'trof';
                         state->cache.cpuid.value[CPUID_EDX] = 'etin';
+                        break;
                 default:
 #if DEBUG
                         HIGH_IRQL_LOG_SAFE(
