@@ -295,6 +295,7 @@ VOID
 VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
         IA32_APIC_BASE_REGISTER apic = {.AsUInt = __readmsr(IA32_APIC_BASE)};
+
         /*
          * ActivateSecondaryControls activates the secondary processor-based
          * VM-execution controls. If UseMsrBitmaps is not set, all RDMSR and
@@ -307,16 +308,23 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.UnconditionalIoExiting    = FALSE;
         Vcpu->proc_ctls.MovDrExiting              = FALSE;
 
-#if CR8_EXITING
+        /*
+         * TPR shadowing is still quite buggy, so to allow us to work on further
+         * apic features we enable it aswell. (This is because TPR shadowing is
+         * required for further APIC virtualisation features.
+         */
+#if APIC CR8_EXITING
+        /*
+         * Currently LoadExiting is failing when false, StoreExiting works when
+         * false.
+         */
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
-        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
+        Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
 #endif
 
 #if APIC
         if (IsLocalApicPresent()) {
-                Vcpu->proc_ctls.UseTprShadow    = TRUE;
-                Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
-                Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
+                Vcpu->proc_ctls.UseTprShadow = TRUE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
@@ -332,10 +340,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 #if APIC
         if (IsLocalApicPresent()) {
-                Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
-                Vcpu->proc_ctls2.VirtualizeX2ApicMode       = TRUE;
                 Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
-                Vcpu->proc_ctls2.VirtualInterruptDelivery   = TRUE;
+                Vcpu->proc_ctls2.VirtualInterruptDelivery   = FALSE;
 
                 /*
                  * If we are in X2 Apic Mode, disable MMIO apic register
@@ -345,12 +351,16 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                 if (IsApicInX2ApicMode()) {
                         Vcpu->proc_ctls2.VirtualizeX2ApicMode = TRUE;
                 }
+                else {
+                        Vcpu->proc_ctls2.VirtualizeApicAccesses = TRUE;
+                        VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS,
+                                   apic.ApicBase);
+                }
 
-                VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
-                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_0, 0);
-                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_1, 0);
-                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_2, 0);
-                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_3, 0);
+                // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_0, 0);
+                // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_1, 0);
+                // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_2, 0);
+                // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_3, 0);
         }
 #endif
 
@@ -359,6 +369,9 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                                     IA32_VMX_PROCBASED_CTLS2));
 
         Vcpu->pin_ctls.NmiExiting = FALSE;
+#if APIC
+        Vcpu->pin_ctls.ProcessPostedInterrupts = FALSE;
+#endif
 
         VmxVmWrite(
             VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
@@ -382,10 +395,6 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->exception_bitmap |= EXCEPTION_DIVIDED_BY_ZERO;
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
-
-        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
-        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
-
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }
 

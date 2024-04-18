@@ -188,7 +188,8 @@ VOID
 DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                           _In_ PGUEST_CONTEXT                 Context)
 {
-        UINT64 value = RetrieveValueInContextRegister(
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        UINT64                 value = RetrieveValueInContextRegister(
             Context, Qualification->GeneralPurposeRegister);
 
         switch (Qualification->ControlRegister) {
@@ -240,7 +241,13 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
 
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value); return;
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value);
+#if APIC
+                /* again, for now this must be done... */
+                __write_vapic_32(
+                    vcpu->virtual_apic_va, IA32_X2APIC_TPR, (UINT32)value << 4);
+#endif
+                return;
         default: return;
         }
 }
@@ -254,6 +261,9 @@ VOID
 DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                             _In_ PGUEST_CONTEXT                 Context)
 {
+        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+        UINT32                 tpr  = 0;
+
         switch (Qualification->ControlRegister) {
         case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
                 WriteValueInContextRegister(
@@ -273,11 +283,18 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                     Qualification->GeneralPurposeRegister,
                     VmxVmRead(VMCS_GUEST_CR4));
                 break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:;
+#if APIC
+                tpr = __read_vapic_32(vcpu->virtual_apic_va, IA32_X2APIC_TPR);
+
+                WriteValueInContextRegister(
+                    Context, Qualification->GeneralPurposeRegister, tpr >> 4);
+#else
                 WriteValueInContextRegister(
                     Context,
                     Qualification->GeneralPurposeRegister,
                     __readcr8());
+#endif
                 break;
         default: break;
         }
@@ -518,11 +535,7 @@ VOID
 DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
 {
         DEBUG_LOG("exit reason tpr threshold");
-        DEBUG_LOG("guest rip: %llx", VmxVmRead(VMCS_GUEST_RIP));
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        // VTPR*                  vtpr         = vcpu->virtual_apic_va +
-        // APIC_TASK_PRIORITY; vtpr->VirtualTaskPriorityRegister   = 0;
-        // vtpr->TaskPriorityRegisterThreshold = 1;
+        __debugbreak();
 }
 
 FORCEINLINE STATIC VOID
@@ -1071,7 +1084,9 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
                 DispatchExitReasonDebugRegisterAccess(Context);
                 break;
         case VMX_EXIT_REASON_VIRTUALIZED_EOI:
-
+                /* EOI induced exits are trap like */
+                DispatchExitReasonVirtualisedEoi(Context);
+                goto no_rip_increment;
         default: break;
         }
 

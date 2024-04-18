@@ -279,8 +279,7 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         LARGE_INTEGER max = {.QuadPart = MAXULONG64};
         LARGE_INTEGER low = {0};
 
-        Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
-            PAGE_SIZE, low, max, low, MmNonCached);
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
 
         if (!Vcpu->virtual_apic_va) {
                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
@@ -342,51 +341,68 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
  * is 1. (VICR_LO and VICR_HI also virtualize the ICR when the “IPI
  * virtualization” VM-execution control is 1.)
  */
-
 #define IA32_X2APIC_ICR_LO 0x00000830
 #define IA32_X2APIC_ICR_HI 0x00000831
 
+#if APIC
 STATIC
 NTSTATUS
 InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-#if APIC
         NTSTATUS status = STATUS_UNSUCCESSFUL;
         UINT64   vapic  = Vcpu->virtual_apic_va;
-        UINT64   icr    = __readmsr(IA32_X2APIC_ICR);
-        UINT32   icr_lo = (UINT32)icr;
-        UINT32   icr_hi = icr >> 32;
+        // UINT64   icr    = __readmsr(IA32_X2APIC_ICR);
+        // UINT32   icr_lo = (UINT32)icr;
+        // UINT32   icr_hi = icr >> 32;
 
-        DEBUG_LOG("Initialising vapic page.");
+        // DEBUG_LOG("Initialising vapic page.");
 
-        __write_vapic_32(vapic, IA32_X2APIC_TPR, __readmsr(IA32_X2APIC_TPR));
-        __write_vapic_32(vapic, IA32_X2APIC_PPR, __readmsr(IA32_X2APIC_PPR));
-        //__write_vapic_32(vapic, IA32_X2APIC_EOI, __readmsr(IA32_X2APIC_EOI));
+        __write_vapic_32(vapic, IA32_X2APIC_TPR, __readcr8() << 4);
 
-        __write_vapic_32(vapic, IA32_X2APIC_ISR0, __readmsr(IA32_X2APIC_ISR0));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR1, __readmsr(IA32_X2APIC_ISR1));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR2, __readmsr(IA32_X2APIC_ISR2));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR3, __readmsr(IA32_X2APIC_ISR3));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR4, __readmsr(IA32_X2APIC_ISR4));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR5, __readmsr(IA32_X2APIC_ISR5));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR6, __readmsr(IA32_X2APIC_ISR6));
-        __write_vapic_32(vapic, IA32_X2APIC_ISR7, __readmsr(IA32_X2APIC_ISR7));
+        //__write_vapic_32(vapic, IA32_X2APIC_PPR, __readmsr(IA32_X2APIC_PPR));
+        ////__write_vapic_32(vapic, IA32_X2APIC_EOI,
+        ///__readmsr(IA32_X2APIC_EOI));
 
-        __write_vapic_32(vapic, IA32_X2APIC_IRR0, __readmsr(IA32_X2APIC_IRR0));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR1, __readmsr(IA32_X2APIC_IRR1));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR2, __readmsr(IA32_X2APIC_IRR2));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR3, __readmsr(IA32_X2APIC_IRR3));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR4, __readmsr(IA32_X2APIC_IRR4));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR5, __readmsr(IA32_X2APIC_IRR5));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR6, __readmsr(IA32_X2APIC_IRR6));
-        __write_vapic_32(vapic, IA32_X2APIC_IRR7, __readmsr(IA32_X2APIC_IRR7));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR0,
+        //__readmsr(IA32_X2APIC_ISR0));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR1,
+        //__readmsr(IA32_X2APIC_ISR1));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR2,
+        //__readmsr(IA32_X2APIC_ISR2));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR3,
+        //__readmsr(IA32_X2APIC_ISR3));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR4,
+        //__readmsr(IA32_X2APIC_ISR4));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR5,
+        //__readmsr(IA32_X2APIC_ISR5));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR6,
+        //__readmsr(IA32_X2APIC_ISR6));
+        //__write_vapic_32(vapic, IA32_X2APIC_ISR7,
+        //__readmsr(IA32_X2APIC_ISR7));
 
-        DEBUG_LOG("Finished initialising vapic page.");
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR0,
+        //__readmsr(IA32_X2APIC_IRR0));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR1,
+        //__readmsr(IA32_X2APIC_IRR1));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR2,
+        //__readmsr(IA32_X2APIC_IRR2));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR3,
+        //__readmsr(IA32_X2APIC_IRR3));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR4,
+        //__readmsr(IA32_X2APIC_IRR4));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR5,
+        //__readmsr(IA32_X2APIC_IRR5));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR6,
+        //__readmsr(IA32_X2APIC_IRR6));
+        //__write_vapic_32(vapic, IA32_X2APIC_IRR7,
+        //__readmsr(IA32_X2APIC_IRR7));
 
-        __write_vapic_32(vapic, IA32_X2APIC_ICR_LO, icr_lo);
-        __write_vapic_32(vapic, IA32_X2APIC_ICR_HI, icr_hi);
-#endif
+        // DEBUG_LOG("Finished initialising vapic page.");
+
+        //__write_vapic_32(vapic, IA32_X2APIC_ICR_LO, icr_lo);
+        //__write_vapic_32(vapic, IA32_X2APIC_ICR_HI, icr_hi);
 }
+#endif
 
 STATIC
 VOID
@@ -402,8 +418,10 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->msr_bitmap_va);
         if (vcpu->vmm_stack_va)
                 ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
+#if APIC
         if (vcpu->virtual_apic_va)
                 MmFreeContiguousMemory(vcpu->virtual_apic_va);
+#endif
 #if DEBUG
         CleanupLoggerOnUnload(vcpu);
         if (vcpu->log_state.log_buffer)
@@ -514,6 +532,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 goto end;
         }
 
+#if APIC
         if (!IsLocalApicPresent()) {
                 DEBUG_ERROR("Local APIC is not present.");
                 goto end;
@@ -527,6 +546,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
                 FreeCoreVmxState(core);
                 return status;
         }
+#endif
 
 end:
         DEBUG_LOG("Core: %lx - Initiation Status: %lx", core, status);
@@ -550,7 +570,9 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 return;
         }
 
+#if APIC
         InitialiseVirtualApicPage(vcpu);
+#endif
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
@@ -591,6 +613,20 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
         /* What happens if something fails? TODO: think. */
         KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
 
+#if DEBUG
+        UINT64 vapic = vmm_state[KeGetCurrentProcessorNumber()].virtual_apic_va;
+
+        DEBUG_LOG("cr8: %llx", __readcr8());
+        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        __writecr8(5);
+        UINT64 test = __readcr8();
+        DEBUG_LOG("raised cr8: %llx", test);
+        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        __writecr8(0);
+        DEBUG_LOG("cr8 post: %llx", __readcr8());
+        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        __debugbreak();
+#endif
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
         return ValidateVmxLaunch();
