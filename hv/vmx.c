@@ -357,9 +357,11 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         UINT32   icr_lo = (UINT32)icr;
         UINT32   icr_hi = icr >> 32;
 
+        DEBUG_LOG("Initialising vapic page.");
+
         __write_vapic_32(vapic, IA32_X2APIC_TPR, __readmsr(IA32_X2APIC_TPR));
         __write_vapic_32(vapic, IA32_X2APIC_PPR, __readmsr(IA32_X2APIC_PPR));
-        __write_vapic_32(vapic, IA32_X2APIC_EOI, __readmsr(IA32_X2APIC_EOI));
+        //__write_vapic_32(vapic, IA32_X2APIC_EOI, __readmsr(IA32_X2APIC_EOI));
 
         __write_vapic_32(vapic, IA32_X2APIC_ISR0, __readmsr(IA32_X2APIC_ISR0));
         __write_vapic_32(vapic, IA32_X2APIC_ISR1, __readmsr(IA32_X2APIC_ISR1));
@@ -378,6 +380,8 @@ InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         __write_vapic_32(vapic, IA32_X2APIC_IRR5, __readmsr(IA32_X2APIC_IRR5));
         __write_vapic_32(vapic, IA32_X2APIC_IRR6, __readmsr(IA32_X2APIC_IRR6));
         __write_vapic_32(vapic, IA32_X2APIC_IRR7, __readmsr(IA32_X2APIC_IRR7));
+
+        DEBUG_LOG("Finished initialising vapic page.");
 
         __write_vapic_32(vapic, IA32_X2APIC_ICR_LO, icr_lo);
         __write_vapic_32(vapic, IA32_X2APIC_ICR_HI, icr_hi);

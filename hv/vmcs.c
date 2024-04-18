@@ -294,6 +294,7 @@ STATIC
 VOID
 VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
+        IA32_APIC_BASE_REGISTER apic = {.AsUInt = __readmsr(IA32_APIC_BASE)};
         /*
          * ActivateSecondaryControls activates the secondary processor-based
          * VM-execution controls. If UseMsrBitmaps is not set, all RDMSR and
@@ -310,8 +311,6 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
         Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
 #endif
-        Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
-        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
 
 #if APIC
         if (IsLocalApicPresent()) {
@@ -334,19 +333,20 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 #if APIC
         if (IsLocalApicPresent()) {
                 Vcpu->proc_ctls2.VirtualizeApicAccesses     = TRUE;
+                Vcpu->proc_ctls2.VirtualizeX2ApicMode       = TRUE;
                 Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
+                Vcpu->proc_ctls2.VirtualInterruptDelivery   = TRUE;
 
                 /*
-                 * If we are in X2 Apic Mode, disable MMIO apic register access
-                 * virtualization, and instead enable X2 Apic Virtualization.
+                 * If we are in X2 Apic Mode, disable MMIO apic register
+                 * access virtualization, and instead enable X2 Apic
+                 * Virtualization.
                  */
                 if (IsApicInX2ApicMode()) {
-                        Vcpu->proc_ctls2.VirtualizeX2ApicMode   = TRUE;
-                        Vcpu->proc_ctls2.VirtualizeApicAccesses = FALSE;
+                        Vcpu->proc_ctls2.VirtualizeX2ApicMode = TRUE;
                 }
 
-                Vcpu->proc_ctls2.VirtualInterruptDelivery = TRUE;
-
+                VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
                 VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_0, 0);
                 VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_1, 0);
                 VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_2, 0);
