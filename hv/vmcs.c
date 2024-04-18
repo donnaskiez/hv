@@ -319,7 +319,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * false.
          */
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
-        Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
+        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
 #endif
 
 #if APIC

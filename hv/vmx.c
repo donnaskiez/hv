@@ -279,7 +279,8 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         LARGE_INTEGER max = {.QuadPart = MAXULONG64};
         LARGE_INTEGER low = {0};
 
-        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
+            PAGE_SIZE, low, max, low, MmNonCached);
 
         if (!Vcpu->virtual_apic_va) {
                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
