@@ -318,7 +318,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * Currently LoadExiting is failing when false, StoreExiting works when
          * false.
          */
-        Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
+        Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
         Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
 #endif
 
