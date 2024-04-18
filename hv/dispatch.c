@@ -358,12 +358,10 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
          * instruction completes before the vmx host handler is invoked, hence
          * we shouldnt increment the guest rip.
          */
-#if CR8_EXITING
-        if (qualification.ControlRegister ==
-            VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
-                return TRUE;
-        }
-#endif
+        //if (qualification.ControlRegister ==
+        //    VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
+        //        return TRUE;
+        //}
 
         return FALSE;
 }

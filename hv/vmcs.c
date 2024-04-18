@@ -313,13 +313,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          * apic features we enable it aswell. (This is because TPR shadowing is
          * required for further APIC virtualisation features.
          */
-#if APIC CR8_EXITING
+#if APIC
         /*
          * Currently LoadExiting is failing when false, StoreExiting works when
          * false.
          */
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
-        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
+        Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
 #endif
 
 #if APIC
@@ -340,7 +340,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 #if APIC
         if (IsLocalApicPresent()) {
-                Vcpu->proc_ctls2.ApicRegisterVirtualization = TRUE;
+                Vcpu->proc_ctls2.ApicRegisterVirtualization = FALSE;
                 Vcpu->proc_ctls2.VirtualInterruptDelivery   = FALSE;
 
                 /*
@@ -349,7 +349,7 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                  * Virtualization.
                  */
                 if (IsApicInX2ApicMode()) {
-                        Vcpu->proc_ctls2.VirtualizeX2ApicMode = TRUE;
+                        Vcpu->proc_ctls2.VirtualizeX2ApicMode = FALSE;
                 }
                 else {
                         Vcpu->proc_ctls2.VirtualizeApicAccesses = TRUE;
