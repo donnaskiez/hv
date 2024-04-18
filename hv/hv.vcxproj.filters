@@ -28,9 +28,6 @@
     <ClCompile Include="dispatch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ept.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="lock.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -38,6 +35,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="vmx.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -63,13 +63,13 @@
     <ClInclude Include="arch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ept.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="lock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="log.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

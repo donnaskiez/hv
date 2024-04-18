@@ -310,18 +310,17 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
         Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
 #endif
+        Vcpu->proc_ctls.Cr8LoadExiting  = TRUE;
+        Vcpu->proc_ctls.Cr8StoreExiting = TRUE;
 
 #if APIC
         if (IsLocalApicPresent()) {
-                // IA32_APIC_BASE_REGISTER apic    = {.AsUInt =
-                //                                        __readmsr(IA32_APIC_BASE)};
                 Vcpu->proc_ctls.UseTprShadow    = TRUE;
                 Vcpu->proc_ctls.Cr8LoadExiting  = FALSE;
                 Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
                 VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS,
                            Vcpu->virtual_apic_pa);
                 VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
-                // VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
         }
 #endif
         VmxVmWrite(
@@ -345,6 +344,13 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
                         Vcpu->proc_ctls2.VirtualizeX2ApicMode   = TRUE;
                         Vcpu->proc_ctls2.VirtualizeApicAccesses = FALSE;
                 }
+
+                Vcpu->proc_ctls2.VirtualInterruptDelivery = TRUE;
+
+                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_0, 0);
+                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_1, 0);
+                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_2, 0);
+                VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_3, 0);
         }
 #endif
 
@@ -377,8 +383,8 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
         VmxVmWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
-        SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
+        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_read, IA32_X2APIC_TPR);
+        // SetBitInBitmap(Vcpu->msr_bitmap_va->msr_low_write, IA32_X2APIC_TPR);
 
         VmxVmWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
 }

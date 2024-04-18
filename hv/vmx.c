@@ -5,7 +5,7 @@
 #include "arch.h"
 #include "vmcs.h"
 #include "log.h"
-#include "ept.h"
+#include "dispatch.h"
 
 #include <intrin.h>
 
@@ -279,10 +279,8 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         LARGE_INTEGER max = {.QuadPart = MAXULONG64};
         LARGE_INTEGER low = {0};
 
-        // Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
-        //     PAGE_SIZE, low, max, low, MmNonCached);
-
-        Vcpu->virtual_apic_va = MmAllocateContiguousMemory(PAGE_SIZE, max);
+        Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
+            PAGE_SIZE, low, max, low, MmNonCached);
 
         if (!Vcpu->virtual_apic_va) {
                 DEBUG_ERROR("Failed to allocate Virtual Apic Page");
@@ -302,25 +300,88 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         return STATUS_SUCCESS;
 }
 
+/*
+ * 30.1.1 Virtualized APIC Registers
+ *
+ * Depending on the setting of certain VM-execution controls, a logical
+ * processor may virtualize certain accesses to APIC registers using the
+ * following fields on the virtual-APIC page:
+ *
+ * • Virtual task-priority register (VTPR): the 32-bit field located at offset
+ * 080H on the virtual-APIC page.
+ *
+ * • Virtual processor-priority register (VPPR): the 32-bit field located at
+ * offset 0A0H on the virtual-APIC page.
+ *
+ * • Virtual end-of-interrupt register (VEOI): the 32-bit field located at
+ * offset 0B0H on the virtual-APIC page.
+ *
+ * • Virtual interrupt-service register (VISR): the 256-bit value comprising
+ * eight non-contiguous 32-bit fields at offsets 100H, 110H, 120H, 130H, 140H,
+ * 150H, 160H, and 170H on the virtual-APIC page. Bit x of the VISR is at bit
+ * position (x & 1FH) at offset (100H | ((x & E0H) » 1)). The processor uses
+ * only the low 4 bytes of each of the 16-byte fields at offsets 100H, 110H,
+ * 120H, 130H, 140H, 150H, 160H, and 170H.
+ *
+ * • Virtual interrupt-request register (VIRR): the 256-bit value comprising
+ * eight non-contiguous 32-bit fields at offsets 200H, 210H, 220H, 230H, 240H,
+ * 250H, 260H, and 270H on the virtual-APIC page. Bit x of the VIRR is at bit
+ * position (x & 1FH) at offset (200H | ((x & E0H) » 1)). The processor uses
+ * only the low 4 bytes of each of the 16-Byte fields at offsets 200H, 210H,
+ * 220H, 230H, 240H, 250H, 260H, and 270H.
+ *
+ * • Virtual interrupt-command register (VICR_LO): the 32-bit field located at
+ * offset 300H on the virtual-APIC page.
+ *
+ * • Virtual interrupt-command register (VICR_HI): the 32-bit field located at
+ * offset 310H on the virtual-APIC page.
+ *
+ * The VTPR field virtualizes the TPR whenever the “use TPR shadow” VM-execution
+ * control is 1. The other fields indicated above virtualize the corresponding
+ * APIC registers whenever the “virtual-interrupt delivery” VM-execution control
+ * is 1. (VICR_LO and VICR_HI also virtualize the ICR when the “IPI
+ * virtualization” VM-execution control is 1.)
+ */
+
+#define IA32_X2APIC_ICR_LO 0x00000830
+#define IA32_X2APIC_ICR_HI 0x00000831
+
 STATIC
-VOID
+NTSTATUS
 InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        VTPR vtpr = {0};
-        /*
-         * TPR register is a byte. first 4 bits are the tpr threshold, last 4
-         * bits are the tpr value.
-         */
-        vtpr.VirtualTaskPriorityRegister   = __readcr8();
-        vtpr.TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
-        *(UINT32*)(Vcpu->virtual_apic_va + APIC_TASK_PRIORITY) = vtpr.AsUInt;
+#if APIC
+        NTSTATUS status = STATUS_UNSUCCESSFUL;
+        UINT64   vapic  = Vcpu->virtual_apic_va;
+        UINT64   icr    = __readmsr(IA32_X2APIC_ICR);
+        UINT32   icr_lo = (UINT32)icr;
+        UINT32   icr_hi = icr >> 32;
 
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_ID) =
-        //    __readmsr(IA32_X2APIC_APICID);
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_VERSION) =
-        //    __readmsr(IA32_X2APIC_VERSION);
-        //*(UINT32*)(Vcpu->virtual_apic_va + APIC_PROCESSOR_PRIORITY) =
-        //    __readmsr(IA32_X2APIC_PPR);
+        __write_vapic_32(vapic, IA32_X2APIC_TPR, __readmsr(IA32_X2APIC_TPR));
+        __write_vapic_32(vapic, IA32_X2APIC_PPR, __readmsr(IA32_X2APIC_PPR));
+        __write_vapic_32(vapic, IA32_X2APIC_EOI, __readmsr(IA32_X2APIC_EOI));
+
+        __write_vapic_32(vapic, IA32_X2APIC_ISR0, __readmsr(IA32_X2APIC_ISR0));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR1, __readmsr(IA32_X2APIC_ISR1));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR2, __readmsr(IA32_X2APIC_ISR2));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR3, __readmsr(IA32_X2APIC_ISR3));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR4, __readmsr(IA32_X2APIC_ISR4));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR5, __readmsr(IA32_X2APIC_ISR5));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR6, __readmsr(IA32_X2APIC_ISR6));
+        __write_vapic_32(vapic, IA32_X2APIC_ISR7, __readmsr(IA32_X2APIC_ISR7));
+
+        __write_vapic_32(vapic, IA32_X2APIC_IRR0, __readmsr(IA32_X2APIC_IRR0));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR1, __readmsr(IA32_X2APIC_IRR1));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR2, __readmsr(IA32_X2APIC_IRR2));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR3, __readmsr(IA32_X2APIC_IRR3));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR4, __readmsr(IA32_X2APIC_IRR4));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR5, __readmsr(IA32_X2APIC_IRR5));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR6, __readmsr(IA32_X2APIC_IRR6));
+        __write_vapic_32(vapic, IA32_X2APIC_IRR7, __readmsr(IA32_X2APIC_IRR7));
+
+        __write_vapic_32(vapic, IA32_X2APIC_ICR_LO, icr_lo);
+        __write_vapic_32(vapic, IA32_X2APIC_ICR_HI, icr_hi);
+#endif
 }
 
 STATIC
@@ -478,8 +539,6 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
         NTSTATUS               status = STATUS_UNSUCCESSFUL;
         PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-        InitialiseVirtualApicPage(vcpu);
-
         status = SetupVmcs(vcpu, StackPointer);
 
         if (!NT_SUCCESS(status)) {
@@ -487,6 +546,7 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
                 return;
         }
 
+        InitialiseVirtualApicPage(vcpu);
         __vmx_vmlaunch();
 
         /* only if vmlaunch fails will we end up here */
@@ -619,7 +679,6 @@ BroadcastVmxTermination()
          * state array.
          */
         FreeGlobalVmmState();
-        FreeEptStructures(&driver_state->ept_configuration);
         return STATUS_SUCCESS;
 }
 
@@ -663,15 +722,8 @@ SetupVmxOperation()
         if (!context->status)
                 goto end;
 
-        status = InitializeEptp(&driver_state->ept_configuration);
-
-        if (!NT_SUCCESS(status)) {
-                DEBUG_ERROR("Failed to initialise EPT");
-                goto end;
-        }
-
         for (INT core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
-                context[core].eptp        = driver_state->ept_configuration.ept;
+                context[core].eptp        = NULL;
                 context[core].guest_stack = NULL;
                 context->status[core]     = STATUS_UNSUCCESSFUL;
         }

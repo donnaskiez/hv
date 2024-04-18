@@ -84,6 +84,46 @@ WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
         }
 }
 
+STATIC
+UINT32
+__vapic_offset_from_msr(_In_ UINT32 Register)
+{
+        return (Register & 0xFF) << 4;
+}
+
+/* Pass in the MSR, not the direct offset */
+VOID
+__write_vapic_32(_In_ UINT64 VirtualApicPage,
+                 _In_ UINT32 Register,
+                 _In_ UINT32 Value)
+{
+        UINT32 offset = __vapic_offset_from_msr(Register);
+        *(UINT32*)(VirtualApicPage + offset) = Value;
+}
+
+VOID
+__write_vapic_64(_In_ UINT64 VirtualApicPage,
+                 _In_ UINT32 Register,
+                 _In_ UINT64 Value)
+{
+        UINT32 offset = __vapic_offset_from_msr(Register);
+        *(UINT64*)(VirtualApicPage + offset) = Value;
+}
+
+UINT32
+__read_vapic_32(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
+{
+        UINT32 offset = __vapic_offset_from_msr(Register);
+        return *(UINT32*)(VirtualApicPage + offset);
+}
+
+UINT64
+__read_vapic_64(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
+{
+        UINT32 offset = __vapic_offset_from_msr(Register);
+        return *(UINT64*)(VirtualApicPage + offset);
+}
+
 #define CPL_KERNEL 0
 #define CPL_USER   3
 
@@ -136,37 +176,6 @@ VOID
 InjectGuestWithDbFault()
 {
         InjectHardwareException(Debug, FALSE);
-}
-
-FORCEINLINE
-STATIC
-VOID
-__vapic_write_32(_In_ UINT32 Value, _In_ UINT32 Register)
-{
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
-        vtpr->VirtualTaskPriorityRegister = Value;
-        __writecr8(vtpr->VirtualTaskPriorityRegister);
-#if DEBUG
-        HIGH_IRQL_LOG_SAFE("tpr write: %lx", vtpr->VirtualTaskPriorityRegister);
-#endif
-}
-
-FORCEINLINE
-STATIC
-VOID
-__vapic_read_32(_In_ PGUEST_CONTEXT                 Context,
-                _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
-                _In_ UINT32                         ApicRegister)
-{
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        PVTPR vtpr = (PVTPR)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY);
-        WriteValueInContextRegister(Context,
-                                    Qualification->GeneralPurposeRegister,
-                                    (UINT32)vtpr->VirtualTaskPriorityRegister);
-#if DEBUG
-        HIGH_IRQL_LOG_SAFE("tpr read: %lx", vtpr->VirtualTaskPriorityRegister);
-#endif
 }
 
 /*
@@ -231,11 +240,7 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
 
                 VmxVmWrite(VMCS_GUEST_CR4, value);
                 VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
-#if CR8_EXITING
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
-                __vapic_write_32((UINT32)value, APIC_TASK_PRIORITY);
-                return;
-#endif
+        case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value); return;
         default: return;
         }
 }
@@ -268,11 +273,12 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
                     Qualification->GeneralPurposeRegister,
                     VmxVmRead(VMCS_GUEST_CR4));
                 break;
-#if CR8_EXITING
         case VMX_EXIT_QUALIFICATION_REGISTER_CR8:
-                __vapic_read_32(Context, Qualification, APIC_TASK_PRIORITY);
+                WriteValueInContextRegister(
+                    Context,
+                    Qualification->GeneralPurposeRegister,
+                    __readcr8());
                 break;
-#endif
         default: break;
         }
 }
@@ -997,6 +1003,15 @@ StoreHostDebugRegisterState()
         vcpu->debug_state.debug_ctl = __readmsr(IA32_DEBUGCTL);
 }
 
+FORCEINLINE
+STATIC
+VOID
+DispatchExitReasonVirtualisedEoi(_In_ PGUEST_CONTEXT Context)
+{
+        DEBUG_LOG("EOI EXIUT REASON!");
+        __debugbreak();
+}
+
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
@@ -1055,6 +1070,8 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
         case VMX_EXIT_REASON_MOV_DR:
                 DispatchExitReasonDebugRegisterAccess(Context);
                 break;
+        case VMX_EXIT_REASON_VIRTUALIZED_EOI:
+
         default: break;
         }
 
