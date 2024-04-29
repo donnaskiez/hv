@@ -358,10 +358,10 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
          * instruction completes before the vmx host handler is invoked, hence
          * we shouldnt increment the guest rip.
          */
-        //if (qualification.ControlRegister ==
-        //    VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
-        //        return TRUE;
-        //}
+        // if (qualification.ControlRegister ==
+        //     VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
+        //         return TRUE;
+        // }
 
         return FALSE;
 }
@@ -746,15 +746,15 @@ HandleIoInStringOrByte(_In_ UINT16     PortNumber,
 {
         if (String) {
                 switch (AccessSize) {
-                case 1:
+                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
                         __inbytestring(
                             PortNumber, (PUINT8)OutRegister, AccessSize);
                         break;
-                case 2:
+                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
                         __inwordstring(
                             PortNumber, (PUINT16)OutRegister, AccessSize);
                         break;
-                case 3:
+                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
                         __indwordstring(
                             PortNumber, (PUINT32)OutRegister, AccessSize);
                         break;
@@ -762,9 +762,15 @@ HandleIoInStringOrByte(_In_ UINT16     PortNumber,
         }
         else {
                 switch (AccessSize) {
-                case 1: *OutRegister = __inbyte(PortNumber); break;
-                case 2: *OutRegister = __inword(PortNumber); break;
-                case 3: *OutRegister = __indword(PortNumber); break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+                        *OutRegister = __inbyte(PortNumber);
+                        break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+                        *OutRegister = __inword(PortNumber);
+                        break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+                        *OutRegister = __indword(PortNumber);
+                        break;
                 }
         }
 }
@@ -779,15 +785,15 @@ HandleIoOutStringOrByte(_In_ UINT16     PortNumber,
 {
         if (String) {
                 switch (AccessSize) {
-                case 1:
+                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
                         __outbytestring(
                             PortNumber, (PUINT8)OutRegister, AccessSize);
                         break;
-                case 2:
+                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
                         __outwordstring(
                             PortNumber, (PUINT16)OutRegister, AccessSize);
                         break;
-                case 3:
+                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
                         __outdwordstring(
                             PortNumber, (PUINT32)OutRegister, AccessSize);
                         break;
@@ -795,9 +801,15 @@ HandleIoOutStringOrByte(_In_ UINT16     PortNumber,
         }
         else {
                 switch (AccessSize) {
-                case 1: __outbyte(PortNumber, (UINT8)*OutRegister); break;
-                case 2: __outword(PortNumber, (UINT16)*OutRegister); break;
-                case 3: __outdword(PortNumber, (UINT32)*OutRegister); break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+                        __outbyte(PortNumber, (UINT8)*OutRegister);
+                        break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+                        __outword(PortNumber, (UINT16)*OutRegister);
+                        break;
+                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+                        __outdword(PortNumber, (UINT32)*OutRegister);
+                        break;
                 }
         }
 }
