@@ -178,6 +178,21 @@ InjectGuestWithDbFault()
         InjectHardwareException(Debug, FALSE);
 }
 
+FORCEINLINE
+STATIC
+VOID
+HandleNotImplementedExit(_In_opt_ UINT64 BugCheckParameter1,
+                         _In_opt_ UINT64 BugCheckParameter2,
+                         _In_opt_ UINT64 BugCheckParameter3,
+                         _In_opt_ UINT64 BugCheckParameter4)
+{
+        KeBugCheckEx(STATUS_NOT_IMPLEMENTED,
+                     BugCheckParameter1,
+                     BugCheckParameter2,
+                     BugCheckParameter3,
+                     BugCheckParameter4);
+}
+
 /*
  * Write the value of the designated general purpose register into the
  * designated control register
@@ -504,7 +519,6 @@ RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
         /*
          * Do the same with the FS and GS base
          */
-
         __writemsr(IA32_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
         __writemsr(IA32_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
 
@@ -600,6 +614,27 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 
         switch (intr.Vector) {
         case EXCEPTION_DIVIDED_BY_ZERO: InjectExceptionOnVmEntry(&intr); break;
+        case EXCEPTION_DEBUG:
+        case EXCEPTION_NMI:
+        case EXCEPTION_INT3:
+        case EXCEPTION_BOUND_CHECK:
+        case EXCEPTION_INVALID_OPCODE:
+        case EXCEPTION_NPX_NOT_AVAILABLE:
+        case EXCEPTION_DOUBLE_FAULT:
+        case EXCEPTION_NPX_OVERRUN:
+        case EXCEPTION_INVALID_TSS:
+        case EXCEPTION_SEGMENT_NOT_PRESENT:
+        case EXCEPTION_STACK_FAULT:
+        case EXCEPTION_GP_FAULT:
+        case EXCEPTION_RESERVED_TRAP:
+        case EXCEPTION_NPX_ERROR:
+        case EXCEPTION_ALIGNMENT_CHECK:
+        case EXCEPTION_CP_FAULT:
+        case EXCEPTION_SE_FAULT:
+        case EXCEPTION_VIRTUALIZATION_FAULT:
+        default:
+                HandleNotImplementedExit(
+                    STATUS_NOT_IMPLEMENTED, intr.Vector, NULL, NULL);
         }
 
         return ShouldExceptionAdvanceGuestRip(&intr);
