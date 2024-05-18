@@ -18,3 +18,4 @@ MmIsEptAvailable()
         IA32_VMX_EPT_VPID_CAP_REGISTER cap = {
             .AsUInt = __readmsr(IA32_VMX_EPT_VPID_CAP)};
 }
+

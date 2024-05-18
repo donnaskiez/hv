@@ -668,9 +668,6 @@ FreeGlobalDriverState()
         }
 }
 
-/*
- * TODO: there is a bug with this causing a fatal bugcheck.
- */
 STATIC
 VOID
 TerminateVmxDpcRoutine(_In_ PKDPC*    Dpc,

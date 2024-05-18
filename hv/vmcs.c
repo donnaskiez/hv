@@ -303,10 +303,10 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
          */
         Vcpu->proc_ctls.ActivateSecondaryControls = TRUE;
         Vcpu->proc_ctls.UseMsrBitmaps             = TRUE;
-        Vcpu->proc_ctls.Cr3LoadExiting            = FALSE;
-        Vcpu->proc_ctls.Cr3StoreExiting           = FALSE;
+        Vcpu->proc_ctls.Cr3LoadExiting            = TRUE;
+        Vcpu->proc_ctls.Cr3StoreExiting           = TRUE;
         Vcpu->proc_ctls.UnconditionalIoExiting    = FALSE;
-        Vcpu->proc_ctls.MovDrExiting              = FALSE;
+        Vcpu->proc_ctls.MovDrExiting              = TRUE;
 
         /*
          * TPR shadowing is still quite buggy, so to allow us to work on further

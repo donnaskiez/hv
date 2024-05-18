@@ -958,7 +958,7 @@ WriteToDebugRegister(_In_ PGUEST_CONTEXT Context,
         case DEBUG_DR3: Context->dr3 = Value; break;
         case DEBUG_DR6: Context->dr6 = Value; break;
         case DEBUG_DR7: Context->dr7 = Value; break;
-        default: return;
+        default: InjectGuestWithGpFault(); return;
         }
 }
 
@@ -974,7 +974,7 @@ ReadDebugRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
         case DEBUG_DR3: return Context->dr3;
         case DEBUG_DR6: return Context->dr6;
         case DEBUG_DR7: return Context->dr7;
-        default: return 0;
+        default: InjectGuestWithGpFault(); return;
         }
 }
 
@@ -988,8 +988,10 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
         CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
         DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL)
+        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
+                InjectGuestWithGpFault();
                 return;
+        }
 
         /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
          * #UD */

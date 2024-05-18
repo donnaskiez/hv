@@ -227,7 +227,6 @@ endm
 
 VmExitHandler PROC
 
-	push 0				; ensure the stack is aligned
 	pushfq		
 	SAVE_GP				
 	SAVE_FP
