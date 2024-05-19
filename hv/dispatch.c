@@ -658,7 +658,7 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
          * execution.
          */
         if (!vcpu->proc_ctls.MonitorTrapFlag) {
-                RFLAGS flags    = {.AsUInt = Context->eflags};
+                RFLAGS flags    = {.AsUInt = Context->rflags};
                 flags.TrapFlag  = FALSE;
                 Context->rflags = flags.AsUInt;
         }
@@ -894,7 +894,7 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
         VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
             .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
         UINT64 guest_kpcr  = VmxVmRead(VMCS_GUEST_GS_BASE);
-        EFLAGS guest_flags = {.AsUInt = Context->eflags};
+        EFLAGS guest_flags = {.AsUInt = Context->rflags};
 
         /* If CPL > IOPL, raise #GP */
         if (ProbeGuestCurrentProtectionLevel() > guest_flags.IoPrivilegeLevel) {
