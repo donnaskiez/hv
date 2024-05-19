@@ -660,13 +660,13 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
         if (!vcpu->proc_ctls.MonitorTrapFlag) {
                 RFLAGS flags    = {.AsUInt = Context->eflags};
                 flags.TrapFlag  = FALSE;
-                Context->eflags = flags.AsUInt;
+                Context->rflags = flags.AsUInt;
         }
         else {
                 /* For now, just bugcheck */
                 KeBugCheckEx(VMX_BUGCHECK_INVALID_MTF_EXIT,
                              VmxVmRead(VMCS_GUEST_RIP),
-                             Context->eflags,
+                             Context->rflags,
                              vcpu->proc_ctls.AsUInt,
                              0);
         }
@@ -857,7 +857,7 @@ UpdateDirectionFlagRegister(_Inout_ PUINT64     Output,
                             _In_ UINT32         Repetitions,
                             _In_ UINT32         AccessSize)
 {
-        if (Context->eflags & EFLAGS_DIRECTION_FLAG_BIT)
+        if (Context->rflags & EFLAGS_DIRECTION_FLAG_BIT)
                 (UINT32)* Output -= Repetitions * AccessSize;
         else
                 (UINT32)* Output += Repetitions * AccessSize;

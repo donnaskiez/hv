@@ -172,11 +172,11 @@ SAVE_DEBUG macro
 	push rax
 	mov rax, dr6
 	push rax
-	mov rax, dr1
+	mov rax, dr3
 	push rax
 	mov rax, dr2
 	push rax
-	mov rax, dr3
+	mov rax, dr1
 	push rax
 	mov rax, dr0
 	push rax

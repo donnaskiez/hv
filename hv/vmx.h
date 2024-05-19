@@ -106,7 +106,7 @@ typedef struct _GUEST_CONTEXT {
         UINT64 r13;
         UINT64 r14;
         UINT64 r15;
-        UINT32 eflags;
+        UINT64 rflags;
 
 } GUEST_CONTEXT, *PGUEST_CONTEXT;
 
