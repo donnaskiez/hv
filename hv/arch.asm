@@ -229,7 +229,7 @@ VmExitHandler PROC
 
 	pushfq
 	SAVE_GP	
-	SAVE_DEBUG
+	; SAVE_DEBUG
 
 	; Load the saved host debug register state after saving the guest 
 	; debug register state. This ensures 2 things:
@@ -238,9 +238,9 @@ VmExitHandler PROC
 	;	2. The continuous debug state remains valid across vmexits
 	;	   and entries. (mostly)
 
-	sub rsp, 20h
-	call LoadHostDebugRegisterState
-	add rsp, 20h
+	; sub rsp, 20h
+	; call LoadHostDebugRegisterState
+	; add rsp, 20h
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -259,11 +259,11 @@ VmExitHandler PROC
 	; the guests debug register state. This will allow us to reload the host
 	; debug state on the next vmexit.
 
-	sub rsp, 20h
-	call StoreHostDebugRegisterState
-	add rsp, 20h
+	; sub rsp, 20h
+	; call StoreHostDebugRegisterState
+	; add rsp, 20h
 
-	RESTORE_DEBUG
+	; RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	vmresume					
@@ -313,12 +313,12 @@ ExitVmx PROC
 	sub rsp, 020h 
 	call VmmReadGuestRsp
 	add rsp, 020h
-	mov [rsp+0b8h], rax
+	mov [rsp+88h], rax
 	sub rsp, 020h
 	call VmmReadGuestRip
 	add rsp, 020h
 	mov rdx, rsp
-	mov rbx, [rsp+0b8h]
+	mov rbx, [rsp+88h]
 	mov rsp, rbx
 	push rax
 
@@ -327,8 +327,8 @@ ExitVmx PROC
 
 	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+0b8h], rbx	
-	RESTORE_DEBUG
+	mov [rsp+88h], rbx	
+	; RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	pop rsp				
@@ -360,9 +360,9 @@ ExitVmx ENDP
 SaveStateAndVirtualizeCore PROC PUBLIC
 
 	SAVE_GP
-	SAVE_DEBUG
+	; SAVE_DEBUG
 
-	call StoreHostDebugRegisterState
+	; call StoreHostDebugRegisterState
 
 	sub rsp, 28h
 	mov rdx, rsp
@@ -401,9 +401,9 @@ VmxRestoreState PROC
 	call VmmGetCoresVcpu
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
 
-	call StoreHostDebugRegisterState
+	; call StoreHostDebugRegisterState
 
-	RESTORE_DEBUG
+	; RESTORE_DEBUG
 	RESTORE_GP
 	ret
 	
