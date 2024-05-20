@@ -327,7 +327,8 @@ ExitVmx PROC
 
 	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+0b8h], rbx		
+	mov [rsp+0b8h], rbx	
+	RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	pop rsp				
