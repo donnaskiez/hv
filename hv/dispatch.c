@@ -951,15 +951,15 @@ WriteToDebugRegister(_In_ PGUEST_CONTEXT Context,
                      _In_ UINT8          Register,
                      _In_ UINT64         Value)
 {
-        switch (Register) {
-        case DEBUG_DR0: Context->dr0 = Value; break;
-        case DEBUG_DR1: Context->dr1 = Value; break;
-        case DEBUG_DR2: Context->dr2 = Value; break;
-        case DEBUG_DR3: Context->dr3 = Value; break;
-        case DEBUG_DR6: Context->dr6 = Value; break;
-        case DEBUG_DR7: Context->dr7 = Value; break;
-        default: InjectGuestWithGpFault(); return;
-        }
+        //switch (Register) {
+        //case DEBUG_DR0: Context->dr0 = Value; break;
+        //case DEBUG_DR1: Context->dr1 = Value; break;
+        //case DEBUG_DR2: Context->dr2 = Value; break;
+        //case DEBUG_DR3: Context->dr3 = Value; break;
+        //case DEBUG_DR6: Context->dr6 = Value; break;
+        //case DEBUG_DR7: Context->dr7 = Value; break;
+        //default: InjectGuestWithGpFault(); return;
+        //}
 }
 
 FORCEINLINE
@@ -967,15 +967,15 @@ STATIC
 UINT64
 ReadDebugRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
 {
-        switch (Register) {
-        case DEBUG_DR0: return Context->dr0;
-        case DEBUG_DR1: return Context->dr1;
-        case DEBUG_DR2: return Context->dr2;
-        case DEBUG_DR3: return Context->dr3;
-        case DEBUG_DR6: return Context->dr6;
-        case DEBUG_DR7: return Context->dr7;
-        default: InjectGuestWithGpFault(); return;
-        }
+        //switch (Register) {
+        //case DEBUG_DR0: return Context->dr0;
+        //case DEBUG_DR1: return Context->dr1;
+        //case DEBUG_DR2: return Context->dr2;
+        //case DEBUG_DR3: return Context->dr3;
+        //case DEBUG_DR6: return Context->dr6;
+        //case DEBUG_DR7: return Context->dr7;
+        //default: InjectGuestWithGpFault(); return;
+        //}
 }
 
 FORCEINLINE
@@ -1047,7 +1047,6 @@ LoadHostDebugRegisterState()
         __writedr(DEBUG_DR3, vcpu->debug_state.dr3);
         __writedr(DEBUG_DR6, vcpu->debug_state.dr6);
         __writedr(DEBUG_DR7, vcpu->debug_state.dr7);
-        __writemsr(IA32_DEBUGCTL, vcpu->debug_state.debug_ctl);
 }
 
 VOID
@@ -1060,7 +1059,6 @@ StoreHostDebugRegisterState()
         vcpu->debug_state.dr3       = __readdr(DEBUG_DR3);
         vcpu->debug_state.dr6       = __readdr(DEBUG_DR6);
         vcpu->debug_state.dr7       = __readdr(DEBUG_DR7);
-        vcpu->debug_state.debug_ctl = __readmsr(IA32_DEBUGCTL);
 }
 
 FORCEINLINE

@@ -227,50 +227,24 @@ endm
 
 VmExitHandler PROC
 
-	pushfq		
-	SAVE_GP				
-	SAVE_FP
-	SAVE_DEBUG
-
-	; Load the saved host debug register state after saving the guest 
-	; debug register state. This ensures 2 things:
-	;
-	;	1. The guest does not receive leaked host values
-	;	2. The continuous debug state remains valid across vmexits
-	;	   and entries. (mostly)
-
-	sub rsp, 20h
-	call LoadHostDebugRegisterState
-	add rsp, 20h
+	pushfq
+	SAVE_GP	
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
 
 	mov rcx, rsp
 	sub rsp, 20h			
-	call VmExitDispatcher		
-	add rsp, 20h		
-	
-	; VmExitDispatcher will return a boolean value, if the return value is 
-	; true it indicates that vmx operation must terminate. If so jump to our
-	; ExitVmx routine.
+	CALL VmExitDispatcher		
+	add rsp, 20h			
+
+	; check if the return value from our exit dispatcher is 1 (true)
 
 	cmp al, 1			
-	je ExitVmx	
-
-	; Store the final values of the host debug register state before we restore
-	; the guests debug register state. This will allow us to reload the host
-	; debug state on the next vmexit.
-
-	sub rsp, 20h
-	call StoreHostDebugRegisterState
-	add rsp, 20h
-
-	RESTORE_DEBUG
-	RESTORE_FP			
+	je ExitVmx					
 	RESTORE_GP			
 	popfq				
-	vmresume			
+	vmresume					
 	
 VmExitHandler ENDP
 
@@ -300,64 +274,42 @@ VmExitHandler ENDP
 ExitVmx PROC
 
 	push rax	
+
+	; Ensure we set the vcpus status to TERMINATED
+
 	sub rsp, 020h
 	call VmmGetCoresVcpu
 	add rsp, 020h
-
-	; Set our vmm_state->state equal to VMX_CPU_STATE_TERMINATED indicating
-	; that vmx operation has been terminated on the vpu.
-
 	mov [rax], dword ptr VMX_VCPU_STATE_TERMINATED
-
-	; Since during a regular vm-exit, the cpu will restore the guest RSP and RIP 
-	; via the vcpu's VMCS structure, we must retrieve them from our vcpu's 
-	; vmm_state->exit_state structure. We store both values from the VMCS before
-	; we called __vmx_off().
-	;
-	; It's also important to note that theres no need to save the host debug state
-	; since we are exiting vmx operation, and instead we simply restore the guest 
-	; state from the GUEST_CONTEXT structure on the stack
-
 	pop rax
+
+	; On vmentry, the processor will set the guests RSP and RIP to what
+	; was stored in the vmcs at vmexit. Since we have turned off vmx
+	; operation this will not occur, hence we must do it manually from
+	; state we stored from the vmcs before we exited vmx operation.
+
 	sub rsp, 020h 
-	call VmmReadGuestRsp		
+	call VmmReadGuestRsp
 	add rsp, 020h
-	mov [rsp+01b8h], rax		
+	mov [rsp+88h], rax
 	sub rsp, 020h
 	call VmmReadGuestRip
 	add rsp, 020h
-
-	; Save our hosts RSP
-
 	mov rdx, rsp
+	mov rbx, [rsp+88h]
+	mov rsp, rbx
+	push rax
 
-	; Switch to our guests stack 
+	; Restore the guests state from the host stack before finally 
+	; loading the guests stack back and continuing execution.
 
-	mov rbx, [rsp+01b8h]		
-	mov rsp, rbx			
-
-	; Store the guests RIP on the guest stack
-
-	push rax			; push the guests rip to our new stack
-
-	; Switch back to our hosts stack
-
-	mov rsp, rdx	
-	
-	; Store our guests stack at the top of our host stack
-
+	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+01b8h], rbx
-
-	; Restore guests GP, FP and flags, switch to guest stack and jump to 
-	; guests rip
-
-	RESTORE_DEBUG
-	RESTORE_FP
-	RESTORE_GP
-	popfq
-	pop rsp	
-	ret
+	mov [rsp+88h], rbx		
+	RESTORE_GP			
+	popfq				
+	pop rsp				
+	ret				
 
 ExitVmx ENDP
 
@@ -385,10 +337,6 @@ ExitVmx ENDP
 SaveStateAndVirtualizeCore PROC PUBLIC
 
 	SAVE_GP
-	SAVE_FP
-	SAVE_DEBUG
-
-	call StoreHostDebugRegisterState
 
 	sub rsp, 28h
 	mov rdx, rsp
@@ -427,10 +375,6 @@ VmxRestoreState PROC
 	call VmmGetCoresVcpu
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
 
-	call StoreHostDebugRegisterState
-
-	RESTORE_DEBUG
-	RESTORE_FP
 	RESTORE_GP
 	ret
 	
