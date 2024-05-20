@@ -359,6 +359,9 @@ ExitVmx ENDP
 SaveStateAndVirtualizeCore PROC PUBLIC
 
 	SAVE_GP
+	SAVE_DEBUG
+
+	call StoreHostDebugRegisterState
 
 	sub rsp, 28h
 	mov rdx, rsp
@@ -397,6 +400,9 @@ VmxRestoreState PROC
 	call VmmGetCoresVcpu
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
 
+	call StoreHostDebugRegisterState
+
+	RESTORE_DEBUG
 	RESTORE_GP
 	ret
 	
