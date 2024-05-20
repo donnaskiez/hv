@@ -229,6 +229,18 @@ VmExitHandler PROC
 
 	pushfq
 	SAVE_GP	
+	SAVE_DEBUG
+
+	; Load the saved host debug register state after saving the guest 
+	; debug register state. This ensures 2 things:
+	;
+	;	1. The guest does not receive leaked host values
+	;	2. The continuous debug state remains valid across vmexits
+	;	   and entries. (mostly)
+
+	sub rsp, 20h
+	call LoadHostDebugRegisterState
+	add rsp, 20h
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -241,7 +253,17 @@ VmExitHandler PROC
 	; check if the return value from our exit dispatcher is 1 (true)
 
 	cmp al, 1			
-	je ExitVmx					
+	je ExitVmx	
+	
+	; Store the final values of the host debug register state before we restore
+	; the guests debug register state. This will allow us to reload the host
+	; debug state on the next vmexit.
+
+	sub rsp, 20h
+	call StoreHostDebugRegisterState
+	add rsp, 20h
+
+	RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	vmresume					
@@ -291,12 +313,12 @@ ExitVmx PROC
 	sub rsp, 020h 
 	call VmmReadGuestRsp
 	add rsp, 020h
-	mov [rsp+88h], rax
+	mov [rsp+0b8h], rax
 	sub rsp, 020h
 	call VmmReadGuestRip
 	add rsp, 020h
 	mov rdx, rsp
-	mov rbx, [rsp+88h]
+	mov rbx, [rsp+0b8h]
 	mov rsp, rbx
 	push rax
 
@@ -305,7 +327,7 @@ ExitVmx PROC
 
 	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+88h], rbx		
+	mov [rsp+0b8h], rbx		
 	RESTORE_GP			
 	popfq				
 	pop rsp				
