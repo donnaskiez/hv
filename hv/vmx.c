@@ -617,20 +617,6 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
     /* What happens if something fails? TODO: think. */
     KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
 
-#if DEBUG
-    UINT64 vapic = vmm_state[KeGetCurrentProcessorNumber()].virtual_apic_va;
-
-    // DEBUG_LOG("cr8: %llx", __readcr8());
-    // DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-    //__writecr8(5);
-    // UINT64 test = __readcr8();
-    // DEBUG_LOG("raised cr8: %llx", test);
-    // DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-    //__writecr8(0);
-    // DEBUG_LOG("cr8 post: %llx", __readcr8());
-    // DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-    //__debugbreak();
-#endif
     /* lets make sure we entered VMX operation on ALL cores. If a core
      * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
     return ValidateVmxLaunch();
@@ -713,6 +699,13 @@ end:
 NTSTATUS
 BroadcastVmxTermination()
 {
+    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+
+    vcpu->state = VMX_VCPU_STATE_TERMINATING;
+
+    /* Flush all our queued DPCs */
+    KeFlushQueuedDpcs();
+
     /* Our routine blocks until all DPCs have executed. */
     KeGenericCallDpc(TerminateVmxDpcRoutine, NULL);
 

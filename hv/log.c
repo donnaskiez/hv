@@ -108,7 +108,8 @@ HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 VOID
 HvLogWrite(PCSTR Format, ...)
 {
-    PVCPU_LOG_STATE logger = NULL;
+    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU_LOG_STATE logger = &vcpu->log_state;
     UINT32 cur_head = 0;
     UINT32 cur_tail = 0;
     UINT32 usage = 0;
@@ -120,7 +121,9 @@ HvLogWrite(PCSTR Format, ...)
     NTSTATUS status = 0;
     size_t user_len = 0;
 
-    logger = &vmm_state[KeGetCurrentProcessorNumber()].log_state;
+    if (vcpu->state == VMX_VCPU_STATE_TERMINATING)
+        return;
+
     cur_head = logger->head;
     cur_tail = logger->tail;
     usage = cur_head - cur_tail;

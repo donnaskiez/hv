@@ -40,7 +40,8 @@ typedef struct _EXIT_STATE {
 
 #define VMX_VCPU_STATE_OFF        0
 #define VMX_VCPU_STATE_RUNNING    1
-#define VMX_VCPU_STATE_TERMINATED 2
+#define VMX_VCPU_STATE_TERMINATING 2
+#define VMX_VCPU_STATE_TERMINATED 3
 
 typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
