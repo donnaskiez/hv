@@ -1,92 +1,99 @@
 #include "log.h"
-
 #include "common.h"
 
 #include <ntstrsafe.h>
 #include <stdarg.h>
 
-/* flush them every 1 second */
+/* flush them every 1 second (unused in this snippet unless you create a timer)
+ */
 #define LOGS_FLUSH_TIMER_INVOKE_TIME 1000
 
 #if DEBUG
 
 STATIC
 VOID
-HvpLogDpcFlushRoutine(_In_ PKDPC*    Dpc,
-                      _In_opt_ PVOID DeferredContext,
-                      _In_opt_ PVOID SystemArgument1,
-                      _In_opt_ PVOID SystemArgument2)
+HvpLogDpcFlushRoutine(
+    _In_ PKDPC* Dpc,
+    _In_opt_ PVOID DeferredContext,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2)
 {
-        UNREFERENCED_PARAMETER(Dpc);
-        UNREFERENCED_PARAMETER(SystemArgument1);
-        UNREFERENCED_PARAMETER(SystemArgument2);
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(SystemArgument1);
+    UNREFERENCED_PARAMETER(SystemArgument2);
 
-        PVCPU_LOG_STATE pState = (PVCPU_LOG_STATE)DeferredContext;
-        if (!pState) {
-                return;
-        }
+    NT_ASSERT(DeferredContext != NULL);
 
-        // Snapshot of head
-        UINT32 localHead = pState->head;
-        UINT32 localTail = pState->tail;
+    PVCPU_LOG_STATE p_state = (PVCPU_LOG_STATE)DeferredContext;
+    UINT32 local_head = 0;
+    UINT32 local_tail = 0;
+    UINT32 index = 0;
+    PLOG_ENTRY log_entry = NULL;
 
-        // Enumerate everything from tail to head-1
-        while (localTail < localHead) {
-                UINT32     index  = localTail % VMX_MAX_LOG_ENTRIES_COUNT;
-                LOG_ENTRY* pEntry = &pState->logs[index];
+    DEBUG_LOG("Flushing logs!");
 
-                // For debugging, just print the message
-                // (We can also use pEntry->timestamp if we want)
-                DEBUG_LOG("%s", pEntry->message);
+    /* no need to check for valid context, assert used instead */
+    local_head = p_state->head;
+    local_tail = p_state->tail;
 
-                localTail++;
-        }
+    while (local_tail < local_head) {
+        index = local_tail % VMX_MAX_LOG_ENTRIES_COUNT;
+        log_entry = &p_state->logs[index];
 
-        // Update tail to show we've consumed these entries
-        pState->tail = localTail;
+        /* DPC runs on the same core, hence can defer work here */
+        DEBUG_LOG(
+            "[CPU: %lu][TSC: %llu] %s",
+            KeGetCurrentProcessorNumber(),
+            log_entry->timestamp,
+            log_entry->message);
+
+        local_tail++;
+    }
+
+    p_state->tail = local_tail;
 }
 
 VOID
 HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        UNREFERENCED_PARAMETER(Vcpu);
-        KeFlushQueuedDpcs();
+    UNREFERENCED_PARAMETER(Vcpu);
+
+    KeFlushQueuedDpcs();
+
+    DEBUG_LOG(
+        "Vcpu: %lx - log count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.log_count);
+
+    DEBUG_LOG(
+        "Vcpu: %lx - discard count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.discard_count);
 }
 
 NTSTATUS
 HvLogInitialise(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
-        PVCPU_LOG_STATE state = &Vcpu->log_state;
+    PVCPU_LOG_STATE state = &Vcpu->log_state;
 
-        // Zero out the ring buffer fields
-        state->head          = 0;
-        state->tail          = 0;
-        state->log_count     = 0;
-        state->discard_count = 0;
-        RtlZeroMemory(state->logs, sizeof(state->logs));
+    state->head = 0;
+    state->tail = 0;
+    state->log_count = 0;
+    state->discard_count = 0;
+    RtlZeroMemory(state->logs, sizeof(state->logs));
 
-        // Initialize the DPC object
-        KeInitializeDpc(&state->dpc, HvpLogDpcFlushRoutine, state);
+    KeInitializeDpc(&state->dpc, HvpLogDpcFlushRoutine, state);
 
-        // Optionally set up a timer so we flush automatically every second
-        // or you can call KeInsertQueueDpc(...) from somewhere else on-demand
-
-        return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 BOOLEAN
 HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 {
-        // 'usage' is how many entries are currently in the buffer
-        UINT32 usage = Logger->head - Logger->tail;
-
-        // 70% of the total capacity
-        UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 70) / 100);
-
-        // If usage >= threshold, return TRUE to indicate we should flush
-        return (usage >= threshold) ? TRUE : FALSE;
+    UINT32 usage = Logger->head - Logger->tail;
+    UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 80) / 100);
+    return (usage >= threshold) ? TRUE : FALSE;
 }
-
 
 /*
  * Since I can't be bothered to write my own "safe" implementation of vsprintf,
@@ -101,36 +108,57 @@ HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 VOID
 HvLogWrite(PCSTR Format, ...)
 {
-        PVCPU_LOG_STATE pLogState =
-            &vmm_state[KeGetCurrentProcessorNumber()].log_state;
+    PVCPU_LOG_STATE logger = NULL;
+    UINT32 cur_head = 0;
+    UINT32 cur_tail = 0;
+    UINT32 usage = 0;
+    UINT32 old_head = 0;
+    UINT32 index = 0;
+    LOG_ENTRY* entry = NULL;
+    CHAR user_buffer[512] = {0};
+    va_list args;
+    NTSTATUS status = 0;
+    size_t user_len = 0;
 
-        UINT32 currentHead = pLogState->head;
-        UINT32 currentTail = pLogState->tail;
-        UINT32 usage       = currentHead - currentTail;
+    logger = &vmm_state[KeGetCurrentProcessorNumber()].log_state;
+    cur_head = logger->head;
+    cur_tail = logger->tail;
+    usage = cur_head - cur_tail;
 
-        if (usage >= VMX_MAX_LOG_ENTRIES_COUNT) {
-                InterlockedIncrement((volatile LONG*)&pLogState->discard_count);
-                return;
-        }
+    if (usage >= VMX_MAX_LOG_ENTRIES_COUNT) {
+        InterlockedIncrement((volatile LONG*)&logger->discard_count);
+        return;
+    }
 
-        UINT32 oldHead =
-            InterlockedIncrement((volatile LONG*)&pLogState->head) - 1;
+    old_head = InterlockedIncrement((volatile LONG*)&logger->head) - 1;
+    index = old_head % VMX_MAX_LOG_ENTRIES_COUNT;
+    entry = &logger->logs[index];
+    entry->timestamp = __rdtsc();
 
-        UINT32     index = oldHead % VMX_MAX_LOG_ENTRIES_COUNT;
-        LOG_ENTRY* entry = &pLogState->logs[index];
+    va_start(args, Format);
+    status =
+        RtlStringCbVPrintfA(user_buffer, sizeof(user_buffer), Format, args);
+    va_end(args);
 
-        entry->timestamp = __rdtsc();
+    if (!NT_SUCCESS(status)) {
+        InterlockedIncrement((volatile LONG*)&logger->discard_count);
+        return;
+    }
 
-        va_list args;
-        va_start(args, Format);
-        RtlStringCbVPrintfA(
-            entry->message, sizeof(entry->message), Format, args);
-        va_end(args);
+    user_len = strnlen_s(user_buffer, sizeof(user_buffer));
+    if (user_len >= sizeof(entry->message)) {
+        RtlCopyMemory(entry->message, user_buffer, sizeof(entry->message) - 1);
+        entry->message[sizeof(entry->message) - 1] = '\0';
+    }
+    else {
+        RtlCopyMemory(entry->message, user_buffer, user_len + 1);
+    }
 
-        InterlockedIncrement((volatile LONG*)&pLogState->log_count);
+    InterlockedIncrement((volatile LONG*)&logger->log_count);
 
-        if (HvpLogCheckToFlush(pLogState))
-                KeInsertQueueDpc(&pLogState->dpc, NULL, NULL);
+    if (HvpLogCheckToFlush(logger)) {
+        KeInsertQueueDpc(&logger->dpc, NULL, NULL);
+    }
 }
 
 #endif
