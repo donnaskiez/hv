@@ -60,9 +60,6 @@
     <ClInclude Include="arch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lock.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="log.h">
       <Filter>Header Files</Filter>
     </ClInclude>

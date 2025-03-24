@@ -149,10 +149,10 @@
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
+    <Inf2CatUseLocalTime>false</Inf2CatUseLocalTime>
     <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>false</DisableProductionSignDebugWarnings>
-    <EnableInf2cat>false</EnableInf2cat>
+    <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -213,7 +213,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
     </DriverSign>
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -413,7 +412,6 @@
     <ClInclude Include="driver.h" />
     <ClInclude Include="dispatch.h" />
     <ClInclude Include="ia32.h" />
-    <ClInclude Include="lock.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="mm.h" />
     <ClInclude Include="vmcs.h" />

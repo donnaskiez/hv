@@ -3,7 +3,6 @@
 
 #include "driver.h"
 #include "ia32.h"
-#include "lock.h"
 
 typedef struct _DPC_CALL_CONTEXT {
     EPT_POINTER* eptp;
