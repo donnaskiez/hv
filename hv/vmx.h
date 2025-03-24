@@ -38,10 +38,10 @@ typedef struct _EXIT_STATE {
 
 } EXIT_STATE, *PEXIT_STATE;
 
-#define VMX_VCPU_STATE_OFF        0
-#define VMX_VCPU_STATE_RUNNING    1
+#define VMX_VCPU_STATE_OFF         0
+#define VMX_VCPU_STATE_RUNNING     1
 #define VMX_VCPU_STATE_TERMINATING 2
-#define VMX_VCPU_STATE_TERMINATED 3
+#define VMX_VCPU_STATE_TERMINATED  3
 
 typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
@@ -63,8 +63,8 @@ typedef struct _VCPU_LOG_STATE {
     volatile UINT32 tail;
     volatile UINT64 log_count;
     volatile UINT64 discard_count;
-    LOG_ENTRY logs[VMX_MAX_LOG_ENTRIES_COUNT];
     KDPC dpc;
+    LOG_ENTRY logs[VMX_MAX_LOG_ENTRIES_COUNT];
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {

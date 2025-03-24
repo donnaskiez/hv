@@ -31,6 +31,7 @@ VOID
 DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
     DEBUG_LOG("Unloading driver...");
+
     /* if this fails... Who cares!  xD*/
     BroadcastVmxTermination();
     UnregisterPowerCallback();

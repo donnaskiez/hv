@@ -4,12 +4,11 @@
 #include <ntstrsafe.h>
 #include <stdarg.h>
 
-/* flush them every 1 second (unused in this snippet unless you create a timer)
- */
-#define LOGS_FLUSH_TIMER_INVOKE_TIME 1000
-
 #if DEBUG
 
+/* Right now its quite interesting, if this routine doesnt cause a vmexit the
+ * logging should be fairly solid, however if this function causes a VM exit it
+ * may be a problem... */
 STATIC
 VOID
 HvpLogDpcFlushRoutine(
@@ -24,41 +23,39 @@ HvpLogDpcFlushRoutine(
 
     NT_ASSERT(DeferredContext != NULL);
 
-    PVCPU_LOG_STATE p_state = (PVCPU_LOG_STATE)DeferredContext;
-    UINT32 local_head = 0;
-    UINT32 local_tail = 0;
+    PVCPU_LOG_STATE logger = (PVCPU_LOG_STATE)DeferredContext;
+    UINT32 head = 0;
+    UINT32 tail = 0;
     UINT32 index = 0;
-    PLOG_ENTRY log_entry = NULL;
+    PLOG_ENTRY entry = NULL;
 
     DEBUG_LOG("Flushing logs!");
 
     /* no need to check for valid context, assert used instead */
-    local_head = p_state->head;
-    local_tail = p_state->tail;
+    head = logger->head;
+    tail = logger->tail;
 
-    while (local_tail < local_head) {
-        index = local_tail % VMX_MAX_LOG_ENTRIES_COUNT;
-        log_entry = &p_state->logs[index];
+    while (tail < head) {
+        index = tail % VMX_MAX_LOG_ENTRIES_COUNT;
+        entry = &logger->logs[index];
 
         /* DPC runs on the same core, hence can defer work here */
         DEBUG_LOG(
             "[CPU: %lu][TSC: %llu] %s",
             KeGetCurrentProcessorNumber(),
-            log_entry->timestamp,
-            log_entry->message);
+            entry->timestamp,
+            entry->message);
 
-        local_tail++;
+        tail++;
     }
 
-    p_state->tail = local_tail;
+    logger->tail = tail;
 }
 
 VOID
 HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 {
     UNREFERENCED_PARAMETER(Vcpu);
-
-    KeFlushQueuedDpcs();
 
     DEBUG_LOG(
         "Vcpu: %lx - log count: %llx",
@@ -91,7 +88,7 @@ BOOLEAN
 HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 {
     UINT32 usage = Logger->head - Logger->tail;
-    UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 80) / 100);
+    UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 50) / 100);
     return (usage >= threshold) ? TRUE : FALSE;
 }
 
@@ -116,10 +113,8 @@ HvLogWrite(PCSTR Format, ...)
     UINT32 old_head = 0;
     UINT32 index = 0;
     LOG_ENTRY* entry = NULL;
-    CHAR user_buffer[512] = {0};
-    va_list args;
-    NTSTATUS status = 0;
-    size_t user_len = 0;
+    va_list args = NULL;
+    NTSTATUS status = STATUS_SUCCESS;
 
     if (vcpu->state == VMX_VCPU_STATE_TERMINATING)
         return;
@@ -139,8 +134,11 @@ HvLogWrite(PCSTR Format, ...)
     entry->timestamp = __rdtsc();
 
     va_start(args, Format);
-    status =
-        RtlStringCbVPrintfA(user_buffer, sizeof(user_buffer), Format, args);
+    status = RtlStringCbVPrintfA(
+        entry->message,
+        VMX_INIDIVIDUAL_LOG_MAX_SIZE,
+        Format,
+        args);
     va_end(args);
 
     if (!NT_SUCCESS(status)) {
@@ -148,20 +146,10 @@ HvLogWrite(PCSTR Format, ...)
         return;
     }
 
-    user_len = strnlen_s(user_buffer, sizeof(user_buffer));
-    if (user_len >= sizeof(entry->message)) {
-        RtlCopyMemory(entry->message, user_buffer, sizeof(entry->message) - 1);
-        entry->message[sizeof(entry->message) - 1] = '\0';
-    }
-    else {
-        RtlCopyMemory(entry->message, user_buffer, user_len + 1);
-    }
-
     InterlockedIncrement((volatile LONG*)&logger->log_count);
 
-    if (HvpLogCheckToFlush(logger)) {
+    if (HvpLogCheckToFlush(logger))
         KeInsertQueueDpc(&logger->dpc, NULL, NULL);
-    }
 }
 
 #endif

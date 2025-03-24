@@ -447,6 +447,7 @@ FreeVmxStateDpcRoutine(
     UNREFERENCED_PARAMETER(DeferredContext);
     UNREFERENCED_PARAMETER(SystemArgument1);
     UNREFERENCED_PARAMETER(SystemArgument2);
+
     FreeCoreVmxState(KeGetCurrentProcessorNumber());
 }
 
@@ -481,7 +482,6 @@ InitialiseVmxOperation(
 #ifdef DEBUG
 
     status = HvLogInitialise(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
         FreeCoreVmxState(core);
@@ -491,7 +491,6 @@ InitialiseVmxOperation(
 #endif
 
     status = EnableVmxOperationOnCore();
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
         FreeCoreVmxState(core);
@@ -499,7 +498,6 @@ InitialiseVmxOperation(
     }
 
     status = AllocateVmxonRegion(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
         FreeCoreVmxState(core);
@@ -507,7 +505,6 @@ InitialiseVmxOperation(
     }
 
     status = AllocateVmcsRegion(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmcsRegion failed with status %x", status);
         FreeCoreVmxState(core);
@@ -515,7 +512,6 @@ InitialiseVmxOperation(
     }
 
     status = AllocateVmmStack(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmmStack failed with status %x", status);
         FreeCoreVmxState(core);
@@ -523,7 +519,6 @@ InitialiseVmxOperation(
     }
 
     status = AllocateMsrBitmap(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateMsrBitmap failed with status %x", status);
         FreeCoreVmxState(core);
@@ -531,7 +526,6 @@ InitialiseVmxOperation(
     }
 
     status = InitiateVmmState(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitiateVmmState failed with status %x", status);
         FreeCoreVmxState(core);
@@ -545,7 +539,6 @@ InitialiseVmxOperation(
     }
 
     status = AllocateApicVirtualPage(vcpu);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
         FreeCoreVmxState(core);
@@ -569,7 +562,6 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
     PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
     status = SetupVmcs(vcpu, StackPointer);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("SetupVmcs failed with status %x", status);
         return;
@@ -591,9 +583,10 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 NTSTATUS
 ValidateVmxLaunch()
 {
-    for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[core];
+    PVIRTUAL_MACHINE_STATE vcpu = NULL;
 
+    for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
+        vcpu = &vmm_state[core];
         if (vcpu->state != VMX_VCPU_STATE_RUNNING) {
             DEBUG_LOG("Core: %lx failed to enter VMX operation.", core);
             return STATUS_UNSUCCESSFUL;

@@ -60,6 +60,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <EnableKASAN>true</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -149,7 +150,7 @@
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <Inf2CatUseLocalTime>false</Inf2CatUseLocalTime>
+    <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
     <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>false</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
