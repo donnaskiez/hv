@@ -150,9 +150,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
-    <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
-    <EnableInf2cat>true</EnableInf2cat>
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
+    <DisableProductionSignDebugWarnings>false</DisableProductionSignDebugWarnings>
+    <EnableInf2cat>false</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -402,7 +402,6 @@
   <ItemGroup>
     <ClCompile Include="driver.c" />
     <ClCompile Include="dispatch.c" />
-    <ClCompile Include="lock.c" />
     <ClCompile Include="log.c" />
     <ClCompile Include="mm.c" />
     <ClCompile Include="vmcs.c" />

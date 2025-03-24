@@ -45,7 +45,7 @@ typedef struct _EXIT_STATE {
 
 typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
-#define VMX_LOG_BUFFER_SIZE          0x100000
+#define VMX_LOG_BUFFER_SIZE          0x5000
 #define VMX_INIDIVIDUAL_LOG_MAX_SIZE 0x100
 #define VMX_MAX_LOG_ENTRIES_COUNT \
         VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE
@@ -53,43 +53,43 @@ typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
 #define VMX_APIC_TPR_THRESHOLD 0
 
-typedef struct _VCPU_LOG_STATE {
-        volatile HIGH_IRQL_LOCK lock;
-        /*
-         * Given that our core flushing mechanism only flushes when the buffer
-         * is full, lets create a timer that flushes the logs every X period
-         * regardless of the state of the buffer.
-         */
-        KTIMER          timer;
-        KDPC            dpc;
-        PVOID           log_buffer;
-        volatile UINT32 current_log_count;
+typedef struct _LOG_ENTRY {
+        UINT64 timestamp;
+        CHAR   message[VMX_INIDIVIDUAL_LOG_MAX_SIZE];
+} LOG_ENTRY, PLOG_ENTRY;
 
+typedef struct _VCPU_LOG_STATE {
+        volatile UINT32 head;
+        volatile UINT32 tail;
+        volatile UINT32 log_count;
+        volatile UINT32 discard_count;
+        LOG_ENTRY       logs[VMX_MAX_LOG_ENTRIES_COUNT];
+        KDPC            dpc;
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
-        //UINT64 dr7;
-        //UINT64 dr6;
-        //UINT64 dr3;
-        //UINT64 dr2;
-        //UINT64 dr1;
-        //UINT64 dr0;
-        //M128A  Xmm0;
-        //M128A  Xmm1;
-        //M128A  Xmm2;
-        //M128A  Xmm3;
-        //M128A  Xmm4;
-        //M128A  Xmm5;
-        //M128A  Xmm6;
-        //M128A  Xmm7;
-        //M128A  Xmm8;
-        //M128A  Xmm9;
-        //M128A  Xmm10;
-        //M128A  Xmm11;
-        //M128A  Xmm12;
-        //M128A  Xmm13;
-        //M128A  Xmm14;
-        //M128A  Xmm15;
+        // UINT64 dr7;
+        // UINT64 dr6;
+        // UINT64 dr3;
+        // UINT64 dr2;
+        // UINT64 dr1;
+        // UINT64 dr0;
+        // M128A  Xmm0;
+        // M128A  Xmm1;
+        // M128A  Xmm2;
+        // M128A  Xmm3;
+        // M128A  Xmm4;
+        // M128A  Xmm5;
+        // M128A  Xmm6;
+        // M128A  Xmm7;
+        // M128A  Xmm8;
+        // M128A  Xmm9;
+        // M128A  Xmm10;
+        // M128A  Xmm11;
+        // M128A  Xmm12;
+        // M128A  Xmm13;
+        // M128A  Xmm14;
+        // M128A  Xmm15;
         UINT64 rax;
         UINT64 rcx;
         UINT64 rdx;
@@ -162,9 +162,9 @@ typedef struct _VIRTUAL_MACHINE_STATE {
 extern PVIRTUAL_MACHINE_STATE vmm_state;
 
 typedef struct _DRIVER_STATE {
-        PVOID             power_callback;
-        PCALLBACK_OBJECT  power_callback_object;
-        //EPT_CONFIGURATION ept_configuration;
+        PVOID            power_callback;
+        PCALLBACK_OBJECT power_callback_object;
+        // EPT_CONFIGURATION ept_configuration;
 
 } DRIVER_STATE, *PDRIVER_STATE;
 

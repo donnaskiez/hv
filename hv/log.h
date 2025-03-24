@@ -7,21 +7,21 @@
 
 #ifdef DEBUG
 #        define HIGH_IRQL_LOG_SAFE(fmt, ...) \
-                LogToBuffer("hv-root: " fmt, ##__VA_ARGS__)
+                HvLogWrite("hv-root: " fmt, ##__VA_ARGS__)
 #else
 #        define HIGH_IRQL_LOG_SAFE(fmt, ...)
 #endif
 
 NTSTATUS
-InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+HvLogInitialise(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
 
 VOID
-LogToBuffer(PCSTR Format, ...);
+HvLogWrite(PCSTR Format, ...);
 
 BOOLEAN
-CheckToFlushLogs(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger);
 
 VOID
-CleanupLoggerOnUnload(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
 
 #endif

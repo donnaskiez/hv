@@ -424,10 +424,7 @@ FreeCoreVmxState(_In_ UINT32 Core)
                 MmFreeContiguousMemory(vcpu->virtual_apic_va);
 #endif
 #if DEBUG
-        CleanupLoggerOnUnload(vcpu);
-        if (vcpu->log_state.log_buffer)
-                ExFreePoolWithTag(vcpu->log_state.log_buffer,
-                                  VMX_LOG_BUFFER_POOL_TAG);
+        HvLogCleanup(vcpu);
 #endif
 }
 
@@ -472,7 +469,7 @@ InitialiseVmxOperation(_In_ PKDPC*    Dpc,
 
 #ifdef DEBUG
 
-        status = InitialiseVcpuLogger(vcpu);
+        status = HvLogInitialise(vcpu);
 
         if (!NT_SUCCESS(status)) {
                 DEBUG_ERROR("InitialiseVcpuLogger failed with status %x",
@@ -617,16 +614,16 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
 #if DEBUG
         UINT64 vapic = vmm_state[KeGetCurrentProcessorNumber()].virtual_apic_va;
 
-        DEBUG_LOG("cr8: %llx", __readcr8());
-        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-        __writecr8(5);
-        UINT64 test = __readcr8();
-        DEBUG_LOG("raised cr8: %llx", test);
-        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-        __writecr8(0);
-        DEBUG_LOG("cr8 post: %llx", __readcr8());
-        DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
-        __debugbreak();
+        //DEBUG_LOG("cr8: %llx", __readcr8());
+        //DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        //__writecr8(5);
+        //UINT64 test = __readcr8();
+        //DEBUG_LOG("raised cr8: %llx", test);
+        //DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        //__writecr8(0);
+        //DEBUG_LOG("cr8 post: %llx", __readcr8());
+        //DEBUG_LOG("vapic: %lx", __read_vapic_32(vapic, IA32_X2APIC_TPR) >> 4);
+        //__debugbreak();
 #endif
         /* lets make sure we entered VMX operation on ALL cores. If a core
          * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/

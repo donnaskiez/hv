@@ -28,9 +28,6 @@
     <ClCompile Include="dispatch.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lock.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="log.c">
       <Filter>Source Files</Filter>
     </ClCompile>
