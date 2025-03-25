@@ -152,33 +152,33 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
     <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
-    <DisableProductionSignDebugWarnings>false</DisableProductionSignDebugWarnings>
+    <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - CR8|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -231,7 +231,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
     </DriverSign>
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -249,7 +248,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - CR8|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
     </DriverSign>
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -267,7 +265,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
     </DriverSign>
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -287,7 +284,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
-      <AdditionalOptions>/tr "http://sha256timestamp.ws.symantec.com/sha256/timestamp" /td sha256 %(AdditionalOptions)</AdditionalOptions>
     </DriverSign>
     <ClCompile>
       <TreatWarningAsError>false</TreatWarningAsError>
