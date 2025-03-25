@@ -6,14 +6,14 @@
 
 EXTERN
 VOID
-VmxRestoreState();
+HvArchRestoreState();
 
 EXTERN UINT64 INLINE
-SaveStateAndVirtualizeCore(_In_ PDPC_CALL_CONTEXT Context);
+HvArchSaveStateAndVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context);
 
 EXTERN
 VOID
-VmExitHandler();
+HvArchVmExitHandler();
 
 EXTERN
 VOID
@@ -27,10 +27,11 @@ EXTERN VOID
 __lgdt(_In_ PVOID Value);
 
 EXTERN NTSTATUS INLINE
-__vmx_vmcall(_In_ UINT64 VmCallNumber,
-             _In_ UINT64 OptionalParam1,
-             _In_ UINT64 OptionalParam2,
-             _In_ UINT64 OptionalParam3);
+__vmx_vmcall(
+    _In_ UINT64 VmCallNumber,
+    _In_ UINT64 OptionalParam1,
+    _In_ UINT64 OptionalParam2,
+    _In_ UINT64 OptionalParam3);
 
 EXTERN UINT64
 __lar(_In_ UINT64 Selector);

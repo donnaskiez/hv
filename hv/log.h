@@ -9,7 +9,7 @@
 #        define HIGH_IRQL_LOG_SAFE(fmt, ...) \
                 HvLogWrite("hv-root: " fmt, ##__VA_ARGS__)
 #else
-#        define HIGH_IRQL_LOG_SAFE(fmt, ...)
+#        define HIGH_IRQL_LOG_SAFE(fmt, ...) 
 #endif
 
 NTSTATUS

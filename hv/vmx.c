@@ -17,19 +17,19 @@ PVCPU vmm_state = NULL;
  * to write as much assembly.
  */
 UINT64
-VmmReadGuestRip()
+HvVmxGuestReadRip()
 {
     return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
 }
 
 UINT64
-VmmReadGuestRsp()
+HvVmxGuestReadRsp()
 {
     return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
 }
 
 UINT64
-VmmGetCoresVcpu()
+HvVmxGetVcpu()
 {
     return &vmm_state[KeGetCurrentProcessorNumber()];
 }
@@ -39,7 +39,7 @@ VmmGetCoresVcpu()
  */
 STATIC
 NTSTATUS
-EnableVmxOperationOnCore()
+HvVmxEnableOnCore()
 {
     CR4 cr4 = {0};
 
@@ -54,7 +54,7 @@ EnableVmxOperationOnCore()
 
 STATIC
 NTSTATUS
-IsVmxSupported()
+HvVmxIsSupported()
 {
     CPUID_EAX_01 cpuid_features = {0};
     __cpuid((INT*)&cpuid_features, CPUID_VERSION_INFORMATION);
@@ -89,7 +89,7 @@ IsVmxSupported()
  */
 STATIC
 NTSTATUS
-AllocateVmcsRegion(_In_ PVCPU VmmState)
+HvVmxAllocateVmcs(_In_ PVCPU Vcpu)
 {
     INT status = 0;
     PVOID virtual_allocation = NULL;
@@ -119,15 +119,15 @@ AllocateVmcsRegion(_In_ PVCPU VmmState)
 
     *(UINT64*)virtual_allocation = ia32_basic_msr.VmcsRevisionId;
 
-    VmmState->vmcs_region_pa = physical_allocation;
-    VmmState->vmcs_region_va = virtual_allocation;
+    Vcpu->vmcs_region_pa = physical_allocation;
+    Vcpu->vmcs_region_va = virtual_allocation;
 
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-AllocateVmxonRegion(_In_ PVCPU VmmState)
+HvVmxAllocateVmxon(_In_ PVCPU Vcpu)
 {
     INT status = 0;
     PVOID virtual_allocation = NULL;
@@ -168,14 +168,14 @@ AllocateVmxonRegion(_In_ PVCPU VmmState)
         return STATUS_FAIL_CHECK;
     }
 
-    VmmState->vmxon_region_pa = physical_allocation;
-    VmmState->vmxon_region_va = virtual_allocation;
+    Vcpu->vmxon_region_pa = physical_allocation;
+    Vcpu->vmxon_region_va = virtual_allocation;
 
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
-AllocateDriverState()
+HvVmxAllocateDriverState()
 {
     driver_state = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
@@ -189,7 +189,7 @@ AllocateDriverState()
 
 STATIC
 VOID
-InitialiseExceptionBitmap(_In_ PVCPU Vcpu)
+HvVmxInitialiseExceptionBitmap(_In_ PVCPU Vcpu)
 {
     /*
      * When an exception occurs, the processor will check the exception
@@ -201,24 +201,24 @@ InitialiseExceptionBitmap(_In_ PVCPU Vcpu)
 
 STATIC
 NTSTATUS
-InitiateVmmState(_In_ PVCPU Vcpu)
+HvVmxInitialiseVcpu(_In_ PVCPU Vcpu)
 {
     Vcpu->cache.cpuid.active = FALSE;
     Vcpu->exit_state.exit_vmx = FALSE;
     Vcpu->state = VMX_VCPU_STATE_OFF;
-    InitialiseExceptionBitmap(Vcpu);
+    HvVmxInitialiseExceptionBitmap(Vcpu);
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-AllocateVmmStack(_In_ PVCPU VmmState)
+HvVmxAllocateVcpuStack(_In_ PVCPU Vcpu)
 {
-    VmmState->vmm_stack_va = ExAllocatePool2(
+    Vcpu->vmm_stack_va = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
         VMX_HOST_STACK_SIZE,
         POOL_TAG_VMM_STACK);
-    if (!VmmState->vmm_stack_va) {
+    if (!Vcpu->vmm_stack_va) {
         DEBUG_LOG("Error in allocating VMM Stack.");
         return STATUS_MEMORY_NOT_ALLOCATED;
     }
@@ -228,29 +228,29 @@ AllocateVmmStack(_In_ PVCPU VmmState)
 
 STATIC
 NTSTATUS
-AllocateMsrBitmap(_In_ PVCPU VmmState)
+HvVmxAllocateMsrBitmap(_In_ PVCPU Vcpu)
 {
     PHYSICAL_ADDRESS physical_max = {0};
     physical_max.QuadPart = MAXULONG64;
 
-    VmmState->msr_bitmap_va =
+    Vcpu->msr_bitmap_va =
         MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
-    if (!VmmState->msr_bitmap_va) {
+    if (!Vcpu->msr_bitmap_va) {
         DEBUG_LOG("Error in allocating MSRBitMap.");
         return STATUS_MEMORY_NOT_ALLOCATED;
     }
 
-    RtlSecureZeroMemory(VmmState->msr_bitmap_va, PAGE_SIZE);
+    RtlSecureZeroMemory(Vcpu->msr_bitmap_va, PAGE_SIZE);
 
-    VmmState->msr_bitmap_pa =
-        MmGetPhysicalAddress(VmmState->msr_bitmap_va).QuadPart;
+    Vcpu->msr_bitmap_pa =
+        MmGetPhysicalAddress(Vcpu->msr_bitmap_va).QuadPart;
 
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-AllocateVmmStateStructure()
+HvVmxAllocateVcpuArray()
 {
     vmm_state = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
@@ -266,7 +266,7 @@ AllocateVmmStateStructure()
 
 STATIC
 NTSTATUS
-AllocateApicVirtualPage(_In_ PVCPU Vcpu)
+HvVmxAllocateVirtualApicPage(_In_ PVCPU Vcpu)
 {
     LARGE_INTEGER max = {.QuadPart = MAXULONG64};
     LARGE_INTEGER low = {0};
@@ -404,7 +404,7 @@ InitialiseVirtualApicPage(_In_ PVCPU Vcpu)
 
 STATIC
 VOID
-FreeCoreVmxState(_In_ UINT32 Core)
+HvVmxFreeCoreVcpuState(_In_ UINT32 Core)
 {
     PVCPU vcpu = &vmm_state[Core];
 
@@ -426,7 +426,7 @@ FreeCoreVmxState(_In_ UINT32 Core)
 }
 
 VOID
-InitialiseVmxOperation(
+HvVmxDpcInitOperation(
     _In_ PKDPC* Dpc,
     _In_opt_ PVOID DeferredContext,
     _In_opt_ PVOID SystemArgument1,
@@ -452,51 +452,51 @@ InitialiseVmxOperation(
     status = HvLogInitialise(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
 #endif
 
-    status = EnableVmxOperationOnCore();
+    status = HvVmxEnableOnCore();
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-    status = AllocateVmxonRegion(vcpu);
+    status = HvVmxAllocateVmxon(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-    status = AllocateVmcsRegion(vcpu);
+    status = HvVmxAllocateVmcs(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmcsRegion failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-    status = AllocateVmmStack(vcpu);
+    status = HvVmxAllocateVcpuStack(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmmStack failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-    status = AllocateMsrBitmap(vcpu);
+    status = HvVmxAllocateMsrBitmap(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateMsrBitmap failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-    status = InitiateVmmState(vcpu);
+    status = HvVmxInitialiseVcpu(vcpu);
     if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("InitiateVmmState failed with status %x", status);
-        FreeCoreVmxState(core);
+        DEBUG_ERROR("InitiateVcpu failed with status %x", status);
+        HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
@@ -522,18 +522,21 @@ end:
 }
 
 VOID
-VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
+HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 {
     UNREFERENCED_PARAMETER(Context);
 
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    status = SetupVmcs(vcpu, StackPointer);
+    status = HvVmcsInitialise(vcpu, StackPointer);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("SetupVmcs failed with status %x", status);
         return;
     }
+
+    /* Initialise the root debug state */
+    HvDispDebugStoreRootRegState();
 
 #if APIC
     InitialiseVirtualApicPage(vcpu);
@@ -543,13 +546,13 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
     /* only if vmlaunch fails will we end up here */
     DEBUG_ERROR(
         "vmlaunch failed with status %llx",
-        VmxVmRead(VMCS_VM_INSTRUCTION_ERROR));
+        HvVmcsRead(VMCS_VM_INSTRUCTION_ERROR));
 
     vcpu->state = VMX_VCPU_STATE_TERMINATED;
 }
 
 NTSTATUS
-ValidateVmxLaunch()
+HvVmxValidateLaunch()
 {
     PVCPU vcpu = NULL;
 
@@ -566,9 +569,9 @@ ValidateVmxLaunch()
 }
 
 NTSTATUS
-BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
+HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context)
 {
-    NTSTATUS status = IsVmxSupported();
+    NTSTATUS status = HvVmxIsSupported();
 
     if (!NT_SUCCESS(status)) {
         DEBUG_LOG("VMX operation is not supported on this machine");
@@ -576,15 +579,15 @@ BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context)
     }
 
     /* What happens if something fails? TODO: think. */
-    KeIpiGenericCall(SaveStateAndVirtualizeCore, Context);
+    KeIpiGenericCall(HvArchSaveStateAndVirtualiseCore, Context);
 
     /* lets make sure we entered VMX operation on ALL cores. If a core
      * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
-    return ValidateVmxLaunch();
+    return HvVmxValidateLaunch();
 }
 
 NTSTATUS
-VmxVmCall(
+HvVmxExecuteVmCall(
     _In_ UINT64 VmCallId,
     _In_opt_ UINT64 OptionalParameter1,
     _In_opt_ UINT64 OptionalParameter2,
@@ -595,7 +598,6 @@ VmxVmCall(
         OptionalParameter1,
         OptionalParameter2,
         OptionalParameter3);
-
     if (!NT_SUCCESS(status))
         DEBUG_ERROR("VmCall failed wtih status %x", status);
 
@@ -603,7 +605,7 @@ VmxVmCall(
 }
 
 VOID
-FreeGlobalVmmState()
+HvVmxFreeVcpuArray()
 {
     if (vmm_state) {
         ExFreePoolWithTag(vmm_state, POOL_TAG_VMM_STATE);
@@ -612,7 +614,7 @@ FreeGlobalVmmState()
 }
 
 VOID
-FreeGlobalDriverState()
+HvVmxFreeDriverState()
 {
     if (driver_state) {
         ExFreePoolWithTag(driver_state, POOL_TAG_DRIVER_STATE);
@@ -622,7 +624,7 @@ FreeGlobalDriverState()
 
 STATIC
 VOID
-TerminateVmxDpcRoutine(
+HvVmxDpcTerminateOperation(
     _In_ PKDPC* Dpc,
     _In_opt_ PVOID DeferredContext,
     _In_opt_ PVOID SystemArgument1,
@@ -634,7 +636,7 @@ TerminateVmxDpcRoutine(
     UINT32 core = KeGetCurrentProcessorNumber();
     PVCPU vcpu = &vmm_state[core];
 
-    if (!NT_SUCCESS(VmxVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
+    if (!NT_SUCCESS(HvVmxExecuteVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -648,7 +650,7 @@ TerminateVmxDpcRoutine(
      * At this point, we have exited VMX operation and we can safely free
      * our per core allocations.
      */
-    FreeCoreVmxState(core);
+    HvVmxFreeCoreVcpuState(core);
 
     DEBUG_LOG("Core: %lx - Terminated VMX Operation.", core);
 
@@ -658,7 +660,7 @@ end:
 }
 
 NTSTATUS
-BroadcastVmxTermination()
+HvVmxBroadcastTermination()
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
@@ -668,20 +670,20 @@ BroadcastVmxTermination()
     KeFlushQueuedDpcs();
 
     /* Our routine blocks until all DPCs have executed. */
-    KeGenericCallDpc(TerminateVmxDpcRoutine, NULL);
+    KeGenericCallDpc(HvVmxDpcTerminateOperation, NULL);
 
     /*
      * Now that each per core stuctures have been freed, we are safe to
      * revert the affinity of the current thread and free the global vmm
      * state array.
      */
-    FreeGlobalVmmState();
+    HvVmxFreeVcpuArray();
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-ValidateSuccessVmxInitiation(PDPC_CALL_CONTEXT Context)
+HvVmxValidateVmxInit(PDPC_CALL_CONTEXT Context)
 {
     for (UINT32 index = 0; index < Context->status_count; index++) {
         if (Context->status[index] != STATUS_SUCCESS)
@@ -694,7 +696,7 @@ ValidateSuccessVmxInitiation(PDPC_CALL_CONTEXT Context)
 }
 
 NTSTATUS
-SetupVmxOperation()
+HvVmxInitialiseOperation()
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PDPC_CALL_CONTEXT context = NULL;
@@ -724,9 +726,9 @@ SetupVmxOperation()
         context->status[core] = STATUS_UNSUCCESSFUL;
     }
 
-    status = AllocateVmmStateStructure();
+    status = HvVmxAllocateVcpuArray();
     if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("AllocateVmmStateStructure failed with status %x", status);
+        DEBUG_ERROR("AllocateVcpuStructure failed with status %x", status);
         return status;
     }
 
@@ -739,23 +741,23 @@ SetupVmxOperation()
      * returning. Once we've initiated the per core state, we can use an IPI
      * to execute vmxon and begin VMX operation on each core.
      */
-    KeGenericCallDpc(InitialiseVmxOperation, context);
+    KeGenericCallDpc(HvVmxDpcInitOperation, context);
 
     /* we will synchronise our DPCs so at this point all will have run */
-    status = ValidateSuccessVmxInitiation(context);
+    status = HvVmxValidateVmxInit(context);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialiseVmxOperation failed with status %x", status);
         goto end;
     }
 
-    status = BeginVmxOperation(context);
+    status = HvVmxStartOperation(context);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("BeginVmxOperation failed with status %x", status);
 
         /* We could have potentially entered VMX operation on some
          * cores, so lets terminate on any cores that did enter VMX
          * operation before we clear the global vcpu state.*/
-        BroadcastVmxTermination();
+        HvVmxBroadcastTermination();
         goto end;
     }
 
@@ -769,7 +771,7 @@ end:
 }
 
 VOID
-TerminatePowerCallback()
+HvVmxPowerCbTerminate()
 {
     if (driver_state->power_callback)
         ExUnregisterCallback(driver_state->power_callback);
@@ -789,7 +791,7 @@ TerminatePowerCallback()
  */
 STATIC
 VOID
-PowerCallbackRoutine(
+HvVmxPowerCbCallback(
     _In_ PVOID CallbackContext,
     PVOID Argument1,
     PVOID Argument2)
@@ -805,14 +807,14 @@ PowerCallbackRoutine(
     if (Argument2) {
         DEBUG_LOG("Resuming VMX operation after sleep..");
 
-        status = SetupVmxOperation();
+        status = HvVmxInitialiseOperation();
         if (!NT_SUCCESS(status))
             DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
     }
     else {
         DEBUG_LOG("Exiting VMX operation for sleep...");
 
-        status = BroadcastVmxTermination();
+        status = HvVmxBroadcastTermination();
         if (!NT_SUCCESS(status))
             DEBUG_ERROR(
                 "BroadcastVmxTermination failed with status %x",
@@ -821,14 +823,14 @@ PowerCallbackRoutine(
 }
 
 VOID
-UnregisterPowerCallback()
+HvVmxPowerCbUnregister()
 {
     ExUnregisterCallback(driver_state->power_callback);
     ObDereferenceObject(driver_state->power_callback_object);
 }
 
 NTSTATUS
-InitialisePowerCallback()
+HvVmxPowerCbInit()
 {
     NTSTATUS status = STATUS_ABANDONED;
     UNICODE_STRING name = RTL_CONSTANT_STRING(L"\\Callback\\PowerState");
@@ -853,7 +855,7 @@ InitialisePowerCallback()
 
     driver_state->power_callback = ExRegisterCallback(
         driver_state->power_callback_object,
-        PowerCallbackRoutine,
+        HvVmxPowerCbCallback,
         NULL);
     if (!driver_state->power_callback) {
         DEBUG_ERROR("ExRegisterCallback failed");

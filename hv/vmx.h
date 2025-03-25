@@ -70,12 +70,12 @@ typedef struct _VCPU_LOG_STATE {
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
-    // UINT64 dr7;
-    // UINT64 dr6;
-    // UINT64 dr3;
-    // UINT64 dr2;
-    // UINT64 dr1;
-    // UINT64 dr0;
+     UINT64 dr7;
+     UINT64 dr6;
+     UINT64 dr3;
+     UINT64 dr2;
+     UINT64 dr1;
+     UINT64 dr0;
     // M128A  Xmm0;
     // M128A  Xmm1;
     // M128A  Xmm2;
@@ -181,29 +181,29 @@ typedef union {
 } VTPR, *PVTPR;
 
 VOID
-InitialiseVmxOperation(
+HvVmxDpcInitOperation(
     _In_ PKDPC* Dpc,
     _In_opt_ PVOID DeferredContext,
     _In_opt_ PVOID SystemArgument1,
     _In_opt_ PVOID SystemArgument2);
 
 NTSTATUS
-BeginVmxOperation(_In_ PDPC_CALL_CONTEXT Context);
+HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context);
 
 NTSTATUS
-BroadcastVmxTermination();
+HvVmxBroadcastTermination();
 
 VOID
-VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer);
+HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer);
 
 NTSTATUS
-SetupVmxOperation();
+HvVmxInitialiseOperation();
 
 NTSTATUS
-InitialisePowerCallback();
+HvVmxPowerCbInit();
 
 NTSTATUS
-AllocateDriverState();
+HvVmxAllocateDriverState();
 
 VOID
 FreeVmxState();
@@ -212,9 +212,9 @@ VOID
 FreeGlobalVmmState();
 
 VOID
-FreeGlobalDriverState();
+HvVmxFreeDriverState();
 
 VOID
-UnregisterPowerCallback();
+HvVmxPowerCbUnregister();
 
 #endif

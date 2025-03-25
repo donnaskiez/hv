@@ -22,17 +22,17 @@
 FORCEINLINE
 STATIC
 VOID
-IncrementGuestRip()
+HvDispGuestRipIncrement()
 {
-    VmxVmWrite(
+    HvVmcsWrite(
         VMCS_GUEST_RIP,
-        VmxVmRead(VMCS_GUEST_RIP) + VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
+        HvVmcsRead(VMCS_GUEST_RIP) + HvVmcsRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
 FORCEINLINE
 STATIC
 UINT64
-RetrieveValueInContextRegister(
+HvDispContextRegRead(
     _In_ PGUEST_CONTEXT Context,
     _In_ UINT32 Register)
 {
@@ -60,7 +60,7 @@ RetrieveValueInContextRegister(
 FORCEINLINE
 STATIC
 VOID
-WriteValueInContextRegister(
+HvDispContextRegWrite(
     _In_ PGUEST_CONTEXT Context,
     _In_ UINT32 Register,
     _In_ UINT64 Value)
@@ -138,53 +138,53 @@ __read_vapic_64(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
 FORCEINLINE
 STATIC
 UINT16
-ProbeGuestCurrentProtectionLevel()
+HvDispGuestGetProtectionLevel()
 {
-    SEGMENT_SELECTOR cs = {.AsUInt = (UINT16)VmxVmRead(VMCS_GUEST_CS_SELECTOR)};
+    SEGMENT_SELECTOR cs = {.AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
     return cs.RequestPrivilegeLevel;
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectHardwareException(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
+HvDispInjectExceptionHardware(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
 {
     VMENTRY_INTERRUPT_INFORMATION gp = {0};
     gp.DeliverErrorCode = DeliverErrorCode;
     gp.InterruptionType = HardwareException;
     gp.Valid = TRUE;
     gp.Vector = Vector;
-    VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
+    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithUdFault()
+HvDispInjectFaultUd()
 {
-    InjectHardwareException(InvalidOpcode, FALSE);
+    HvDispInjectExceptionHardware(InvalidOpcode, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithGpFault()
+HvDispInjectFaultGp()
 {
-    InjectHardwareException(GeneralProtection, FALSE);
+    HvDispInjectExceptionHardware(GeneralProtection, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithDbFault()
+HvDispInjectFaultDb()
 {
-    InjectHardwareException(Debug, FALSE);
+    HvDispInjectExceptionHardware(Debug, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-HandleNotImplementedExit(
+HvDispNotImplemented(
     _In_opt_ UINT64 BugCheckParameter1,
     _In_opt_ UINT64 BugCheckParameter2,
     _In_opt_ UINT64 BugCheckParameter3,
@@ -205,64 +205,64 @@ HandleNotImplementedExit(
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonMovToCr(
+HvDispHandleExitMovToCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-    UINT64 value = RetrieveValueInContextRegister(
+    UINT64 value = HvDispContextRegRead(
         Context,
         Qualification->GeneralPurposeRegister);
 
     switch (Qualification->ControlRegister) {
     case VMX_EXIT_QUALIFICATION_REGISTER_CR0:;
         CR0 cr0 = {.AsUInt = value};
-        CR3 cr3 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR3)};
+        CR3 cr3 = {.AsUInt = HvVmcsRead(VMCS_GUEST_CR3)};
 
         /* Setting any of the CR4 reserved bits causes a #GP */
         if (cr0.Fields.Reserved1 || cr0.Fields.Reserved2 ||
             cr0.Fields.Reserved3 || cr0.Fields.Reserved4) {
-            InjectGuestWithGpFault();
+            HvDispInjectFaultGp();
             return;
         }
 
         /* Clearing the PG bit in 64 bit mode causes a #GP */
         if (!cr0.Fields.PagingEnable) {
-            InjectGuestWithGpFault();
+            HvDispInjectFaultGp();
             return;
         }
 
         /* Setting the PagingEnable bit with ProtectionEnable
          * bit not set raises #GP */
         if (cr0.Fields.PagingEnable && !cr0.Fields.ProtectionEnable) {
-            InjectGuestWithGpFault();
+            HvDispInjectFaultGp();
             return;
         }
 
         /* Setting the CacheDisable flag while the
          * NotWriteThrough flag is set raises #GP */
         if (!cr0.Fields.CacheDisable && cr0.Fields.NotWriteThrough) {
-            InjectGuestWithGpFault();
+            HvDispInjectFaultGp();
             return;
         }
 
-        VmxVmWrite(VMCS_GUEST_CR0, value);
-        VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
+        HvVmcsWrite(VMCS_GUEST_CR0, value);
+        HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
         return;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR3:;
-        VmxVmWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
+        HvVmcsWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
         return;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR4:;
         CR4 cr4 = {.AsUInt = value};
 
         /* Setting reserved bits raises #GP */
         if (cr4.Reserved1 || cr4.Reserved2) {
-            InjectGuestWithGpFault();
+            HvDispInjectFaultGp();
             return;
         }
 
-        VmxVmWrite(VMCS_GUEST_CR4, value);
-        VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
+        HvVmcsWrite(VMCS_GUEST_CR4, value);
+        HvVmcsWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
     case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value);
 #if APIC
         /* again, for now this must be done... */
@@ -282,7 +282,7 @@ DispatchExitReasonMovToCr(
  */
 STATIC
 VOID
-DispatchExitReasonMovFromCr(
+HvDispHandleExitMovFromCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
@@ -291,22 +291,22 @@ DispatchExitReasonMovFromCr(
 
     switch (Qualification->ControlRegister) {
     case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
-        WriteValueInContextRegister(
+        HvDispContextRegWrite(
             Context,
             Qualification->GeneralPurposeRegister,
-            VmxVmRead(VMCS_GUEST_CR0));
+            HvVmcsRead(VMCS_GUEST_CR0));
         break;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
-        WriteValueInContextRegister(
+        HvDispContextRegWrite(
             Context,
             Qualification->GeneralPurposeRegister,
-            VmxVmRead(VMCS_GUEST_CR3));
+            HvVmcsRead(VMCS_GUEST_CR3));
         break;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
-        WriteValueInContextRegister(
+        HvDispContextRegWrite(
             Context,
             Qualification->GeneralPurposeRegister,
-            VmxVmRead(VMCS_GUEST_CR4));
+            HvVmcsRead(VMCS_GUEST_CR4));
         break;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR8:;
 #if APIC
@@ -317,7 +317,7 @@ DispatchExitReasonMovFromCr(
             Qualification->GeneralPurposeRegister,
             tpr >> 4);
 #else
-        WriteValueInContextRegister(
+        HvDispContextRegWrite(
             Context,
             Qualification->GeneralPurposeRegister,
             __readcr8());
@@ -338,44 +338,44 @@ DispatchExitReasonMovFromCr(
  */
 STATIC
 VOID
-DispatchExitReasonCLTS(
+HvDispHandleExitClts(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
     CR0 cr0 = {0};
-    cr0.AsUInt = VmxVmRead(VMCS_GUEST_CR0);
+    cr0.AsUInt = HvVmcsRead(VMCS_GUEST_CR0);
     cr0.Fields.TaskSwitched = FALSE;
 
-    if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return;
     }
 
-    VmxVmWrite(VMCS_GUEST_CR0, cr0.AsUInt);
-    VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
+    HvVmcsWrite(VMCS_GUEST_CR0, cr0.AsUInt);
+    HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
 }
 
 STATIC
 BOOLEAN
-DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitCrAccess(_In_ PGUEST_CONTEXT Context)
 {
     VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
-    qualification.AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION);
+    qualification.AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION);
 
-    if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return FALSE;
     }
 
     switch (qualification.AccessType) {
     case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:
-        DispatchExitReasonMovToCr(&qualification, Context);
+        HvDispHandleExitMovToCr(&qualification, Context);
         break;
     case VMX_EXIT_QUALIFICATION_ACCESS_MOV_FROM_CR:
-        DispatchExitReasonMovFromCr(&qualification, Context);
+        HvDispHandleExitMovFromCr(&qualification, Context);
         break;
     case VMX_EXIT_QUALIFICATION_ACCESS_CLTS:
-        DispatchExitReasonCLTS(&qualification, Context);
+        HvDispHandleExitClts(&qualification, Context);
         break;
     case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
     default: break;
@@ -397,7 +397,7 @@ DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
+HvDispHandleExitInvd(_In_ PGUEST_CONTEXT GuestState)
 {
     /* this is how hyper-v performs their invd */
     __wbinvd();
@@ -412,7 +412,7 @@ DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
 FORCEINLINE
 STATIC
 BOOLEAN
-IsCpuidFunctionAtHypervisorAltitude(_In_ UINT64 Rax)
+HvDispCpuidIsHvAltitude(_In_ UINT64 Rax)
 {
     return Rax >= VMX_CPUID_FUNCTION_LOW && Rax <= VMX_CPUID_FUNCTION_HIGH
                ? TRUE
@@ -422,14 +422,14 @@ IsCpuidFunctionAtHypervisorAltitude(_In_ UINT64 Rax)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
+HvDispHandleExitCpuid(_In_ PGUEST_CONTEXT GuestState)
 {
     /* todo: implement some sort of caching mechanism */
     PVCPU state = &vmm_state[KeGetCurrentProcessorNumber()];
 
     HIGH_IRQL_LOG_SAFE("Exit Reason CPUID!");
 
-    if (IsCpuidFunctionAtHypervisorAltitude(GuestState->rax)) {
+    if (HvDispCpuidIsHvAltitude(GuestState->rax)) {
         switch (GuestState->rax) {
         case CPUID_HYPERVISOR_INTERFACE_VENDOR:
             state->cache.cpuid.value[CPUID_EAX] = 'i';
@@ -460,7 +460,7 @@ DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitWbinvd(_In_ PGUEST_CONTEXT Context)
 {
     __wbinvd();
 }
@@ -468,7 +468,7 @@ DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchVmCallTerminateVmx()
+HvDispHandleVmCallTerminate()
 {
     PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
     InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
@@ -477,22 +477,22 @@ DispatchVmCallTerminateVmx()
 FORCEINLINE
 STATIC
 NTSTATUS
-DispatchVmCallPing()
+HvDispHandleVmCallPing()
 {
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-VmCallDispatcher(
+HvDispVmCallHandler(
     _In_ UINT64 HypercallId,
     _In_opt_ UINT64 OptionalParameter1,
     _In_opt_ UINT64 OptionalParameter2,
     _In_opt_ UINT64 OptionalParameter3)
 {
     switch (HypercallId) {
-    case VMX_HYPERCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
-    case VMX_HYPERCALL_PING: return DispatchVmCallPing();
+    case VMX_HYPERCALL_TERMINATE_VMX: HvDispHandleVmCallTerminate(); break;
+    case VMX_HYPERCALL_PING: return HvDispHandleVmCallPing();
     default: break;
     }
 
@@ -502,7 +502,7 @@ VmCallDispatcher(
 FORCEINLINE
 STATIC
 VOID
-RestoreGuestStateOnTerminateVmx(PVCPU State)
+HvDispGuestRestoreStateOnTerminate(PVCPU State)
 {
     /*
      * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
@@ -515,39 +515,39 @@ RestoreGuestStateOnTerminateVmx(PVCPU State)
      * vmcs, hence we need to save the 2 values and update the registers
      * with the values during our exit handler before we call vmxoff
      */
-    State->exit_state.guest_rip = VmxVmRead(VMCS_GUEST_RIP);
-    State->exit_state.guest_rsp = VmxVmRead(VMCS_GUEST_RSP);
+    State->exit_state.guest_rip = HvVmcsRead(VMCS_GUEST_RIP);
+    State->exit_state.guest_rsp = HvVmcsRead(VMCS_GUEST_RSP);
 
     /*
      * As with the guest RSP and RIP, we need to restore the guests DEBUGCTL
      * msr.
      */
-    __writemsr(IA32_DEBUGCTL, VmxVmRead(VMCS_GUEST_DEBUGCTL));
+    __writemsr(IA32_DEBUGCTL, HvVmcsRead(VMCS_GUEST_DEBUGCTL));
 
     /*
      * Since vmx root operation makes use of the system cr3, we need to
      * ensure we write the value of the guests previous cr3 before the exit
      * took place to ensure they have access to the correct dtb
      */
-    __writecr3(VmxVmRead(VMCS_GUEST_CR3));
+    __writecr3(HvVmcsRead(VMCS_GUEST_CR3));
 
     /*
      * Do the same with the FS and GS base
      */
-    __writemsr(IA32_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
-    __writemsr(IA32_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
+    __writemsr(IA32_FS_BASE, HvVmcsRead(VMCS_GUEST_FS_BASE));
+    __writemsr(IA32_GS_BASE, HvVmcsRead(VMCS_GUEST_GS_BASE));
 
     /*
      * Write back the guest gdtr and idtrs
      */
     SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
-    gdtr.BaseAddress = VmxVmRead(VMCS_GUEST_GDTR_BASE);
-    gdtr.Limit = VmxVmRead(VMCS_GUEST_GDTR_LIMIT);
+    gdtr.BaseAddress = HvVmcsRead(VMCS_GUEST_GDTR_BASE);
+    gdtr.Limit = HvVmcsRead(VMCS_GUEST_GDTR_LIMIT);
     __lgdt(&gdtr);
 
     SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
-    idtr.BaseAddress = VmxVmRead(VMCS_GUEST_IDTR_BASE);
-    idtr.Limit = VmxVmRead(VMCS_GUEST_IDTR_LIMIT);
+    idtr.BaseAddress = HvVmcsRead(VMCS_GUEST_IDTR_BASE);
+    idtr.Limit = HvVmcsRead(VMCS_GUEST_IDTR_LIMIT);
     __lidt(&idtr);
 
     /*
@@ -559,14 +559,14 @@ RestoreGuestStateOnTerminateVmx(PVCPU State)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitTprThreshold(_In_ PGUEST_CONTEXT Context)
 {
     DEBUG_LOG("exit reason tpr threshold");
     __debugbreak();
 }
 
 FORCEINLINE STATIC VOID
-InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
+HvDispInjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 {
     VMENTRY_INTERRUPT_INFORMATION intr = {
         .Vector = ExitInterrupt->Vector,
@@ -580,12 +580,12 @@ InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
      * that would've been pushed onto the stack by the exception.
      */
     if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
-        VmxVmWrite(
+        HvVmcsWrite(
             VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
-            VmxVmRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
+            HvVmcsRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
     }
 
-    VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, intr.AsUInt);
+    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, intr.AsUInt);
 }
 
 /*
@@ -602,7 +602,7 @@ InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 FORCEINLINE
 STATIC
 BOOLEAN
-ShouldExceptionAdvanceGuestRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
+HvDispExceptionShouldAdvanceRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
 {
     if (ExitInformation->InterruptionType == SoftwareInterrupt ||
         ExitInformation->InterruptionType == PrivilegedSoftwareException ||
@@ -615,10 +615,10 @@ ShouldExceptionAdvanceGuestRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
 FORCEINLINE
 STATIC
 BOOLEAN
-DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 {
     VMEXIT_INTERRUPT_INFORMATION intr = {
-        .AsUInt = VmxVmRead(VMCS_VMEXIT_INTERRUPTION_INFORMATION)};
+        .AsUInt = HvVmcsRead(VMCS_VMEXIT_INTERRUPTION_INFORMATION)};
 
 #if DEBUG
     HIGH_IRQL_LOG_SAFE(
@@ -629,7 +629,7 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 #endif
 
     switch (intr.Vector) {
-    case EXCEPTION_DIVIDED_BY_ZERO: InjectExceptionOnVmEntry(&intr); break;
+    case EXCEPTION_DIVIDED_BY_ZERO: HvDispInjectExceptionOnVmEntry(&intr); break;
     case EXCEPTION_DEBUG:
     case EXCEPTION_NMI:
     case EXCEPTION_INT3:
@@ -649,14 +649,14 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
     case EXCEPTION_SE_FAULT:
     case EXCEPTION_VIRTUALIZATION_FAULT:
     default:
-        HandleNotImplementedExit(
+        HvDispNotImplemented(
             STATUS_NOT_IMPLEMENTED,
             intr.Vector,
             NULL,
             NULL);
     }
 
-    return ShouldExceptionAdvanceGuestRip(&intr);
+    return HvDispExceptionShouldAdvanceRip(&intr);
 }
 
 /*
@@ -668,7 +668,7 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     /*
@@ -685,7 +685,7 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
         /* For now, just bugcheck */
         KeBugCheckEx(
             VMX_BUGCHECK_INVALID_MTF_EXIT,
-            VmxVmRead(VMCS_GUEST_RIP),
+            HvVmcsRead(VMCS_GUEST_RIP),
             Context->rflags,
             vcpu->proc_ctls.AsUInt,
             0);
@@ -695,13 +695,13 @@ DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitWrmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return;
     }
 
@@ -722,7 +722,7 @@ DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 BOOLEAN
-IsMsrReadX2Apic(UINT32 Ecx)
+HvDispIsRmsrX2Apic(UINT32 Ecx)
 {
     return Ecx >= X2APIC_MSR_LOW && Ecx <= X2APIC_MSR_HIGH ? TRUE : FALSE;
 }
@@ -730,13 +730,13 @@ IsMsrReadX2Apic(UINT32 Ecx)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitRdmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return;
     }
 
@@ -760,7 +760,7 @@ DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 PUINT64
-GetIoInstructionOutputRegister(
+HvDispIoGetOutReg(
     _In_ PGUEST_CONTEXT Context,
     _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
 {
@@ -784,7 +784,7 @@ GetIoInstructionOutputRegister(
 FORCEINLINE
 STATIC
 UINT32
-GetIoInstructionRepeatCount(
+HvDispIoGetRepCount(
     _In_ PGUEST_CONTEXT Context,
     _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
 {
@@ -794,7 +794,7 @@ GetIoInstructionRepeatCount(
 FORCEINLINE
 STATIC
 VOID
-HandleIoInStringOrByte(
+HvDispIoHandleInStringOrByte(
     _In_ UINT16 PortNumber,
     _Inout_ PUINT32 OutRegister,
     _In_ UINT32 AccessSize,
@@ -831,7 +831,7 @@ HandleIoInStringOrByte(
 FORCEINLINE
 STATIC
 VOID
-HandleIoOutStringOrByte(
+HvDispIoHandleOutStringOrByte(
     _In_ UINT16 PortNumber,
     _Inout_ PUINT32 OutRegister,
     _In_ UINT32 AccessSize,
@@ -868,7 +868,7 @@ HandleIoOutStringOrByte(
 FORCEINLINE
 STATIC
 VOID
-UpdateDirectionFlagRegister(
+HvDispIoUpdateDirFlagReg(
     _Inout_ PUINT64 Output,
     _In_ PGUEST_CONTEXT Context,
     _In_ UINT32 Repetitions,
@@ -885,7 +885,7 @@ UpdateDirectionFlagRegister(
 FORCEINLINE
 STATIC
 BOOLEAN
-IsIoPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
+HvDispIoIsPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
 {
     TASK_STATE_SEGMENT_64* tss =
         *(TASK_STATE_SEGMENT_64**)(GuestKpcr + KPCR_TSS_BASE_OFFSET);
@@ -906,16 +906,16 @@ IsIoPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitIoInstruction(_In_ PGUEST_CONTEXT Context)
 {
     VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
-        .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
-    UINT64 guest_kpcr = VmxVmRead(VMCS_GUEST_GS_BASE);
+        .AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION)};
+    UINT64 guest_kpcr = HvVmcsRead(VMCS_GUEST_GS_BASE);
     EFLAGS guest_flags = {.AsUInt = Context->rflags};
 
     /* If CPL > IOPL, raise #GP */
-    if (ProbeGuestCurrentProtectionLevel() > guest_flags.IoPrivilegeLevel) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() > guest_flags.IoPrivilegeLevel) {
+        HvDispInjectFaultGp();
         return;
     }
 
@@ -923,23 +923,23 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
      * If the specified I/O port permission bit is set, the operation is not
      * allowed -> raise #GP
      */
-    if (!IsIoPortAvailable(guest_kpcr, qual.PortNumber)) {
-        InjectGuestWithGpFault();
+    if (!HvDispIoIsPortAvailable(guest_kpcr, qual.PortNumber)) {
+        HvDispInjectFaultGp();
         return;
     }
 
-    PUINT64 output = GetIoInstructionOutputRegister(Context, &qual);
-    UINT32 repetitions = GetIoInstructionRepeatCount(Context, &qual);
+    PUINT64 output = HvDispIoGetOutReg(Context, &qual);
+    UINT32 repetitions = HvDispIoGetRepCount(Context, &qual);
 
     if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
-        HandleIoInStringOrByte(
+        HvDispIoHandleInStringOrByte(
             qual.PortNumber,
             (PUINT32)output,
             qual.SizeOfAccess,
             qual.StringInstruction);
     }
     else {
-        HandleIoOutStringOrByte(
+        HvDispIoHandleOutStringOrByte(
             qual.PortNumber,
             (PUINT32)output,
             qual.SizeOfAccess,
@@ -952,7 +952,7 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
      * instruction is executed the correct number of times.
      */
     if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING)
-        UpdateDirectionFlagRegister(
+        HvDispIoUpdateDirFlagReg(
             output,
             Context,
             repetitions,
@@ -969,50 +969,50 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-WriteToDebugRegister(
+HvDispDebugWriteReg(
     _In_ PGUEST_CONTEXT Context,
     _In_ UINT8 Register,
     _In_ UINT64 Value)
 {
-    // switch (Register) {
-    // case DEBUG_DR0: Context->dr0 = Value; break;
-    // case DEBUG_DR1: Context->dr1 = Value; break;
-    // case DEBUG_DR2: Context->dr2 = Value; break;
-    // case DEBUG_DR3: Context->dr3 = Value; break;
-    // case DEBUG_DR6: Context->dr6 = Value; break;
-    // case DEBUG_DR7: Context->dr7 = Value; break;
-    // default: InjectGuestWithGpFault(); return;
-    // }
+     switch (Register) {
+     case DEBUG_DR0: Context->dr0 = Value; break;
+     case DEBUG_DR1: Context->dr1 = Value; break;
+     case DEBUG_DR2: Context->dr2 = Value; break;
+     case DEBUG_DR3: Context->dr3 = Value; break;
+     case DEBUG_DR6: Context->dr6 = Value; break;
+     case DEBUG_DR7: Context->dr7 = Value; break;
+     default: HvDispInjectFaultGp(); return;
+     }
 }
 
 FORCEINLINE
 STATIC
 UINT64
-ReadDebugRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
+HvDispDebugReadReg(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
 {
-    // switch (Register) {
-    // case DEBUG_DR0: return Context->dr0;
-    // case DEBUG_DR1: return Context->dr1;
-    // case DEBUG_DR2: return Context->dr2;
-    // case DEBUG_DR3: return Context->dr3;
-    // case DEBUG_DR6: return Context->dr6;
-    // case DEBUG_DR7: return Context->dr7;
-    // default: InjectGuestWithGpFault(); return;
-    // }
+     switch (Register) {
+     case DEBUG_DR0: return Context->dr0;
+     case DEBUG_DR1: return Context->dr1;
+     case DEBUG_DR2: return Context->dr2;
+     case DEBUG_DR3: return Context->dr3;
+     case DEBUG_DR6: return Context->dr6;
+     case DEBUG_DR7: return Context->dr7;
+     default: HvDispInjectFaultGp(); return;
+     }
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
 {
     VMX_EXIT_QUALIFICATION_MOV_DR qual = {
-        .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
-    CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
-    DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
+        .AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION)};
+    CR4 cr4 = {.AsUInt = HvVmcsRead(VMCS_GUEST_CR4)};
+    DR7 dr7 = {.AsUInt = HvVmcsRead(VMCS_GUEST_DR7)};
 
-    if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-        InjectGuestWithGpFault();
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return;
     }
 
@@ -1021,29 +1021,29 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
     if (cr4.DebuggingExtensions &&
             qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
         qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
-        InjectGuestWithUdFault();
+        HvDispInjectFaultUd();
         return;
     }
 
     /* any dr register access while DR7.GD = 1, raise #DB */
     if (dr7.GeneralDetect) {
-        InjectGuestWithDbFault();
+        HvDispInjectFaultDb();
         return;
     }
 
     if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_MOV_TO_DR) {
-        WriteToDebugRegister(
+        HvDispDebugWriteReg(
             Context,
             qual.DebugRegister,
-            RetrieveValueInContextRegister(
+            HvDispContextRegRead(
                 Context,
                 qual.GeneralPurposeRegister));
     }
     else {
-        WriteValueInContextRegister(
+        HvDispContextRegWrite(
             Context,
             qual.GeneralPurposeRegister,
-            ReadDebugRegister(Context, qual.DebugRegister));
+            HvDispDebugReadReg(Context, qual.DebugRegister));
     }
 }
 
@@ -1062,7 +1062,7 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
  */
 
 VOID
-LoadHostDebugRegisterState()
+HvDispDebugLoadRootRegState()
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
     __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
@@ -1074,7 +1074,7 @@ LoadHostDebugRegisterState()
 }
 
 VOID
-StoreHostDebugRegisterState()
+HvDispDebugStoreRootRegState()
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
     vcpu->debug_state.dr0 = __readdr(DEBUG_DR0);
@@ -1088,36 +1088,35 @@ StoreHostDebugRegisterState()
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonVirtualisedEoi(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitVirtualEoi(_In_ PGUEST_CONTEXT Context)
 {
-    DEBUG_LOG("EOI EXIUT REASON!");
     __debugbreak();
 }
 
 BOOLEAN
-VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
+HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 {
     UINT64 additional_rip_offset = 0;
     PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
 
-    HIGH_IRQL_LOG_SAFE("Exit reason: %llx", VmxVmRead(VMCS_EXIT_REASON));
+    HIGH_IRQL_LOG_SAFE("Exit reason: %llx", HvVmcsRead(VMCS_EXIT_REASON));
 
-    switch (VmxVmRead(VMCS_EXIT_REASON)) {
-    case VMX_EXIT_REASON_EXECUTE_CPUID: DispatchExitReasonCPUID(Context); break;
-    case VMX_EXIT_REASON_EXECUTE_INVD: DispatchExitReasonINVD(Context); break;
+    switch (HvVmcsRead(VMCS_EXIT_REASON)) {
+    case VMX_EXIT_REASON_EXECUTE_CPUID: HvDispHandleExitCpuid(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_INVD: HvDispHandleExitInvd(Context); break;
     case VMX_EXIT_REASON_EXECUTE_VMCALL:
-        Context->rax = VmCallDispatcher(
+        Context->rax = HvDispVmCallHandler(
             Context->rcx,
             Context->rdx,
             Context->r8,
             Context->r9);
         break;
     case VMX_EXIT_REASON_MOV_CR:
-        if (DispatchExitReasonControlRegisterAccess(Context))
+        if (HvDispHandleExitCrAccess(Context))
             goto no_rip_increment;
         break;
     case VMX_EXIT_REASON_EXECUTE_WBINVD:
-        DispatchExitReasonWBINVD(Context);
+        HvDispHandleExitWbinvd(Context);
         break;
 
     /*
@@ -1126,7 +1125,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
      * we shouldn't increment the rip.
      */
     case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
-        DispatchExitReasonTprBelowThreshold(Context);
+        HvDispHandleExitTprThreshold(Context);
         goto no_rip_increment;
 
     /*
@@ -1134,24 +1133,24 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
      * advanced the guest rip, else we do as normal.
      */
     case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
-        if (!DispatchExitReasonExceptionOrNmi(Context))
+        if (!HvDispHandleExitExceptionOrNmi(Context))
             goto no_rip_increment;
         break;
 
     case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
-        DispatchExitReasonMonitorTrapFlag(Context);
+        HvDispHandleExitMonitorTrapFlag(Context);
         goto no_rip_increment;
-    case VMX_EXIT_REASON_EXECUTE_WRMSR: DispatchExitReasonWrmsr(Context); break;
-    case VMX_EXIT_REASON_EXECUTE_RDMSR: DispatchExitReasonRdmsr(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_WRMSR: HvDispHandleExitWrmsr(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_RDMSR: HvDispHandleExitRdmsr(Context); break;
     case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
-        DispatchExitReasonIoInstruction(Context);
+        HvDispHandleExitIoInstruction(Context);
         break;
     case VMX_EXIT_REASON_MOV_DR:
-        DispatchExitReasonDebugRegisterAccess(Context);
+        HvDispHandleExitDebugRegAccess(Context);
         break;
     case VMX_EXIT_REASON_VIRTUALIZED_EOI:
         /* EOI induced exits are trap like */
-        DispatchExitReasonVirtualisedEoi(Context);
+        HvDispHandleExitVirtualEoi(Context);
         goto no_rip_increment;
     default: break;
     }
@@ -1160,7 +1159,7 @@ VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
      * Increment our guest rip by the size of the exiting
      * instruction since we've processed it
      */
-    IncrementGuestRip();
+    HvDispGuestRipIncrement();
 
 no_rip_increment:
     /*
@@ -1171,7 +1170,7 @@ no_rip_increment:
     if (InterlockedExchange(
             &state->exit_state.exit_vmx,
             state->exit_state.exit_vmx)) {
-        RestoreGuestStateOnTerminateVmx(state);
+        HvDispGuestRestoreStateOnTerminate(state);
         return TRUE;
     }
 

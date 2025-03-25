@@ -6,13 +6,13 @@
 #include "vmx.h"
 
 BOOLEAN
-VmExitDispatcher(_In_ PGUEST_CONTEXT GuestState);
+HvDispHandleVmExit(_In_ PGUEST_CONTEXT GuestState);
 
 VOID
-LoadHostDebugRegisterState();
+HvDispDebugLoadRootRegState();
 
 VOID
-StoreHostDebugRegisterState();
+HvDispDebugStoreRootRegState();
 
 VOID
 __write_vapic_32(_In_ UINT64 VirtualApicPage,
