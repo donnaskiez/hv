@@ -43,7 +43,7 @@ HvpLogDpcFlushRoutine(
         entry = &logger->logs[index];
 
         /* DPC runs on the same core, hence can defer work here */
-        DEBUG_LOG(
+        DEBUG_LOG_ROOT(
             "[CPU: %lu][VCPU: %llu] %s",
             KeGetCurrentProcessorNumber(),
             entry->timestamp,
@@ -59,8 +59,6 @@ HvpLogDpcFlushRoutine(
 VOID
 HvLogCleanup(_In_ PVCPU Vcpu)
 {
-    UNREFERENCED_PARAMETER(Vcpu);
-
     DEBUG_LOG(
         "Vcpu: %lx - log count: %llx",
         KeGetCurrentProcessorNumber(),

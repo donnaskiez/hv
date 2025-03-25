@@ -1094,18 +1094,13 @@ DispatchExitReasonVirtualisedEoi(_In_ PGUEST_CONTEXT Context)
     __debugbreak();
 }
 
-static UINT64 value = 0;
-
 BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
     UINT64 additional_rip_offset = 0;
     PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
 
-    HIGH_IRQL_LOG_SAFE(
-        "Exit reason: %llx, magic: %llx",
-        VmxVmRead(VMCS_EXIT_REASON),
-        InterlockedIncrement64(&value));
+    HIGH_IRQL_LOG_SAFE("Exit reason: %llx", VmxVmRead(VMCS_EXIT_REASON));
 
     switch (VmxVmRead(VMCS_EXIT_REASON)) {
     case VMX_EXIT_REASON_EXECUTE_CPUID: DispatchExitReasonCPUID(Context); break;
