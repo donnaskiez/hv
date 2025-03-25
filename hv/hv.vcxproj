@@ -60,7 +60,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>

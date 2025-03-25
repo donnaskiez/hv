@@ -48,7 +48,7 @@ typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 #define VMX_LOG_BUFFER_SIZE          0x5000
 #define VMX_INIDIVIDUAL_LOG_MAX_SIZE 0x100
 #define VMX_MAX_LOG_ENTRIES_COUNT \
-    VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE
+    (VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE)
 #define VMX_LOG_BUFFER_POOL_TAG 'rgol'
 
 #define VMX_APIC_TPR_THRESHOLD 0
@@ -61,8 +61,10 @@ typedef struct _LOG_ENTRY {
 typedef struct _VCPU_LOG_STATE {
     volatile UINT32 head;
     volatile UINT32 tail;
+    volatile UINT32 flushing;
     volatile UINT64 log_count;
     volatile UINT64 discard_count;
+    volatile UINT64 flush_miss_count;
     KDPC dpc;
     LOG_ENTRY logs[VMX_MAX_LOG_ENTRIES_COUNT];
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
@@ -128,7 +130,7 @@ typedef struct _HOST_DEBUG_STATE {
 
 } HOST_DEBUG_STATE, *PHOST_DEBUG_STATE;
 
-typedef struct _VIRTUAL_MACHINE_STATE {
+typedef struct _VCPU {
     VCPU_STATE state;
     VMM_CACHE cache;
     EXIT_STATE exit_state;
@@ -155,11 +157,11 @@ typedef struct _VIRTUAL_MACHINE_STATE {
     VCPU_LOG_STATE log_state;
 #endif
 
-} VIRTUAL_MACHINE_STATE, *PVIRTUAL_MACHINE_STATE;
+} VCPU, *PVCPU;
 
 #define SET_FLAG_U32(n) (1U << (n))
 
-extern PVIRTUAL_MACHINE_STATE vmm_state;
+extern PVCPU vmm_state;
 
 typedef struct _DRIVER_STATE {
     PVOID power_callback;

@@ -4,6 +4,9 @@
 #include <ntstrsafe.h>
 #include <stdarg.h>
 
+#pragma warning(push)
+#pragma warning(disable : 28182)
+
 #if DEBUG
 
 /* Right now its quite interesting, if this routine doesnt cause a vmexit the
@@ -29,7 +32,7 @@ HvpLogDpcFlushRoutine(
     UINT32 index = 0;
     PLOG_ENTRY entry = NULL;
 
-    DEBUG_LOG("Flushing logs!");
+    InterlockedIncrement(&logger->flushing);
 
     /* no need to check for valid context, assert used instead */
     head = logger->head;
@@ -41,7 +44,7 @@ HvpLogDpcFlushRoutine(
 
         /* DPC runs on the same core, hence can defer work here */
         DEBUG_LOG(
-            "[CPU: %lu][TSC: %llu] %s",
+            "[CPU: %lu][VCPU: %llu] %s",
             KeGetCurrentProcessorNumber(),
             entry->timestamp,
             entry->message);
@@ -50,10 +53,11 @@ HvpLogDpcFlushRoutine(
     }
 
     logger->tail = tail;
+    InterlockedDecrement(&logger->flushing);
 }
 
 VOID
-HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+HvLogCleanup(_In_ PVCPU Vcpu)
 {
     UNREFERENCED_PARAMETER(Vcpu);
 
@@ -63,13 +67,18 @@ HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         Vcpu->log_state.log_count);
 
     DEBUG_LOG(
+        "Vcpu: %lx - flush miss count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.flush_miss_count);
+
+    DEBUG_LOG(
         "Vcpu: %lx - discard count: %llx",
         KeGetCurrentProcessorNumber(),
         Vcpu->log_state.discard_count);
 }
 
 NTSTATUS
-HvLogInitialise(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+HvLogInitialise(_In_ PVCPU Vcpu)
 {
     PVCPU_LOG_STATE state = &Vcpu->log_state;
 
@@ -87,6 +96,7 @@ HvLogInitialise(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 BOOLEAN
 HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 {
+    /* flush at 50% capacity */
     UINT32 usage = Logger->head - Logger->tail;
     UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 50) / 100);
     return (usage >= threshold) ? TRUE : FALSE;
@@ -105,30 +115,35 @@ HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 VOID
 HvLogWrite(PCSTR Format, ...)
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    NTSTATUS status = STATUS_SUCCESS;
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     PVCPU_LOG_STATE logger = &vcpu->log_state;
     UINT32 cur_head = 0;
     UINT32 cur_tail = 0;
     UINT32 usage = 0;
     UINT32 old_head = 0;
     UINT32 index = 0;
-    LOG_ENTRY* entry = NULL;
+    PLOG_ENTRY entry = NULL;
     va_list args = NULL;
-    NTSTATUS status = STATUS_SUCCESS;
 
     if (vcpu->state == VMX_VCPU_STATE_TERMINATING)
         return;
+
+    if (logger->flushing) {
+        InterlockedIncrement(&logger->flush_miss_count);
+        return;
+    }
 
     cur_head = logger->head;
     cur_tail = logger->tail;
     usage = cur_head - cur_tail;
 
     if (usage >= VMX_MAX_LOG_ENTRIES_COUNT) {
-        InterlockedIncrement((volatile LONG*)&logger->discard_count);
+        InterlockedIncrement(&logger->discard_count);
         return;
     }
 
-    old_head = InterlockedIncrement((volatile LONG*)&logger->head) - 1;
+    old_head = InterlockedIncrement(&logger->head) - 1;
     index = old_head % VMX_MAX_LOG_ENTRIES_COUNT;
     entry = &logger->logs[index];
     entry->timestamp = __rdtsc();
@@ -142,14 +157,15 @@ HvLogWrite(PCSTR Format, ...)
     va_end(args);
 
     if (!NT_SUCCESS(status)) {
-        InterlockedIncrement((volatile LONG*)&logger->discard_count);
+        InterlockedIncrement(&logger->discard_count);
         return;
     }
 
-    InterlockedIncrement((volatile LONG*)&logger->log_count);
+    InterlockedIncrement(&logger->log_count);
 
     if (HvpLogCheckToFlush(logger))
         KeInsertQueueDpc(&logger->dpc, NULL, NULL);
 }
 
 #endif
+#pragma warning(pop)

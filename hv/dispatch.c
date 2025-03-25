@@ -209,7 +209,7 @@ DispatchExitReasonMovToCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     UINT64 value = RetrieveValueInContextRegister(
         Context,
         Qualification->GeneralPurposeRegister);
@@ -286,7 +286,7 @@ DispatchExitReasonMovFromCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     UINT32 tpr = 0;
 
     switch (Qualification->ControlRegister) {
@@ -425,7 +425,7 @@ VOID
 DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
 {
     /* todo: implement some sort of caching mechanism */
-    PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU state = &vmm_state[KeGetCurrentProcessorNumber()];
 
     HIGH_IRQL_LOG_SAFE("Exit Reason CPUID!");
 
@@ -470,7 +470,7 @@ STATIC
 VOID
 DispatchVmCallTerminateVmx()
 {
-    PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
     InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
@@ -502,7 +502,7 @@ VmCallDispatcher(
 FORCEINLINE
 STATIC
 VOID
-RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
+RestoreGuestStateOnTerminateVmx(PVCPU State)
 {
     /*
      * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
@@ -670,7 +670,7 @@ STATIC
 VOID
 DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     /*
      * Since we don't set the monitor trap flag vmcs ctrl, lets
      * simply clear the mtf flag for the guest and continue
@@ -698,7 +698,7 @@ VOID
 DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
     if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
         InjectGuestWithGpFault();
@@ -733,7 +733,7 @@ VOID
 DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
     if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
         InjectGuestWithGpFault();
@@ -1064,7 +1064,7 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
 VOID
 LoadHostDebugRegisterState()
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
     __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
     __writedr(DEBUG_DR1, vcpu->debug_state.dr1);
     __writedr(DEBUG_DR2, vcpu->debug_state.dr2);
@@ -1076,7 +1076,7 @@ LoadHostDebugRegisterState()
 VOID
 StoreHostDebugRegisterState()
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
     vcpu->debug_state.dr0 = __readdr(DEBUG_DR0);
     vcpu->debug_state.dr1 = __readdr(DEBUG_DR1);
     vcpu->debug_state.dr2 = __readdr(DEBUG_DR2);
@@ -1100,7 +1100,7 @@ BOOLEAN
 VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
 {
     UINT64 additional_rip_offset = 0;
-    PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
 
     HIGH_IRQL_LOG_SAFE(
         "Exit reason: %llx, magic: %llx",

@@ -13,7 +13,7 @@
 #endif
 
 NTSTATUS
-HvLogInitialise(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+HvLogInitialise(_In_ PVCPU Vcpu);
 
 VOID
 HvLogWrite(PCSTR Format, ...);
@@ -22,6 +22,6 @@ BOOLEAN
 HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger);
 
 VOID
-HvLogCleanup(_In_ PVIRTUAL_MACHINE_STATE Vcpu);
+HvLogCleanup(_In_ PVCPU Vcpu);
 
 #endif

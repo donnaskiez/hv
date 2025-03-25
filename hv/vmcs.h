@@ -5,7 +5,7 @@
 #include "vmx.h"
 
 NTSTATUS
-SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer);
+SetupVmcs(_In_ PVCPU GuestState, _In_ PVOID StackPointer);
 
 UINT64
 VmxVmRead(_In_ UINT64 VmcsField);

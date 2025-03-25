@@ -36,6 +36,7 @@ DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
     BroadcastVmxTermination();
     UnregisterPowerCallback();
     FreeGlobalDriverState();
+    IoDeleteDevice(DriverObject->DeviceObject);
 }
 
 NTSTATUS
@@ -46,14 +47,12 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     NTSTATUS status = STATUS_SUCCESS;
 
     status = AllocateDriverState();
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateDriverState failed with status %x", status);
         return status;
     }
 
     status = InitialisePowerCallback();
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
         FreeGlobalDriverState();
@@ -61,7 +60,6 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     }
 
     status = SetupVmxOperation();
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
         UnregisterPowerCallback();
@@ -77,7 +75,6 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         FILE_DEVICE_SECURE_OPEN,
         FALSE,
         &DriverObject->DeviceObject);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateDevice failed with status %x", status);
         BroadcastVmxTermination();
@@ -87,7 +84,6 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     }
 
     status = IoCreateSymbolicLink(&device_link, &device_name);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateSymbolicLink failed with status %x", status);
         BroadcastVmxTermination();

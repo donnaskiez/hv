@@ -128,7 +128,7 @@ __segmentbase(
 
 STATIC
 VOID
-VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
+VmcsWriteHostStateFields(_In_ PVCPU GuestState)
 {
     SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
     SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
@@ -169,9 +169,7 @@ VmcsWriteHostStateFields(_In_ PVIRTUAL_MACHINE_STATE GuestState)
 
 STATIC
 VOID
-VmcsWriteGuestStateFields(
-    _In_ PVOID StackPointer,
-    _In_ PVIRTUAL_MACHINE_STATE GuestState)
+VmcsWriteGuestStateFields(_In_ PVOID StackPointer, _In_ PVCPU GuestState)
 {
     SEGMENT_SELECTOR es = {0};
     SEGMENT_SELECTOR cs = {0};
@@ -292,7 +290,7 @@ SetBitInBitmap(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
 
 STATIC
 VOID
-VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+VmcsWriteControlStateFields(_In_ PVCPU Vcpu)
 {
     IA32_APIC_BASE_REGISTER apic = {.AsUInt = __readmsr(IA32_APIC_BASE)};
 
@@ -397,19 +395,17 @@ VmcsWriteControlStateFields(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 }
 
 NTSTATUS
-SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer)
+SetupVmcs(_In_ PVCPU GuestState, _In_ PVOID StackPointer)
 {
     UCHAR status = 0;
 
     status = __vmx_vmclear(&GuestState->vmcs_region_pa);
-
     if (!VMX_OK(status)) {
         DEBUG_ERROR("__vmx_vmclear failed with status %x", status);
         return STATUS_UNSUCCESSFUL;
     }
 
     status = __vmx_vmptrld(&GuestState->vmcs_region_pa);
-
     if (!VMX_OK(status)) {
         if (status == VMX_STATUS_OPERATION_FAILED) {
             DEBUG_ERROR(

@@ -10,7 +10,7 @@
 #include <intrin.h>
 
 PDRIVER_STATE driver_state = NULL;
-PVIRTUAL_MACHINE_STATE vmm_state = NULL;
+PVCPU vmm_state = NULL;
 
 /*
  * Some wrapper functions to read from our vmm state structure so we dont have
@@ -42,8 +42,8 @@ NTSTATUS
 EnableVmxOperationOnCore()
 {
     CR4 cr4 = {0};
-    cr4.AsUInt = __readcr4();
 
+    cr4.AsUInt = __readcr4();
     if (cr4.VmxEnable)
         return STATUS_SUCCESS;
 
@@ -89,7 +89,7 @@ IsVmxSupported()
  */
 STATIC
 NTSTATUS
-AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
+AllocateVmcsRegion(_In_ PVCPU VmmState)
 {
     INT status = 0;
     PVOID virtual_allocation = NULL;
@@ -101,7 +101,6 @@ AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
     physical_max.QuadPart = MAXULONG64;
 
     virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
-
     if (!virtual_allocation) {
         DEBUG_ERROR("Failed to allocate vmcs region");
         return STATUS_MEMORY_NOT_ALLOCATED;
@@ -110,7 +109,6 @@ AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
     RtlSecureZeroMemory(virtual_allocation, PAGE_SIZE);
 
     physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
-
     if (!physical_allocation) {
         DEBUG_LOG("Faield to get vmcs pa address");
         MmFreeContiguousMemory(virtual_allocation);
@@ -129,7 +127,7 @@ AllocateVmcsRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
 STATIC
 NTSTATUS
-AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
+AllocateVmxonRegion(_In_ PVCPU VmmState)
 {
     INT status = 0;
     PVOID virtual_allocation = NULL;
@@ -141,7 +139,6 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
     physical_max.QuadPart = MAXULONG64;
 
     virtual_allocation = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
-
     if (!virtual_allocation) {
         DEBUG_ERROR("MmAllocateContiguousMemory failed");
         return STATUS_MEMORY_NOT_ALLOCATED;
@@ -150,17 +147,13 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
     RtlSecureZeroMemory(virtual_allocation, PAGE_SIZE);
 
     physical_allocation = MmGetPhysicalAddress(virtual_allocation).QuadPart;
-
     if (!physical_allocation) {
         MmFreeContiguousMemory(virtual_allocation);
         return STATUS_MEMORY_NOT_ALLOCATED;
     }
 
     ia32_basic_msr.AsUInt = __readmsr(IA32_VMX_BASIC);
-
     *(UINT64*)virtual_allocation = ia32_basic_msr.VmcsRevisionId;
-
-    status = __vmx_on(&physical_allocation);
 
     /*
      * 0 : The operation succeeded
@@ -168,6 +161,7 @@ AllocateVmxonRegion(_In_ PVIRTUAL_MACHINE_STATE VmmState)
      * VM-instruction error field of the current VMCS. 2 : The operation
      * failed without status available.
      */
+    status = __vmx_on(&physical_allocation);
     if (status) {
         DEBUG_LOG("VmxOn failed with status: %i", status);
         MmFreeContiguousMemory(virtual_allocation);
@@ -187,7 +181,6 @@ AllocateDriverState()
         POOL_FLAG_NON_PAGED,
         sizeof(DRIVER_STATE),
         POOL_TAG_DRIVER_STATE);
-
     if (!driver_state)
         return STATUS_MEMORY_NOT_ALLOCATED;
 
@@ -196,7 +189,7 @@ AllocateDriverState()
 
 STATIC
 VOID
-InitialiseExceptionBitmap(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+InitialiseExceptionBitmap(_In_ PVCPU Vcpu)
 {
     /*
      * When an exception occurs, the processor will check the exception
@@ -208,25 +201,23 @@ InitialiseExceptionBitmap(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 
 STATIC
 NTSTATUS
-InitiateVmmState(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+InitiateVmmState(_In_ PVCPU Vcpu)
 {
     Vcpu->cache.cpuid.active = FALSE;
     Vcpu->exit_state.exit_vmx = FALSE;
     Vcpu->state = VMX_VCPU_STATE_OFF;
-
     InitialiseExceptionBitmap(Vcpu);
     return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
+AllocateVmmStack(_In_ PVCPU VmmState)
 {
     VmmState->vmm_stack_va = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
         VMX_HOST_STACK_SIZE,
         POOL_TAG_VMM_STACK);
-
     if (!VmmState->vmm_stack_va) {
         DEBUG_LOG("Error in allocating VMM Stack.");
         return STATUS_MEMORY_NOT_ALLOCATED;
@@ -237,14 +228,13 @@ AllocateVmmStack(_In_ PVIRTUAL_MACHINE_STATE VmmState)
 
 STATIC
 NTSTATUS
-AllocateMsrBitmap(_In_ PVIRTUAL_MACHINE_STATE VmmState)
+AllocateMsrBitmap(_In_ PVCPU VmmState)
 {
     PHYSICAL_ADDRESS physical_max = {0};
     physical_max.QuadPart = MAXULONG64;
 
     VmmState->msr_bitmap_va =
         MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
-
     if (!VmmState->msr_bitmap_va) {
         DEBUG_LOG("Error in allocating MSRBitMap.");
         return STATUS_MEMORY_NOT_ALLOCATED;
@@ -264,7 +254,7 @@ AllocateVmmStateStructure()
 {
     vmm_state = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
-        sizeof(VIRTUAL_MACHINE_STATE) * KeQueryActiveProcessorCount(0),
+        sizeof(VCPU) * KeQueryActiveProcessorCount(0),
         POOL_TAG_VMM_STATE);
     if (!vmm_state) {
         DEBUG_LOG("Failed to allocate vmm state");
@@ -276,7 +266,7 @@ AllocateVmmStateStructure()
 
 STATIC
 NTSTATUS
-AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+AllocateApicVirtualPage(_In_ PVCPU Vcpu)
 {
     LARGE_INTEGER max = {.QuadPart = MAXULONG64};
     LARGE_INTEGER low = {0};
@@ -287,7 +277,6 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
         max,
         low,
         MmNonCached);
-
     if (!Vcpu->virtual_apic_va) {
         DEBUG_ERROR("Failed to allocate Virtual Apic Page");
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -356,7 +345,7 @@ AllocateApicVirtualPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
 #if APIC
 STATIC
 NTSTATUS
-InitialiseVirtualApicPage(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+InitialiseVirtualApicPage(_In_ PVCPU Vcpu)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     UINT64 vapic = Vcpu->virtual_apic_va;
@@ -417,7 +406,7 @@ STATIC
 VOID
 FreeCoreVmxState(_In_ UINT32 Core)
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[Core];
+    PVCPU vcpu = &vmm_state[Core];
 
     if (vcpu->vmxon_region_va)
         MmFreeContiguousMemory(vcpu->vmxon_region_va);
@@ -465,7 +454,7 @@ InitialiseVmxOperation(
     _In_opt_ PVOID SystemArgument2)
 {
     NTSTATUS status = STATUS_ABANDONED;
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
     PDPC_CALL_CONTEXT context = (PDPC_CALL_CONTEXT)DeferredContext;
     UINT32 core = KeGetCurrentProcessorNumber();
 
@@ -559,7 +548,7 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
     UNREFERENCED_PARAMETER(Context);
 
     NTSTATUS status = STATUS_UNSUCCESSFUL;
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
     status = SetupVmcs(vcpu, StackPointer);
     if (!NT_SUCCESS(status)) {
@@ -583,7 +572,7 @@ VirtualizeCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 NTSTATUS
 ValidateVmxLaunch()
 {
-    PVIRTUAL_MACHINE_STATE vcpu = NULL;
+    PVCPU vcpu = NULL;
 
     for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
         vcpu = &vmm_state[core];
@@ -664,7 +653,7 @@ TerminateVmxDpcRoutine(
     UNREFERENCED_PARAMETER(DeferredContext);
 
     UINT32 core = KeGetCurrentProcessorNumber();
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[core];
+    PVCPU vcpu = &vmm_state[core];
 
     if (!NT_SUCCESS(VmxVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
         return STATUS_UNSUCCESSFUL;
@@ -692,7 +681,7 @@ end:
 NTSTATUS
 BroadcastVmxTermination()
 {
-    PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
     vcpu->state = VMX_VCPU_STATE_TERMINATING;
 
@@ -739,7 +728,6 @@ SetupVmxOperation()
         POOL_FLAG_NON_PAGED,
         core_count * sizeof(DPC_CALL_CONTEXT),
         POOL_TAG_DPC_CONTEXT);
-
     if (!context)
         goto end;
 
@@ -748,7 +736,6 @@ SetupVmxOperation()
         POOL_FLAG_NON_PAGED,
         core_count * sizeof(NTSTATUS),
         POOL_TAG_STATUS_ARRAY);
-
     if (!context->status)
         goto end;
 
@@ -759,7 +746,6 @@ SetupVmxOperation()
     }
 
     status = AllocateVmmStateStructure();
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmmStateStructure failed with status %x", status);
         return status;
@@ -778,14 +764,12 @@ SetupVmxOperation()
 
     /* we will synchronise our DPCs so at this point all will have run */
     status = ValidateSuccessVmxInitiation(context);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialiseVmxOperation failed with status %x", status);
         goto end;
     }
 
     status = BeginVmxOperation(context);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("BeginVmxOperation failed with status %x", status);
 
@@ -843,7 +827,6 @@ PowerCallbackRoutine(
         DEBUG_LOG("Resuming VMX operation after sleep..");
 
         status = SetupVmxOperation();
-
         if (!NT_SUCCESS(status))
             DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
     }
@@ -851,7 +834,6 @@ PowerCallbackRoutine(
         DEBUG_LOG("Exiting VMX operation for sleep...");
 
         status = BroadcastVmxTermination();
-
         if (!NT_SUCCESS(status))
             DEBUG_ERROR(
                 "BroadcastVmxTermination failed with status %x",
@@ -885,7 +867,6 @@ InitialisePowerCallback()
         &object_attributes,
         FALSE,
         TRUE);
-
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("ExCreateCallback failed with status %x", status);
         return status;
@@ -895,7 +876,6 @@ InitialisePowerCallback()
         driver_state->power_callback_object,
         PowerCallbackRoutine,
         NULL);
-
     if (!driver_state->power_callback) {
         DEBUG_ERROR("ExRegisterCallback failed");
         ObDereferenceObject(driver_state->power_callback_object);
