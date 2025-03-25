@@ -36,6 +36,7 @@ DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
     BroadcastVmxTermination();
     UnregisterPowerCallback();
     FreeGlobalDriverState();
+    IoDeleteSymbolicLink(&device_link);
     IoDeleteDevice(DriverObject->DeviceObject);
 }
 
@@ -78,7 +79,6 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateDevice failed with status %x", status);
         BroadcastVmxTermination();
-        FreeVmxState();
         UnregisterPowerCallback();
         FreeGlobalDriverState();
     }
@@ -87,7 +87,6 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateSymbolicLink failed with status %x", status);
         BroadcastVmxTermination();
-        FreeVmxState();
         UnregisterPowerCallback();
         FreeGlobalDriverState();
         IoDeleteDevice(&DriverObject->DeviceObject);

@@ -426,27 +426,6 @@ FreeCoreVmxState(_In_ UINT32 Core)
 }
 
 VOID
-FreeVmxStateDpcRoutine(
-    _In_ PKDPC* Dpc,
-    _In_opt_ PVOID DeferredContext,
-    _In_opt_ PVOID SystemArgument1,
-    _In_opt_ PVOID SystemArgument2)
-{
-    UNREFERENCED_PARAMETER(Dpc);
-    UNREFERENCED_PARAMETER(DeferredContext);
-    UNREFERENCED_PARAMETER(SystemArgument1);
-    UNREFERENCED_PARAMETER(SystemArgument2);
-
-    FreeCoreVmxState(KeGetCurrentProcessorNumber());
-}
-
-VOID
-FreeVmxState()
-{
-    KeGenericCallDpc(FreeVmxStateDpcRoutine, NULL);
-}
-
-VOID
 InitialiseVmxOperation(
     _In_ PKDPC* Dpc,
     _In_opt_ PVOID DeferredContext,
