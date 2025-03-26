@@ -1137,11 +1137,8 @@ no_rip_increment:
      * https://github.com/freebsd/freebsd-src/blob/c7ffe32b1b7de9d72add1b44d5d3a3a14605a8f0/sys/amd64/vmm/intel/vmx.c#L3143
      */
     if (vcpu->proc_ctls.UseTprShadow &&
-        !vcpu->proc_ctls2.VirtualInterruptDelivery) {
-        UINT32 vtpr = *(volatile UINT32*)(vcpu->virtual_apic_va + 0x80);
-        UINT8 guest_cr8 = (vtpr >> 4) & 0xF;
-        HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, guest_cr8);
-    }
+        !vcpu->proc_ctls2.VirtualInterruptDelivery)
+        HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
 
     /* continue vmx operation as usual */
     return FALSE;
