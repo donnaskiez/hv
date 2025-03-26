@@ -19,7 +19,7 @@ HvVmxGuestReadRip();
 UINT64
 HvVmxGuestReadRsp();
 
-UINT64
+PVCPU
 HvVmxGetVcpu();
 
 BOOLEAN

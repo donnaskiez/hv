@@ -28,7 +28,7 @@ HvVmxGuestReadRsp()
     return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
 }
 
-UINT64
+PVCPU
 HvVmxGetVcpu()
 {
     return &vmm_state[KeGetCurrentProcessorNumber()];
@@ -286,6 +286,9 @@ HvVmxAllocateVirtualApicPage(_In_ PVCPU Vcpu)
     RtlSecureZeroMemory(Vcpu->virtual_apic_va, PAGE_SIZE);
     Vcpu->virtual_apic_pa =
         MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
+
+    DEBUG_LOG("virtual apic pa: %llx", Vcpu->virtual_apic_pa);
+
     return STATUS_SUCCESS;
 }
 
@@ -304,7 +307,9 @@ InitialiseVirtualApicPage(_In_ PVCPU Vcpu)
 {
     PVTPR vtpr = &Vcpu->virtual_apic_va[APIC_TASK_PRIORITY];
     vtpr->TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
-    vtpr->VirtualTaskPriorityRegister = VMX_APIC_TPR_THRESHOLD;
+
+    /* Since we use an IPI to initialise */
+    vtpr->VirtualTaskPriorityRegister = IPI_LEVEL;
 }
 #endif
 
@@ -447,6 +452,7 @@ HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 #if APIC
     InitialiseVirtualApicPage(vcpu);
 #endif
+
     __vmx_vmlaunch();
 
     /* only if vmlaunch fails will we end up here */
@@ -484,7 +490,6 @@ HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context)
         return status;
     }
 
-    /* What happens if something fails? TODO: think. */
     KeIpiGenericCall(HvArchVirtualiseCoreStub, Context);
 
     /* lets make sure we entered VMX operation on ALL cores. If a core

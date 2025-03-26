@@ -537,8 +537,10 @@ STATIC
 VOID
 HvDispHandleExitTprThreshold(_In_ PGUEST_CONTEXT Context)
 {
-    DEBUG_LOG("exit reason tpr threshold");
-    __debugbreak();
+    UNREFERENCED_PARAMETER(Context);
+
+    if (HvVmxGetVcpu()->proc_ctls2.VirtualInterruptDelivery)
+        __debugbreak();
 }
 
 FORCEINLINE STATIC VOID
@@ -679,15 +681,9 @@ HvDispHandleExitWrmsr(_In_ PGUEST_CONTEXT Context)
         return;
     }
 
-    if (Context->rcx == IA32_X2APIC_TPR) {
-        *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) =
-            (UINT32)Context->rcx << 4;
-    }
-    else {
-        msr.LowPart = (UINT32)Context->rax;
-        msr.HighPart = (UINT32)Context->rdx;
-        __writemsr((UINT32)Context->rcx, msr.QuadPart);
-    }
+    msr.LowPart = (UINT32)Context->rax;
+    msr.HighPart = (UINT32)Context->rdx;
+    __writemsr((UINT32)Context->rcx, msr.QuadPart);
 }
 
 #define X2APIC_MSR_LOW  0x800
@@ -714,17 +710,9 @@ HvDispHandleExitRdmsr(_In_ PGUEST_CONTEXT Context)
         return;
     }
 
-    if ((UINT32)Context->rcx == IA32_X2APIC_TPR) {
-        Context->rax = 0;
-        (UINT32) Context->rax =
-            *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) >> 4;
-        Context->rdx = 0;
-    }
-    else {
-        msr.QuadPart = __readmsr((UINT32)Context->rcx);
-        Context->rax = msr.LowPart;
-        Context->rdx = msr.HighPart;
-    }
+    msr.QuadPart = __readmsr((UINT32)Context->rcx);
+    Context->rax = msr.LowPart;
+    Context->rdx = msr.HighPart;
 }
 
 /*
@@ -1069,7 +1057,7 @@ BOOLEAN
 HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 {
     UINT64 additional_rip_offset = 0;
-    PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
 
     HIGH_IRQL_LOG_SAFE("Exit reason: %llx", HvVmcsRead(VMCS_EXIT_REASON));
 
@@ -1120,7 +1108,7 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
         /* EOI induced exits are trap like */
         HvDispHandleExitVirtualEoi(Context);
         goto no_rip_increment;
-    default: break;
+    default: __debugbreak(); break;
     }
 
     /*
@@ -1136,10 +1124,23 @@ no_rip_increment:
      * operation.
      */
     if (InterlockedExchange(
-            &state->exit_state.exit_vmx,
-            state->exit_state.exit_vmx)) {
-        HvDispGuestRestoreStateOnTerminate(state);
+            &vcpu->exit_state.exit_vmx,
+            vcpu->exit_state.exit_vmx)) {
+        HvDispGuestRestoreStateOnTerminate(vcpu);
         return TRUE;
+    }
+
+    /*
+     * If TPR Shadowing is enabled, the TPR Threshold
+     * must be updated right before entering the guest.
+     *
+     * https://github.com/freebsd/freebsd-src/blob/c7ffe32b1b7de9d72add1b44d5d3a3a14605a8f0/sys/amd64/vmm/intel/vmx.c#L3143
+     */
+    if (vcpu->proc_ctls.UseTprShadow &&
+        !vcpu->proc_ctls2.VirtualInterruptDelivery) {
+        UINT32 vtpr = *(volatile UINT32*)(vcpu->virtual_apic_va + 0x80);
+        UINT8 guest_cr8 = (vtpr >> 4) & 0xF;
+        HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, guest_cr8);
     }
 
     /* continue vmx operation as usual */
