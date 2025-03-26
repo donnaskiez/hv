@@ -68,7 +68,9 @@ HvVmcsMsrAdjustControl(_In_ UINT32 Control, _In_ UINT32 Msr)
  */
 STATIC
 SEGMENT_DESCRIPTOR_64*
-HvVmcsSegmentDescriptorGet(_In_ UINT64 TableBase, _In_ SEGMENT_SELECTOR* Selector)
+HvVmcsSegmentDescriptorGet(
+    _In_ UINT64 TableBase,
+    _In_ SEGMENT_SELECTOR* Selector)
 {
     return (SEGMENT_DESCRIPTOR_64*)(TableBase +
                                     Selector->Index * sizeof(UINT64));
@@ -301,75 +303,42 @@ HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
      */
     Vcpu->proc_ctls.ActivateSecondaryControls = TRUE;
     Vcpu->proc_ctls.UseMsrBitmaps = TRUE;
-    Vcpu->proc_ctls.Cr3LoadExiting = TRUE;
-    Vcpu->proc_ctls.Cr3StoreExiting = TRUE;
-    Vcpu->proc_ctls.MovDrExiting = TRUE;
+    Vcpu->proc_ctls.Cr3LoadExiting = FALSE;
+    Vcpu->proc_ctls.Cr3StoreExiting = FALSE;
+    Vcpu->proc_ctls.MovDrExiting = FALSE;
 
     /* buggy TODO fix! */
     Vcpu->proc_ctls.UnconditionalIoExiting = FALSE;
 
-    /*
-     * TPR shadowing is still quite buggy, so to allow us to work on further
-     * apic features we enable it aswell. (This is because TPR shadowing is
-     * required for further APIC virtualisation features.
-     */
 #if APIC
-    /*
-     * Currently LoadExiting is failing when false, StoreExiting works when
-     * false.
-     */
     Vcpu->proc_ctls.Cr8LoadExiting = FALSE;
     Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
-#endif
 
-#if APIC
-    if (IsLocalApicPresent()) {
+    if (HvVmcsIsApicPresent()) {
+        DEBUG_LOG("lapic present. Enabling TPR shadowing.");
         Vcpu->proc_ctls.UseTprShadow = TRUE;
-        VmxVmWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS, Vcpu->virtual_apic_pa);
-        VmxVmWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
+        HvVmcsWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS, Vcpu->virtual_apic_pa);
+        HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
     }
 #endif
+
     HvVmcsWrite(
         VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->proc_ctls.AsUInt, IA32_VMX_PROCBASED_CTLS));
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls.AsUInt,
+            IA32_VMX_PROCBASED_CTLS));
 
     Vcpu->proc_ctls2.EnableRdtscp = TRUE;
     Vcpu->proc_ctls2.EnableInvpcid = TRUE;
     Vcpu->proc_ctls2.EnableXsaves = TRUE;
 
-#if APIC
-    if (IsLocalApicPresent()) {
-        Vcpu->proc_ctls2.ApicRegisterVirtualization = FALSE;
-        Vcpu->proc_ctls2.VirtualInterruptDelivery = FALSE;
-
-        /*
-         * If we are in X2 Apic Mode, disable MMIO apic register
-         * access virtualization, and instead enable X2 Apic
-         * Virtualization.
-         */
-        if (IsApicInX2ApicMode()) {
-            Vcpu->proc_ctls2.VirtualizeX2ApicMode = FALSE;
-        }
-        else {
-            Vcpu->proc_ctls2.VirtualizeApicAccesses = TRUE;
-            VmxVmWrite(VMCS_CTRL_APIC_ACCESS_ADDRESS, apic.ApicBase);
-        }
-
-        // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_0, 0);
-        // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_1, 0);
-        // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_2, 0);
-        // VmxVmWrite(VMCS_CTRL_EOI_EXIT_BITMAP_3, 0);
-    }
-#endif
-
     HvVmcsWrite(
         VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->proc_ctls2.AsUInt, IA32_VMX_PROCBASED_CTLS2));
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls2.AsUInt,
+            IA32_VMX_PROCBASED_CTLS2));
 
     Vcpu->pin_ctls.NmiExiting = FALSE;
-#if APIC
-    Vcpu->pin_ctls.ProcessPostedInterrupts = FALSE;
-#endif
 
     HvVmcsWrite(
         VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,

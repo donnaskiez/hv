@@ -70,12 +70,12 @@ typedef struct _VCPU_LOG_STATE {
 } VCPU_LOG_STATE, *PVCPU_LOG_STATE;
 
 typedef struct _GUEST_CONTEXT {
-     UINT64 dr7;
-     UINT64 dr6;
-     UINT64 dr3;
-     UINT64 dr2;
-     UINT64 dr1;
-     UINT64 dr0;
+    UINT64 dr7;
+    UINT64 dr6;
+    UINT64 dr3;
+    UINT64 dr2;
+    UINT64 dr1;
+    UINT64 dr0;
     // M128A  Xmm0;
     // M128A  Xmm1;
     // M128A  Xmm2;
@@ -143,8 +143,8 @@ typedef struct _VCPU {
     UINT64 vmm_stack_va;
     PMSR_BITMAP msr_bitmap_va;
     PMSR_BITMAP msr_bitmap_pa;
-    UINT64 virtual_apic_va;
-    UINT64 virtual_apic_pa;
+    PUINT8 virtual_apic_va;
+    PUINT8 virtual_apic_pa;
     UINT32 exception_bitmap;
     UINT32 exception_bitmap_mask;
     HOST_DEBUG_STATE debug_state;
@@ -173,10 +173,9 @@ typedef struct _DRIVER_STATE {
 typedef union {
     struct {
         UINT32 TaskPriorityRegisterThreshold : 4;
-        UINT32 VirtualTaskPriorityRegister : 7;
-        UINT32 Unused2 : 32;
+        UINT32 VirtualTaskPriorityRegister : 4;
+        UINT32 Unused2 : 24;
     };
-
     UINT32 AsUInt;
 } VTPR, *PVTPR;
 

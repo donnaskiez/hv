@@ -34,7 +34,7 @@ PUBLIC __vmx_vmcall
 ; Core vmx handler functions, which include the initiation of vmx operation, handling of 
 ; vm-exits and termination of vmx operation.
 
-PUBLIC HvArchSaveStateAndVirtualiseCore
+PUBLIC HvArchVirtualiseCoreStub
 PUBLIC HvArchVmExitHandler
 PUBLIC HvArchRestoreState
 
@@ -316,7 +316,7 @@ ExitVmx PROC
 	add rsp, 020h
 	mov [rsp+0b8h], rax
 	sub rsp, 020h
-	call HvVmxGetVcpu
+	call HvVmxGuestReadRip
 	add rsp, 020h
 	mov rdx, rsp
 	mov rbx, [rsp+0b8h]
@@ -340,7 +340,7 @@ ExitVmx ENDP
 ;++
 ;
 ; VOID
-; HvArchSaveStateAndVirtualiseCore ()
+; HvArchVirtualiseCoreStub ()
 ;
 ; Routine Description:
 ;
@@ -358,7 +358,7 @@ ExitVmx ENDP
 ;
 ;--
 
-HvArchSaveStateAndVirtualiseCore PROC PUBLIC
+HvArchVirtualiseCoreStub PROC PUBLIC
 
 	SAVE_GP
 	SAVE_DEBUG
@@ -372,7 +372,7 @@ HvArchSaveStateAndVirtualiseCore PROC PUBLIC
 
 	ret
 
-HvArchSaveStateAndVirtualiseCore ENDP 
+HvArchVirtualiseCoreStub ENDP 
 
 ;++
 ;
@@ -382,7 +382,7 @@ HvArchSaveStateAndVirtualiseCore ENDP
 ; Routine Description:
 ;
 ;	Restores the initial guest state previously saved via 
-;	HvArchSaveStateAndVirtualiseCore. At this point we are executing as the guest.
+;	HvArchVirtualiseCoreStub. At this point we are executing as the guest.
 ;
 ; Arguments:
 ;

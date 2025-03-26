@@ -26,15 +26,14 @@ HvDispGuestRipIncrement()
 {
     HvVmcsWrite(
         VMCS_GUEST_RIP,
-        HvVmcsRead(VMCS_GUEST_RIP) + HvVmcsRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
+        HvVmcsRead(VMCS_GUEST_RIP) +
+            HvVmcsRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
 FORCEINLINE
 STATIC
 UINT64
-HvDispContextRegRead(
-    _In_ PGUEST_CONTEXT Context,
-    _In_ UINT32 Register)
+HvDispContextRegRead(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
 {
     switch (Register) {
     case VMX_EXIT_QUALIFICATION_GENREG_RAX: return Context->rax;
@@ -140,7 +139,8 @@ STATIC
 UINT16
 HvDispGuestGetProtectionLevel()
 {
-    SEGMENT_SELECTOR cs = {.AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
+    SEGMENT_SELECTOR cs = {
+        .AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
     return cs.RequestPrivilegeLevel;
 }
 
@@ -210,9 +210,8 @@ HvDispHandleExitMovToCr(
     _In_ PGUEST_CONTEXT Context)
 {
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-    UINT64 value = HvDispContextRegRead(
-        Context,
-        Qualification->GeneralPurposeRegister);
+    UINT64 value =
+        HvDispContextRegRead(Context, Qualification->GeneralPurposeRegister);
 
     switch (Qualification->ControlRegister) {
     case VMX_EXIT_QUALIFICATION_REGISTER_CR0:;
@@ -263,14 +262,6 @@ HvDispHandleExitMovToCr(
 
         HvVmcsWrite(VMCS_GUEST_CR4, value);
         HvVmcsWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
-    case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value);
-#if APIC
-        /* again, for now this must be done... */
-        __write_vapic_32(
-            vcpu->virtual_apic_va,
-            IA32_X2APIC_TPR,
-            (UINT32)value << 4);
-#endif
         return;
     default: return;
     }
@@ -307,21 +298,6 @@ HvDispHandleExitMovFromCr(
             Context,
             Qualification->GeneralPurposeRegister,
             HvVmcsRead(VMCS_GUEST_CR4));
-        break;
-    case VMX_EXIT_QUALIFICATION_REGISTER_CR8:;
-#if APIC
-        tpr = __read_vapic_32(vcpu->virtual_apic_va, IA32_X2APIC_TPR);
-
-        WriteValueInContextRegister(
-            Context,
-            Qualification->GeneralPurposeRegister,
-            tpr >> 4);
-#else
-        HvDispContextRegWrite(
-            Context,
-            Qualification->GeneralPurposeRegister,
-            __readcr8());
-#endif
         break;
     default: break;
     }
@@ -629,7 +605,9 @@ HvDispHandleExitExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 #endif
 
     switch (intr.Vector) {
-    case EXCEPTION_DIVIDED_BY_ZERO: HvDispInjectExceptionOnVmEntry(&intr); break;
+    case EXCEPTION_DIVIDED_BY_ZERO:
+        HvDispInjectExceptionOnVmEntry(&intr);
+        break;
     case EXCEPTION_DEBUG:
     case EXCEPTION_NMI:
     case EXCEPTION_INT3:
@@ -649,11 +627,7 @@ HvDispHandleExitExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
     case EXCEPTION_SE_FAULT:
     case EXCEPTION_VIRTUALIZATION_FAULT:
     default:
-        HvDispNotImplemented(
-            STATUS_NOT_IMPLEMENTED,
-            intr.Vector,
-            NULL,
-            NULL);
+        HvDispNotImplemented(STATUS_NOT_IMPLEMENTED, intr.Vector, NULL, NULL);
     }
 
     return HvDispExceptionShouldAdvanceRip(&intr);
@@ -974,15 +948,15 @@ HvDispDebugWriteReg(
     _In_ UINT8 Register,
     _In_ UINT64 Value)
 {
-     switch (Register) {
-     case DEBUG_DR0: Context->dr0 = Value; break;
-     case DEBUG_DR1: Context->dr1 = Value; break;
-     case DEBUG_DR2: Context->dr2 = Value; break;
-     case DEBUG_DR3: Context->dr3 = Value; break;
-     case DEBUG_DR6: Context->dr6 = Value; break;
-     case DEBUG_DR7: Context->dr7 = Value; break;
-     default: HvDispInjectFaultGp(); return;
-     }
+    switch (Register) {
+    case DEBUG_DR0: Context->dr0 = Value; break;
+    case DEBUG_DR1: Context->dr1 = Value; break;
+    case DEBUG_DR2: Context->dr2 = Value; break;
+    case DEBUG_DR3: Context->dr3 = Value; break;
+    case DEBUG_DR6: Context->dr6 = Value; break;
+    case DEBUG_DR7: Context->dr7 = Value; break;
+    default: HvDispInjectFaultGp(); return;
+    }
 }
 
 FORCEINLINE
@@ -990,15 +964,15 @@ STATIC
 UINT64
 HvDispDebugReadReg(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
 {
-     switch (Register) {
-     case DEBUG_DR0: return Context->dr0;
-     case DEBUG_DR1: return Context->dr1;
-     case DEBUG_DR2: return Context->dr2;
-     case DEBUG_DR3: return Context->dr3;
-     case DEBUG_DR6: return Context->dr6;
-     case DEBUG_DR7: return Context->dr7;
-     default: HvDispInjectFaultGp(); return;
-     }
+    switch (Register) {
+    case DEBUG_DR0: return Context->dr0;
+    case DEBUG_DR1: return Context->dr1;
+    case DEBUG_DR2: return Context->dr2;
+    case DEBUG_DR3: return Context->dr3;
+    case DEBUG_DR6: return Context->dr6;
+    case DEBUG_DR7: return Context->dr7;
+    default: HvDispInjectFaultGp(); return;
+    }
 }
 
 FORCEINLINE
@@ -1035,9 +1009,7 @@ HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
         HvDispDebugWriteReg(
             Context,
             qual.DebugRegister,
-            HvDispContextRegRead(
-                Context,
-                qual.GeneralPurposeRegister));
+            HvDispContextRegRead(Context, qual.GeneralPurposeRegister));
     }
     else {
         HvDispContextRegWrite(
@@ -1115,9 +1087,7 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
         if (HvDispHandleExitCrAccess(Context))
             goto no_rip_increment;
         break;
-    case VMX_EXIT_REASON_EXECUTE_WBINVD:
-        HvDispHandleExitWbinvd(Context);
-        break;
+    case VMX_EXIT_REASON_EXECUTE_WBINVD: HvDispHandleExitWbinvd(Context); break;
 
     /*
      * TPR_BELOW_THRESHOLD is a trap-like exit and will perform the
@@ -1145,9 +1115,7 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
     case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
         HvDispHandleExitIoInstruction(Context);
         break;
-    case VMX_EXIT_REASON_MOV_DR:
-        HvDispHandleExitDebugRegAccess(Context);
-        break;
+    case VMX_EXIT_REASON_MOV_DR: HvDispHandleExitDebugRegAccess(Context); break;
     case VMX_EXIT_REASON_VIRTUALIZED_EOI:
         /* EOI induced exits are trap like */
         HvDispHandleExitVirtualEoi(Context);

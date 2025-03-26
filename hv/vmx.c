@@ -233,8 +233,7 @@ HvVmxAllocateMsrBitmap(_In_ PVCPU Vcpu)
     PHYSICAL_ADDRESS physical_max = {0};
     physical_max.QuadPart = MAXULONG64;
 
-    Vcpu->msr_bitmap_va =
-        MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
+    Vcpu->msr_bitmap_va = MmAllocateContiguousMemory(PAGE_SIZE, physical_max);
     if (!Vcpu->msr_bitmap_va) {
         DEBUG_LOG("Error in allocating MSRBitMap.");
         return STATUS_MEMORY_NOT_ALLOCATED;
@@ -242,8 +241,7 @@ HvVmxAllocateMsrBitmap(_In_ PVCPU Vcpu)
 
     RtlSecureZeroMemory(Vcpu->msr_bitmap_va, PAGE_SIZE);
 
-    Vcpu->msr_bitmap_pa =
-        MmGetPhysicalAddress(Vcpu->msr_bitmap_va).QuadPart;
+    Vcpu->msr_bitmap_pa = MmGetPhysicalAddress(Vcpu->msr_bitmap_va).QuadPart;
 
     return STATUS_SUCCESS;
 }
@@ -271,12 +269,15 @@ HvVmxAllocateVirtualApicPage(_In_ PVCPU Vcpu)
     LARGE_INTEGER max = {.QuadPart = MAXULONG64};
     LARGE_INTEGER low = {0};
 
+    /*To ensure proper behavior in VMX operation, software should maintain the
+     * VMCS region and related structures (enumerated in Section 26.11.4) in
+     * writeback cacheable memory.” — Intel SDM Vol. 3C, Sec. 26.2 */
     Vcpu->virtual_apic_va = MmAllocateContiguousMemorySpecifyCache(
         PAGE_SIZE,
         low,
         max,
         low,
-        MmNonCached);
+        MmCached);
     if (!Vcpu->virtual_apic_va) {
         DEBUG_ERROR("Failed to allocate Virtual Apic Page");
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -285,120 +286,25 @@ HvVmxAllocateVirtualApicPage(_In_ PVCPU Vcpu)
     RtlSecureZeroMemory(Vcpu->virtual_apic_va, PAGE_SIZE);
     Vcpu->virtual_apic_pa =
         MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
-
-    DEBUG_LOG(
-        "core: %lx - vapic: %llx",
-        KeGetCurrentProcessorNumber(),
-        Vcpu->virtual_apic_va);
-    DEBUG_LOG(
-        "core: %lx - vapic phys: %llx",
-        KeGetCurrentProcessorNumber(),
-        Vcpu->virtual_apic_pa);
     return STATUS_SUCCESS;
 }
 
 /*
- * 30.1.1 Virtualized APIC Registers
+ * "If the ‘use TPR shadow’ VM-execution control is 1 and ‘virtual-interrupt
+ * delivery’ is 0, the processor verifies:
  *
- * Depending on the setting of certain VM-execution controls, a logical
- * processor may virtualize certain accesses to APIC registers using the
- * following fields on the virtual-APIC page:
- *
- * • Virtual task-priority register (VTPR): the 32-bit field located at offset
- * 080H on the virtual-APIC page.
- *
- * • Virtual processor-priority register (VPPR): the 32-bit field located at
- * offset 0A0H on the virtual-APIC page.
- *
- * • Virtual end-of-interrupt register (VEOI): the 32-bit field located at
- * offset 0B0H on the virtual-APIC page.
- *
- * • Virtual interrupt-service register (VISR): the 256-bit value comprising
- * eight non-contiguous 32-bit fields at offsets 100H, 110H, 120H, 130H, 140H,
- * 150H, 160H, and 170H on the virtual-APIC page. Bit x of the VISR is at bit
- * position (x & 1FH) at offset (100H | ((x & E0H) » 1)). The processor uses
- * only the low 4 bytes of each of the 16-byte fields at offsets 100H, 110H,
- * 120H, 130H, 140H, 150H, 160H, and 170H.
- *
- * • Virtual interrupt-request register (VIRR): the 256-bit value comprising
- * eight non-contiguous 32-bit fields at offsets 200H, 210H, 220H, 230H, 240H,
- * 250H, 260H, and 270H on the virtual-APIC page. Bit x of the VIRR is at bit
- * position (x & 1FH) at offset (200H | ((x & E0H) » 1)). The processor uses
- * only the low 4 bytes of each of the 16-Byte fields at offsets 200H, 210H,
- * 220H, 230H, 240H, 250H, 260H, and 270H.
- *
- * • Virtual interrupt-command register (VICR_LO): the 32-bit field located at
- * offset 300H on the virtual-APIC page.
- *
- * • Virtual interrupt-command register (VICR_HI): the 32-bit field located at
- * offset 310H on the virtual-APIC page.
- *
- * The VTPR field virtualizes the TPR whenever the “use TPR shadow” VM-execution
- * control is 1. The other fields indicated above virtualize the corresponding
- * APIC registers whenever the “virtual-interrupt delivery” VM-execution control
- * is 1. (VICR_LO and VICR_HI also virtualize the ICR when the “IPI
- * virtualization” VM-execution control is 1.)
+ *   Bits 31:4 of the TPR threshold VMCS field are 0.
+ *   Bits 3:0 of the TPR threshold VMCS field are not greater than the value of
+ *   VTPR[7:4] in the virtual-APIC page."*
  */
-#define IA32_X2APIC_ICR_LO 0x00000830
-#define IA32_X2APIC_ICR_HI 0x00000831
-
 #if APIC
+FORCEINLINE
 STATIC
-NTSTATUS
 InitialiseVirtualApicPage(_In_ PVCPU Vcpu)
 {
-    NTSTATUS status = STATUS_UNSUCCESSFUL;
-    UINT64 vapic = Vcpu->virtual_apic_va;
-    // UINT64   icr    = __readmsr(IA32_X2APIC_ICR);
-    // UINT32   icr_lo = (UINT32)icr;
-    // UINT32   icr_hi = icr >> 32;
-
-    // DEBUG_LOG("Initialising vapic page.");
-
-    __write_vapic_32(vapic, IA32_X2APIC_TPR, __readcr8() << 4);
-
-    //__write_vapic_32(vapic, IA32_X2APIC_PPR, __readmsr(IA32_X2APIC_PPR));
-    ////__write_vapic_32(vapic, IA32_X2APIC_EOI,
-    ///__readmsr(IA32_X2APIC_EOI));
-
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR0,
-    //__readmsr(IA32_X2APIC_ISR0));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR1,
-    //__readmsr(IA32_X2APIC_ISR1));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR2,
-    //__readmsr(IA32_X2APIC_ISR2));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR3,
-    //__readmsr(IA32_X2APIC_ISR3));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR4,
-    //__readmsr(IA32_X2APIC_ISR4));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR5,
-    //__readmsr(IA32_X2APIC_ISR5));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR6,
-    //__readmsr(IA32_X2APIC_ISR6));
-    //__write_vapic_32(vapic, IA32_X2APIC_ISR7,
-    //__readmsr(IA32_X2APIC_ISR7));
-
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR0,
-    //__readmsr(IA32_X2APIC_IRR0));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR1,
-    //__readmsr(IA32_X2APIC_IRR1));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR2,
-    //__readmsr(IA32_X2APIC_IRR2));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR3,
-    //__readmsr(IA32_X2APIC_IRR3));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR4,
-    //__readmsr(IA32_X2APIC_IRR4));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR5,
-    //__readmsr(IA32_X2APIC_IRR5));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR6,
-    //__readmsr(IA32_X2APIC_IRR6));
-    //__write_vapic_32(vapic, IA32_X2APIC_IRR7,
-    //__readmsr(IA32_X2APIC_IRR7));
-
-    // DEBUG_LOG("Finished initialising vapic page.");
-
-    //__write_vapic_32(vapic, IA32_X2APIC_ICR_LO, icr_lo);
-    //__write_vapic_32(vapic, IA32_X2APIC_ICR_HI, icr_hi);
+    PVTPR vtpr = &Vcpu->virtual_apic_va[APIC_TASK_PRIORITY];
+    vtpr->TaskPriorityRegisterThreshold = VMX_APIC_TPR_THRESHOLD;
+    vtpr->VirtualTaskPriorityRegister = VMX_APIC_TPR_THRESHOLD;
 }
 #endif
 
@@ -501,15 +407,15 @@ HvVmxDpcInitOperation(
     }
 
 #if APIC
-    if (!IsLocalApicPresent()) {
+    if (!HvVmcsIsApicPresent()) {
         DEBUG_ERROR("Local APIC is not present.");
         goto end;
     }
 
-    status = AllocateApicVirtualPage(vcpu);
+    status = HvVmxAllocateVirtualApicPage(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
-        FreeCoreVmxState(core);
+        HvVmxFreeCoreVcpuState(core);
         return status;
     }
 #endif
@@ -579,7 +485,7 @@ HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context)
     }
 
     /* What happens if something fails? TODO: think. */
-    KeIpiGenericCall(HvArchSaveStateAndVirtualiseCore, Context);
+    KeIpiGenericCall(HvArchVirtualiseCoreStub, Context);
 
     /* lets make sure we entered VMX operation on ALL cores. If a core
      * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/

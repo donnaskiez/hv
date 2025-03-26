@@ -9,7 +9,7 @@ VOID
 HvArchRestoreState();
 
 EXTERN UINT64 INLINE
-HvArchSaveStateAndVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context);
+HvArchVirtualiseCoreStub(_In_ PDPC_CALL_CONTEXT Context);
 
 EXTERN
 VOID
