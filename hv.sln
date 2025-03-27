@@ -9,8 +9,6 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug - APIC|ARM64 = Debug - APIC|ARM64
 		Debug - APIC|x64 = Debug - APIC|x64
-		Debug - CR8|ARM64 = Debug - CR8|ARM64
-		Debug - CR8|x64 = Debug - CR8|x64
 		Debug|ARM64 = Debug|ARM64
 		Debug|x64 = Debug|x64
 		Release - Apic|ARM64 = Release - Apic|ARM64
@@ -25,12 +23,6 @@ Global
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.ActiveCfg = Debug - APIC|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.Build.0 = Debug - APIC|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - APIC|x64.Deploy.0 = Debug - APIC|x64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|ARM64.ActiveCfg = Debug - CR8|ARM64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|ARM64.Build.0 = Debug - CR8|ARM64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|ARM64.Deploy.0 = Debug - CR8|ARM64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|x64.ActiveCfg = Debug - CR8|x64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|x64.Build.0 = Debug - CR8|x64
-		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug - CR8|x64.Deploy.0 = Debug - CR8|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.ActiveCfg = Debug|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.Build.0 = Debug|ARM64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Debug|ARM64.Deploy.0 = Debug|ARM64
