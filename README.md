@@ -3,6 +3,7 @@
 work in progress hypervisor for learning purposes but also hoping to build something around it in the future.
 
 - apic virtualisation is still a WIP, however we are making progress :)
+- unconditional io exiting is buggy and will crash u
 
 ## windows versions
 

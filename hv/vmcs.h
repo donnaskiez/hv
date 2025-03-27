@@ -5,24 +5,24 @@
 #include "vmx.h"
 
 NTSTATUS
-SetupVmcs(_In_ PVIRTUAL_MACHINE_STATE GuestState, _In_ PVOID StackPointer);
+HvVmcsInitialise(_In_ PVCPU GuestState, _In_ PVOID StackPointer);
 
 UINT64
-VmxVmRead(_In_ UINT64 VmcsField);
+HvVmcsRead(_In_ UINT64 VmcsField);
 
 VOID
-VmxVmWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value);
+HvVmcsWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value);
 
 UINT64
-VmmReadGuestRip();
+HvVmxGuestReadRip();
 
 UINT64
-VmmReadGuestRsp();
+HvVmxGuestReadRsp();
 
-UINT64
-VmmGetCoresVcpu();
+PVCPU
+HvVmxGetVcpu();
 
 BOOLEAN
-IsLocalApicPresent();
+HvVmcsIsApicPresent();
 
 #endif

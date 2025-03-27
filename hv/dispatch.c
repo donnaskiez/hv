@@ -22,106 +22,109 @@
 FORCEINLINE
 STATIC
 VOID
-IncrementGuestRip()
+HvDispGuestRipIncrement()
 {
-        VmxVmWrite(VMCS_GUEST_RIP,
-                   VmxVmRead(VMCS_GUEST_RIP) +
-                       VmxVmRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
+    HvVmcsWrite(
+        VMCS_GUEST_RIP,
+        HvVmcsRead(VMCS_GUEST_RIP) +
+            HvVmcsRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
 }
 
 FORCEINLINE
 STATIC
 UINT64
-RetrieveValueInContextRegister(_In_ PGUEST_CONTEXT Context,
-                               _In_ UINT32         Register)
+HvDispContextRegRead(_In_ PGUEST_CONTEXT Context, _In_ UINT32 Register)
 {
-        switch (Register) {
-        case VMX_EXIT_QUALIFICATION_GENREG_RAX: return Context->rax;
-        case VMX_EXIT_QUALIFICATION_GENREG_RCX: return Context->rcx;
-        case VMX_EXIT_QUALIFICATION_GENREG_RDX: return Context->rdx;
-        case VMX_EXIT_QUALIFICATION_GENREG_RBX: return Context->rbx;
-        case VMX_EXIT_QUALIFICATION_GENREG_RSP: return Context->rsp;
-        case VMX_EXIT_QUALIFICATION_GENREG_RBP: return Context->rbp;
-        case VMX_EXIT_QUALIFICATION_GENREG_RSI: return Context->rsi;
-        case VMX_EXIT_QUALIFICATION_GENREG_RDI: return Context->rdi;
-        case VMX_EXIT_QUALIFICATION_GENREG_R8: return Context->r8;
-        case VMX_EXIT_QUALIFICATION_GENREG_R9: return Context->r9;
-        case VMX_EXIT_QUALIFICATION_GENREG_R10: return Context->r10;
-        case VMX_EXIT_QUALIFICATION_GENREG_R11: return Context->r11;
-        case VMX_EXIT_QUALIFICATION_GENREG_R12: return Context->r12;
-        case VMX_EXIT_QUALIFICATION_GENREG_R13: return Context->r13;
-        case VMX_EXIT_QUALIFICATION_GENREG_R14: return Context->r14;
-        case VMX_EXIT_QUALIFICATION_GENREG_R15: return Context->r15;
-        default: return 0;
-        }
+    switch (Register) {
+    case VMX_EXIT_QUALIFICATION_GENREG_RAX: return Context->rax;
+    case VMX_EXIT_QUALIFICATION_GENREG_RCX: return Context->rcx;
+    case VMX_EXIT_QUALIFICATION_GENREG_RDX: return Context->rdx;
+    case VMX_EXIT_QUALIFICATION_GENREG_RBX: return Context->rbx;
+    case VMX_EXIT_QUALIFICATION_GENREG_RSP: return Context->rsp;
+    case VMX_EXIT_QUALIFICATION_GENREG_RBP: return Context->rbp;
+    case VMX_EXIT_QUALIFICATION_GENREG_RSI: return Context->rsi;
+    case VMX_EXIT_QUALIFICATION_GENREG_RDI: return Context->rdi;
+    case VMX_EXIT_QUALIFICATION_GENREG_R8: return Context->r8;
+    case VMX_EXIT_QUALIFICATION_GENREG_R9: return Context->r9;
+    case VMX_EXIT_QUALIFICATION_GENREG_R10: return Context->r10;
+    case VMX_EXIT_QUALIFICATION_GENREG_R11: return Context->r11;
+    case VMX_EXIT_QUALIFICATION_GENREG_R12: return Context->r12;
+    case VMX_EXIT_QUALIFICATION_GENREG_R13: return Context->r13;
+    case VMX_EXIT_QUALIFICATION_GENREG_R14: return Context->r14;
+    case VMX_EXIT_QUALIFICATION_GENREG_R15: return Context->r15;
+    default: return 0;
+    }
 }
 
 FORCEINLINE
 STATIC
 VOID
-WriteValueInContextRegister(_In_ PGUEST_CONTEXT Context,
-                            _In_ UINT32         Register,
-                            _In_ UINT64         Value)
+HvDispContextRegWrite(
+    _In_ PGUEST_CONTEXT Context,
+    _In_ UINT32 Register,
+    _In_ UINT64 Value)
 {
-        switch (Register) {
-        case VMX_EXIT_QUALIFICATION_GENREG_RAX: Context->rax = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RCX: Context->rcx = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RDX: Context->rdx = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RBX: Context->rbx = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RSP: Context->rsp = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RBP: Context->rbp = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RSI: Context->rsi = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_RDI: Context->rdi = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R8: Context->r8 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R9: Context->r9 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R10: Context->r10 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R11: Context->r11 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R12: Context->r12 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R13: Context->r13 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R14: Context->r14 = Value; return;
-        case VMX_EXIT_QUALIFICATION_GENREG_R15: Context->r15 = Value; return;
-        default: return;
-        }
+    switch (Register) {
+    case VMX_EXIT_QUALIFICATION_GENREG_RAX: Context->rax = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RCX: Context->rcx = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RDX: Context->rdx = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RBX: Context->rbx = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RSP: Context->rsp = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RBP: Context->rbp = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RSI: Context->rsi = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_RDI: Context->rdi = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R8: Context->r8 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R9: Context->r9 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R10: Context->r10 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R11: Context->r11 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R12: Context->r12 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R13: Context->r13 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R14: Context->r14 = Value; return;
+    case VMX_EXIT_QUALIFICATION_GENREG_R15: Context->r15 = Value; return;
+    default: return;
+    }
 }
 
 STATIC
 UINT32
 __vapic_offset_from_msr(_In_ UINT32 Register)
 {
-        return (Register & 0xFF) << 4;
+    return (Register & 0xFF) << 4;
 }
 
 /* Pass in the MSR, not the direct offset */
 VOID
-__write_vapic_32(_In_ UINT64 VirtualApicPage,
-                 _In_ UINT32 Register,
-                 _In_ UINT32 Value)
+__write_vapic_32(
+    _In_ UINT64 VirtualApicPage,
+    _In_ UINT32 Register,
+    _In_ UINT32 Value)
 {
-        UINT32 offset = __vapic_offset_from_msr(Register);
-        *(UINT32*)(VirtualApicPage + offset) = Value;
+    UINT32 offset = __vapic_offset_from_msr(Register);
+    *(UINT32*)(VirtualApicPage + offset) = Value;
 }
 
 VOID
-__write_vapic_64(_In_ UINT64 VirtualApicPage,
-                 _In_ UINT32 Register,
-                 _In_ UINT64 Value)
+__write_vapic_64(
+    _In_ UINT64 VirtualApicPage,
+    _In_ UINT32 Register,
+    _In_ UINT64 Value)
 {
-        UINT32 offset = __vapic_offset_from_msr(Register);
-        *(UINT64*)(VirtualApicPage + offset) = Value;
+    UINT32 offset = __vapic_offset_from_msr(Register);
+    *(UINT64*)(VirtualApicPage + offset) = Value;
 }
 
 UINT32
 __read_vapic_32(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
 {
-        UINT32 offset = __vapic_offset_from_msr(Register);
-        return *(UINT32*)(VirtualApicPage + offset);
+    UINT32 offset = __vapic_offset_from_msr(Register);
+    return *(UINT32*)(VirtualApicPage + offset);
 }
 
 UINT64
 __read_vapic_64(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
 {
-        UINT32 offset = __vapic_offset_from_msr(Register);
-        return *(UINT64*)(VirtualApicPage + offset);
+    UINT32 offset = __vapic_offset_from_msr(Register);
+    return *(UINT64*)(VirtualApicPage + offset);
 }
 
 #define CPL_KERNEL 0
@@ -134,63 +137,65 @@ __read_vapic_64(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
 FORCEINLINE
 STATIC
 UINT16
-ProbeGuestCurrentProtectionLevel()
+HvDispGuestGetProtectionLevel()
 {
-        SEGMENT_SELECTOR cs = {.AsUInt =
-                                   (UINT16)VmxVmRead(VMCS_GUEST_CS_SELECTOR)};
-        return cs.RequestPrivilegeLevel;
+    SEGMENT_SELECTOR cs = {
+        .AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
+    return cs.RequestPrivilegeLevel;
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectHardwareException(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
+HvDispInjectExceptionHardware(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
 {
-        VMENTRY_INTERRUPT_INFORMATION gp = {0};
-        gp.DeliverErrorCode              = DeliverErrorCode;
-        gp.InterruptionType              = HardwareException;
-        gp.Valid                         = TRUE;
-        gp.Vector                        = Vector;
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
+    VMENTRY_INTERRUPT_INFORMATION gp = {0};
+    gp.DeliverErrorCode = DeliverErrorCode;
+    gp.InterruptionType = HardwareException;
+    gp.Valid = TRUE;
+    gp.Vector = Vector;
+    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithUdFault()
+HvDispInjectFaultUd()
 {
-        InjectHardwareException(InvalidOpcode, FALSE);
+    HvDispInjectExceptionHardware(InvalidOpcode, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithGpFault()
+HvDispInjectFaultGp()
 {
-        InjectHardwareException(GeneralProtection, FALSE);
+    HvDispInjectExceptionHardware(GeneralProtection, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-InjectGuestWithDbFault()
+HvDispInjectFaultDb()
 {
-        InjectHardwareException(Debug, FALSE);
+    HvDispInjectExceptionHardware(Debug, FALSE);
 }
 
 FORCEINLINE
 STATIC
 VOID
-HandleNotImplementedExit(_In_opt_ UINT64 BugCheckParameter1,
-                         _In_opt_ UINT64 BugCheckParameter2,
-                         _In_opt_ UINT64 BugCheckParameter3,
-                         _In_opt_ UINT64 BugCheckParameter4)
+HvDispNotImplemented(
+    _In_opt_ UINT64 BugCheckParameter1,
+    _In_opt_ UINT64 BugCheckParameter2,
+    _In_opt_ UINT64 BugCheckParameter3,
+    _In_opt_ UINT64 BugCheckParameter4)
 {
-        KeBugCheckEx(STATUS_NOT_IMPLEMENTED,
-                     BugCheckParameter1,
-                     BugCheckParameter2,
-                     BugCheckParameter3,
-                     BugCheckParameter4);
+    KeBugCheckEx(
+        STATUS_NOT_IMPLEMENTED,
+        BugCheckParameter1,
+        BugCheckParameter2,
+        BugCheckParameter3,
+        BugCheckParameter4);
 }
 
 /*
@@ -200,71 +205,66 @@ HandleNotImplementedExit(_In_opt_ UINT64 BugCheckParameter1,
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
-                          _In_ PGUEST_CONTEXT                 Context)
+HvDispHandleExitMovToCr(
+    _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
+    _In_ PGUEST_CONTEXT Context)
 {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        UINT64                 value = RetrieveValueInContextRegister(
-            Context, Qualification->GeneralPurposeRegister);
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    UINT64 value =
+        HvDispContextRegRead(Context, Qualification->GeneralPurposeRegister);
 
-        switch (Qualification->ControlRegister) {
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR0:;
-                CR0 cr0 = {.AsUInt = value};
-                CR3 cr3 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR3)};
+    switch (Qualification->ControlRegister) {
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR0:;
+        CR0 cr0 = {.AsUInt = value};
+        CR3 cr3 = {.AsUInt = HvVmcsRead(VMCS_GUEST_CR3)};
 
-                /* Setting any of the CR4 reserved bits causes a #GP */
-                if (cr0.Fields.Reserved1 || cr0.Fields.Reserved2 ||
-                    cr0.Fields.Reserved3 || cr0.Fields.Reserved4) {
-                        InjectGuestWithGpFault();
-                        return;
-                }
-
-                /* Clearing the PG bit in 64 bit mode causes a #GP */
-                if (!cr0.Fields.PagingEnable) {
-                        InjectGuestWithGpFault();
-                        return;
-                }
-
-                /* Setting the PagingEnable bit with ProtectionEnable
-                 * bit not set raises #GP */
-                if (cr0.Fields.PagingEnable && !cr0.Fields.ProtectionEnable) {
-                        InjectGuestWithGpFault();
-                        return;
-                }
-
-                /* Setting the CacheDisable flag while the
-                 * NotWriteThrough flag is set raises #GP */
-                if (!cr0.Fields.CacheDisable && cr0.Fields.NotWriteThrough) {
-                        InjectGuestWithGpFault();
-                        return;
-                }
-
-                VmxVmWrite(VMCS_GUEST_CR0, value);
-                VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
-                return;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR3:;
-                VmxVmWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
-                return;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR4:;
-                CR4 cr4 = {.AsUInt = value};
-
-                /* Setting reserved bits raises #GP */
-                if (cr4.Reserved1 || cr4.Reserved2) {
-                        InjectGuestWithGpFault();
-                        return;
-                }
-
-                VmxVmWrite(VMCS_GUEST_CR4, value);
-                VmxVmWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR8: __writecr8(value);
-#if APIC
-                /* again, for now this must be done... */
-                __write_vapic_32(
-                    vcpu->virtual_apic_va, IA32_X2APIC_TPR, (UINT32)value << 4);
-#endif
-                return;
-        default: return;
+        /* Setting any of the CR4 reserved bits causes a #GP */
+        if (cr0.Fields.Reserved1 || cr0.Fields.Reserved2 ||
+            cr0.Fields.Reserved3 || cr0.Fields.Reserved4) {
+            HvDispInjectFaultGp();
+            return;
         }
+
+        /* Clearing the PG bit in 64 bit mode causes a #GP */
+        if (!cr0.Fields.PagingEnable) {
+            HvDispInjectFaultGp();
+            return;
+        }
+
+        /* Setting the PagingEnable bit with ProtectionEnable
+         * bit not set raises #GP */
+        if (cr0.Fields.PagingEnable && !cr0.Fields.ProtectionEnable) {
+            HvDispInjectFaultGp();
+            return;
+        }
+
+        /* Setting the CacheDisable flag while the
+         * NotWriteThrough flag is set raises #GP */
+        if (!cr0.Fields.CacheDisable && cr0.Fields.NotWriteThrough) {
+            HvDispInjectFaultGp();
+            return;
+        }
+
+        HvVmcsWrite(VMCS_GUEST_CR0, value);
+        HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
+        return;
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR3:;
+        HvVmcsWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
+        return;
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR4:;
+        CR4 cr4 = {.AsUInt = value};
+
+        /* Setting reserved bits raises #GP */
+        if (cr4.Reserved1 || cr4.Reserved2) {
+            HvDispInjectFaultGp();
+            return;
+        }
+
+        HvVmcsWrite(VMCS_GUEST_CR4, value);
+        HvVmcsWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
+        return;
+    default: return;
+    }
 }
 
 /*
@@ -273,46 +273,34 @@ DispatchExitReasonMovToCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
  */
 STATIC
 VOID
-DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
-                            _In_ PGUEST_CONTEXT                 Context)
+HvDispHandleExitMovFromCr(
+    _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
+    _In_ PGUEST_CONTEXT Context)
 {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        UINT32                 tpr  = 0;
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    UINT32 tpr = 0;
 
-        switch (Qualification->ControlRegister) {
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
-                WriteValueInContextRegister(
-                    Context,
-                    Qualification->GeneralPurposeRegister,
-                    VmxVmRead(VMCS_GUEST_CR0));
-                break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
-                WriteValueInContextRegister(
-                    Context,
-                    Qualification->GeneralPurposeRegister,
-                    VmxVmRead(VMCS_GUEST_CR3));
-                break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
-                WriteValueInContextRegister(
-                    Context,
-                    Qualification->GeneralPurposeRegister,
-                    VmxVmRead(VMCS_GUEST_CR4));
-                break;
-        case VMX_EXIT_QUALIFICATION_REGISTER_CR8:;
-#if APIC
-                tpr = __read_vapic_32(vcpu->virtual_apic_va, IA32_X2APIC_TPR);
-
-                WriteValueInContextRegister(
-                    Context, Qualification->GeneralPurposeRegister, tpr >> 4);
-#else
-                WriteValueInContextRegister(
-                    Context,
-                    Qualification->GeneralPurposeRegister,
-                    __readcr8());
-#endif
-                break;
-        default: break;
-        }
+    switch (Qualification->ControlRegister) {
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
+        HvDispContextRegWrite(
+            Context,
+            Qualification->GeneralPurposeRegister,
+            HvVmcsRead(VMCS_GUEST_CR0));
+        break;
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR3:
+        HvDispContextRegWrite(
+            Context,
+            Qualification->GeneralPurposeRegister,
+            HvVmcsRead(VMCS_GUEST_CR3));
+        break;
+    case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
+        HvDispContextRegWrite(
+            Context,
+            Qualification->GeneralPurposeRegister,
+            HvVmcsRead(VMCS_GUEST_CR4));
+        break;
+    default: break;
+    }
 }
 
 /*
@@ -326,68 +314,69 @@ DispatchExitReasonMovFromCr(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
  */
 STATIC
 VOID
-DispatchExitReasonCLTS(_In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
-                       _In_ PGUEST_CONTEXT                 Context)
+HvDispHandleExitClts(
+    _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
+    _In_ PGUEST_CONTEXT Context)
 {
-        CR0 cr0                 = {0};
-        cr0.AsUInt              = VmxVmRead(VMCS_GUEST_CR0);
-        cr0.Fields.TaskSwitched = FALSE;
+    CR0 cr0 = {0};
+    cr0.AsUInt = HvVmcsRead(VMCS_GUEST_CR0);
+    cr0.Fields.TaskSwitched = FALSE;
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        VmxVmWrite(VMCS_GUEST_CR0, cr0.AsUInt);
-        VmxVmWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
+    HvVmcsWrite(VMCS_GUEST_CR0, cr0.AsUInt);
+    HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
 }
 
 STATIC
 BOOLEAN
-DispatchExitReasonControlRegisterAccess(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitCrAccess(_In_ PGUEST_CONTEXT Context)
 {
-        VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
-        qualification.AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION);
+    VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
+    qualification.AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION);
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-                InjectGuestWithGpFault();
-                return FALSE;
-        }
-
-        switch (qualification.AccessType) {
-        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:
-                DispatchExitReasonMovToCr(&qualification, Context);
-                break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_MOV_FROM_CR:
-                DispatchExitReasonMovFromCr(&qualification, Context);
-                break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_CLTS:
-                DispatchExitReasonCLTS(&qualification, Context);
-                break;
-        case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
-        default: break;
-        }
-
-        /*
-         * MOV to CR8 and MOV from CR8 are trap-like exits, where the
-         * instruction completes before the vmx host handler is invoked, hence
-         * we shouldnt increment the guest rip.
-         */
-        // if (qualification.ControlRegister ==
-        //     VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
-        //         return TRUE;
-        // }
-
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
         return FALSE;
+    }
+
+    switch (qualification.AccessType) {
+    case VMX_EXIT_QUALIFICATION_ACCESS_MOV_TO_CR:
+        HvDispHandleExitMovToCr(&qualification, Context);
+        break;
+    case VMX_EXIT_QUALIFICATION_ACCESS_MOV_FROM_CR:
+        HvDispHandleExitMovFromCr(&qualification, Context);
+        break;
+    case VMX_EXIT_QUALIFICATION_ACCESS_CLTS:
+        HvDispHandleExitClts(&qualification, Context);
+        break;
+    case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
+    default: break;
+    }
+
+    /*
+     * MOV to CR8 and MOV from CR8 are trap-like exits, where the
+     * instruction completes before the vmx host handler is invoked, hence
+     * we shouldnt increment the guest rip.
+     */
+    // if (qualification.ControlRegister ==
+    //     VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
+    //         return TRUE;
+    // }
+
+    return FALSE;
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
+HvDispHandleExitInvd(_In_ PGUEST_CONTEXT GuestState)
 {
-        /* this is how hyper-v performs their invd */
-        __wbinvd();
+    /* this is how hyper-v performs their invd */
+    __wbinvd();
 }
 
 /*
@@ -399,178 +388,182 @@ DispatchExitReasonINVD(_In_ PGUEST_CONTEXT GuestState)
 FORCEINLINE
 STATIC
 BOOLEAN
-IsCpuidFunctionAtHypervisorAltitude(_In_ UINT64 Rax)
+HvDispCpuidIsHvAltitude(_In_ UINT64 Rax)
 {
-        return Rax >= VMX_CPUID_FUNCTION_LOW && Rax <= VMX_CPUID_FUNCTION_HIGH
-                   ? TRUE
-                   : FALSE;
+    return Rax >= VMX_CPUID_FUNCTION_LOW && Rax <= VMX_CPUID_FUNCTION_HIGH
+               ? TRUE
+               : FALSE;
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonCPUID(_In_ PGUEST_CONTEXT GuestState)
+HvDispHandleExitCpuid(_In_ PGUEST_CONTEXT GuestState)
 {
-        /* todo: implement some sort of caching mechanism */
-        PVIRTUAL_MACHINE_STATE state =
-            &vmm_state[KeGetCurrentProcessorNumber()];
+    /* todo: implement some sort of caching mechanism */
+    PVCPU state = &vmm_state[KeGetCurrentProcessorNumber()];
 
-        if (IsCpuidFunctionAtHypervisorAltitude(GuestState->rax)) {
-                switch (GuestState->rax) {
-                case CPUID_HYPERVISOR_INTERFACE_VENDOR:
-                        state->cache.cpuid.value[CPUID_EAX] = 'i';
-                        state->cache.cpuid.value[CPUID_EBX] = 'evol';
-                        state->cache.cpuid.value[CPUID_ECX] = 'trof';
-                        state->cache.cpuid.value[CPUID_EDX] = 'etin';
-                        break;
-                default:
+    HIGH_IRQL_LOG_SAFE("Exit Reason CPUID!");
+
+    if (HvDispCpuidIsHvAltitude(GuestState->rax)) {
+        switch (GuestState->rax) {
+        case CPUID_HYPERVISOR_INTERFACE_VENDOR:
+            state->cache.cpuid.value[CPUID_EAX] = 'i';
+            state->cache.cpuid.value[CPUID_EBX] = 'evol';
+            state->cache.cpuid.value[CPUID_ECX] = 'trof';
+            state->cache.cpuid.value[CPUID_EDX] = 'etin';
+            break;
+        default:
 #if DEBUG
-                        HIGH_IRQL_LOG_SAFE(
-                            "Invalid HV CPUID Function identifier passed.");
+            HIGH_IRQL_LOG_SAFE("Invalid HV CPUID Function identifier passed.");
 #endif
-                        break;
-                }
+            break;
         }
-        else {
-                __cpuidex(state->cache.cpuid.value,
-                          (INT32)GuestState->rax,
-                          (INT32)GuestState->rcx);
-        }
+    }
+    else {
+        __cpuidex(
+            state->cache.cpuid.value,
+            (INT32)GuestState->rax,
+            (INT32)GuestState->rcx);
+    }
 
-        GuestState->rax = state->cache.cpuid.value[CPUID_EAX];
-        GuestState->rbx = state->cache.cpuid.value[CPUID_EBX];
-        GuestState->rcx = state->cache.cpuid.value[CPUID_ECX];
-        GuestState->rdx = state->cache.cpuid.value[CPUID_EDX];
+    GuestState->rax = state->cache.cpuid.value[CPUID_EAX];
+    GuestState->rbx = state->cache.cpuid.value[CPUID_EBX];
+    GuestState->rcx = state->cache.cpuid.value[CPUID_ECX];
+    GuestState->rdx = state->cache.cpuid.value[CPUID_EDX];
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonWBINVD(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitWbinvd(_In_ PGUEST_CONTEXT Context)
 {
-        __wbinvd();
+    __wbinvd();
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchVmCallTerminateVmx()
+HvDispHandleVmCallTerminate()
 {
-        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
-        InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
+    PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
+    InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
 }
 
 FORCEINLINE
 STATIC
 NTSTATUS
-DispatchVmCallPing()
+HvDispHandleVmCallPing()
 {
-        return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 STATIC
 NTSTATUS
-VmCallDispatcher(_In_ UINT64     HypercallId,
-                 _In_opt_ UINT64 OptionalParameter1,
-                 _In_opt_ UINT64 OptionalParameter2,
-                 _In_opt_ UINT64 OptionalParameter3)
+HvDispVmCallHandler(
+    _In_ UINT64 HypercallId,
+    _In_opt_ UINT64 OptionalParameter1,
+    _In_opt_ UINT64 OptionalParameter2,
+    _In_opt_ UINT64 OptionalParameter3)
 {
-        switch (HypercallId) {
-        case VMX_HYPERCALL_TERMINATE_VMX: DispatchVmCallTerminateVmx(); break;
-        case VMX_HYPERCALL_PING: return DispatchVmCallPing();
-        default: break;
-        }
+    switch (HypercallId) {
+    case VMX_HYPERCALL_TERMINATE_VMX: HvDispHandleVmCallTerminate(); break;
+    case VMX_HYPERCALL_PING: return HvDispHandleVmCallPing();
+    default: break;
+    }
 
-        return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 FORCEINLINE
 STATIC
 VOID
-RestoreGuestStateOnTerminateVmx(PVIRTUAL_MACHINE_STATE State)
+HvDispGuestRestoreStateOnTerminate(PVCPU State)
 {
-        /*
-         * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
-         * state structure, this will allow us to use these values in the vmxoff
-         * part of our vmx exit handler to properly restore the stack and
-         * instruction pointer after we execute vmxoff
-         *
-         * The reason we must do this is since we are executing vmxoff, the rip
-         * and rsp will no longer be automatically updated by hardware from the
-         * vmcs, hence we need to save the 2 values and update the registers
-         * with the values during our exit handler before we call vmxoff
-         */
-        State->exit_state.guest_rip = VmxVmRead(VMCS_GUEST_RIP);
-        State->exit_state.guest_rsp = VmxVmRead(VMCS_GUEST_RSP);
+    /*
+     * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
+     * state structure, this will allow us to use these values in the vmxoff
+     * part of our vmx exit handler to properly restore the stack and
+     * instruction pointer after we execute vmxoff
+     *
+     * The reason we must do this is since we are executing vmxoff, the rip
+     * and rsp will no longer be automatically updated by hardware from the
+     * vmcs, hence we need to save the 2 values and update the registers
+     * with the values during our exit handler before we call vmxoff
+     */
+    State->exit_state.guest_rip = HvVmcsRead(VMCS_GUEST_RIP);
+    State->exit_state.guest_rsp = HvVmcsRead(VMCS_GUEST_RSP);
 
-        /*
-         * As with the guest RSP and RIP, we need to restore the guests DEBUGCTL
-         * msr.
-         */
-        __writemsr(IA32_DEBUGCTL, VmxVmRead(VMCS_GUEST_DEBUGCTL));
+    /*
+     * As with the guest RSP and RIP, we need to restore the guests DEBUGCTL
+     * msr.
+     */
+    __writemsr(IA32_DEBUGCTL, HvVmcsRead(VMCS_GUEST_DEBUGCTL));
 
-        /*
-         * Since vmx root operation makes use of the system cr3, we need to
-         * ensure we write the value of the guests previous cr3 before the exit
-         * took place to ensure they have access to the correct dtb
-         */
-        __writecr3(VmxVmRead(VMCS_GUEST_CR3));
+    /*
+     * Since vmx root operation makes use of the system cr3, we need to
+     * ensure we write the value of the guests previous cr3 before the exit
+     * took place to ensure they have access to the correct dtb
+     */
+    __writecr3(HvVmcsRead(VMCS_GUEST_CR3));
 
-        /*
-         * Do the same with the FS and GS base
-         */
-        __writemsr(IA32_FS_BASE, VmxVmRead(VMCS_GUEST_FS_BASE));
-        __writemsr(IA32_GS_BASE, VmxVmRead(VMCS_GUEST_GS_BASE));
+    /*
+     * Do the same with the FS and GS base
+     */
+    __writemsr(IA32_FS_BASE, HvVmcsRead(VMCS_GUEST_FS_BASE));
+    __writemsr(IA32_GS_BASE, HvVmcsRead(VMCS_GUEST_GS_BASE));
 
-        /*
-         * Write back the guest gdtr and idtrs
-         */
-        SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
-        gdtr.BaseAddress                    = VmxVmRead(VMCS_GUEST_GDTR_BASE);
-        gdtr.Limit                          = VmxVmRead(VMCS_GUEST_GDTR_LIMIT);
-        __lgdt(&gdtr);
+    /*
+     * Write back the guest gdtr and idtrs
+     */
+    SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+    gdtr.BaseAddress = HvVmcsRead(VMCS_GUEST_GDTR_BASE);
+    gdtr.Limit = HvVmcsRead(VMCS_GUEST_GDTR_LIMIT);
+    __lgdt(&gdtr);
 
-        SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
-        idtr.BaseAddress                    = VmxVmRead(VMCS_GUEST_IDTR_BASE);
-        idtr.Limit                          = VmxVmRead(VMCS_GUEST_IDTR_LIMIT);
-        __lidt(&idtr);
+    SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
+    idtr.BaseAddress = HvVmcsRead(VMCS_GUEST_IDTR_BASE);
+    idtr.Limit = HvVmcsRead(VMCS_GUEST_IDTR_LIMIT);
+    __lidt(&idtr);
 
-        /*
-        Execute the vmxoff instruction, leaving vmx operation
-        */
-        __vmx_off();
+    /*
+    Execute the vmxoff instruction, leaving vmx operation
+    */
+    __vmx_off();
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonTprBelowThreshold(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitTprThreshold(_In_ PGUEST_CONTEXT Context)
 {
-        DEBUG_LOG("exit reason tpr threshold");
+    UNREFERENCED_PARAMETER(Context);
+
+    if (HvVmxGetVcpu()->proc_ctls2.VirtualInterruptDelivery)
         __debugbreak();
 }
 
 FORCEINLINE STATIC VOID
-InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
+HvDispInjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 {
-        VMENTRY_INTERRUPT_INFORMATION intr = {
-            .Vector           = ExitInterrupt->Vector,
-            .DeliverErrorCode = ExitInterrupt->ErrorCodeValid,
-            .InterruptionType = ExitInterrupt->InterruptionType,
-            .Valid            = ExitInterrupt->Valid};
+    VMENTRY_INTERRUPT_INFORMATION intr = {
+        .Vector = ExitInterrupt->Vector,
+        .DeliverErrorCode = ExitInterrupt->ErrorCodeValid,
+        .InterruptionType = ExitInterrupt->InterruptionType,
+        .Valid = ExitInterrupt->Valid};
 
-        /*
-         * If bits 31 (Valid) and 11 (ErrorCodeValid) the vm-exit
-         * interruption error code VMCS field receives the error code
-         * that would've been pushed onto the stack by the exception.
-         */
-        if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
-                VmxVmWrite(VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
-                           VmxVmRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
-        }
+    /*
+     * If bits 31 (Valid) and 11 (ErrorCodeValid) the vm-exit
+     * interruption error code VMCS field receives the error code
+     * that would've been pushed onto the stack by the exception.
+     */
+    if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
+        HvVmcsWrite(
+            VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
+            HvVmcsRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
+    }
 
-        VmxVmWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
-                   intr.AsUInt);
+    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, intr.AsUInt);
 }
 
 /*
@@ -587,57 +580,59 @@ InjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
 FORCEINLINE
 STATIC
 BOOLEAN
-ShouldExceptionAdvanceGuestRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
+HvDispExceptionShouldAdvanceRip(VMEXIT_INTERRUPT_INFORMATION* ExitInformation)
 {
-        if (ExitInformation->InterruptionType == SoftwareInterrupt ||
-            ExitInformation->InterruptionType == PrivilegedSoftwareException ||
-            ExitInformation->InterruptionType == SoftwareException)
-                return FALSE;
+    if (ExitInformation->InterruptionType == SoftwareInterrupt ||
+        ExitInformation->InterruptionType == PrivilegedSoftwareException ||
+        ExitInformation->InterruptionType == SoftwareException)
+        return FALSE;
 
-        return TRUE;
+    return TRUE;
 }
 
 FORCEINLINE
 STATIC
 BOOLEAN
-DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 {
-        VMEXIT_INTERRUPT_INFORMATION intr = {
-            .AsUInt = VmxVmRead(VMCS_VMEXIT_INTERRUPTION_INFORMATION)};
+    VMEXIT_INTERRUPT_INFORMATION intr = {
+        .AsUInt = HvVmcsRead(VMCS_VMEXIT_INTERRUPTION_INFORMATION)};
 
 #if DEBUG
-        HIGH_IRQL_LOG_SAFE("Core: %lx - Vector: %lx, Interruption type: %lx",
-                           KeGetCurrentProcessorNumber(),
-                           intr.Vector,
-                           intr.InterruptionType);
+    HIGH_IRQL_LOG_SAFE(
+        "Core: %lx - Vector: %lx, Interruption type: %lx",
+        KeGetCurrentProcessorNumber(),
+        intr.Vector,
+        intr.InterruptionType);
 #endif
 
-        switch (intr.Vector) {
-        case EXCEPTION_DIVIDED_BY_ZERO: InjectExceptionOnVmEntry(&intr); break;
-        case EXCEPTION_DEBUG:
-        case EXCEPTION_NMI:
-        case EXCEPTION_INT3:
-        case EXCEPTION_BOUND_CHECK:
-        case EXCEPTION_INVALID_OPCODE:
-        case EXCEPTION_NPX_NOT_AVAILABLE:
-        case EXCEPTION_DOUBLE_FAULT:
-        case EXCEPTION_NPX_OVERRUN:
-        case EXCEPTION_INVALID_TSS:
-        case EXCEPTION_SEGMENT_NOT_PRESENT:
-        case EXCEPTION_STACK_FAULT:
-        case EXCEPTION_GP_FAULT:
-        case EXCEPTION_RESERVED_TRAP:
-        case EXCEPTION_NPX_ERROR:
-        case EXCEPTION_ALIGNMENT_CHECK:
-        case EXCEPTION_CP_FAULT:
-        case EXCEPTION_SE_FAULT:
-        case EXCEPTION_VIRTUALIZATION_FAULT:
-        default:
-                HandleNotImplementedExit(
-                    STATUS_NOT_IMPLEMENTED, intr.Vector, NULL, NULL);
-        }
+    switch (intr.Vector) {
+    case EXCEPTION_DIVIDED_BY_ZERO:
+        HvDispInjectExceptionOnVmEntry(&intr);
+        break;
+    case EXCEPTION_DEBUG:
+    case EXCEPTION_NMI:
+    case EXCEPTION_INT3:
+    case EXCEPTION_BOUND_CHECK:
+    case EXCEPTION_INVALID_OPCODE:
+    case EXCEPTION_NPX_NOT_AVAILABLE:
+    case EXCEPTION_DOUBLE_FAULT:
+    case EXCEPTION_NPX_OVERRUN:
+    case EXCEPTION_INVALID_TSS:
+    case EXCEPTION_SEGMENT_NOT_PRESENT:
+    case EXCEPTION_STACK_FAULT:
+    case EXCEPTION_GP_FAULT:
+    case EXCEPTION_RESERVED_TRAP:
+    case EXCEPTION_NPX_ERROR:
+    case EXCEPTION_ALIGNMENT_CHECK:
+    case EXCEPTION_CP_FAULT:
+    case EXCEPTION_SE_FAULT:
+    case EXCEPTION_VIRTUALIZATION_FAULT:
+    default:
+        HvDispNotImplemented(STATUS_NOT_IMPLEMENTED, intr.Vector, NULL, NULL);
+    }
 
-        return ShouldExceptionAdvanceGuestRip(&intr);
+    return HvDispExceptionShouldAdvanceRip(&intr);
 }
 
 /*
@@ -649,51 +644,46 @@ DispatchExitReasonExceptionOrNmi(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-        /*
-         * Since we don't set the monitor trap flag vmcs ctrl, lets
-         * simply clear the mtf flag for the guest and continue
-         * execution.
-         */
-        if (!vcpu->proc_ctls.MonitorTrapFlag) {
-                RFLAGS flags    = {.AsUInt = Context->rflags};
-                flags.TrapFlag  = FALSE;
-                Context->rflags = flags.AsUInt;
-        }
-        else {
-                /* For now, just bugcheck */
-                KeBugCheckEx(VMX_BUGCHECK_INVALID_MTF_EXIT,
-                             VmxVmRead(VMCS_GUEST_RIP),
-                             Context->rflags,
-                             vcpu->proc_ctls.AsUInt,
-                             0);
-        }
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    /*
+     * Since we don't set the monitor trap flag vmcs ctrl, lets
+     * simply clear the mtf flag for the guest and continue
+     * execution.
+     */
+    if (!vcpu->proc_ctls.MonitorTrapFlag) {
+        RFLAGS flags = {.AsUInt = Context->rflags};
+        flags.TrapFlag = FALSE;
+        Context->rflags = flags.AsUInt;
+    }
+    else {
+        /* For now, just bugcheck */
+        KeBugCheckEx(
+            VMX_BUGCHECK_INVALID_MTF_EXIT,
+            HvVmcsRead(VMCS_GUEST_RIP),
+            Context->rflags,
+            vcpu->proc_ctls.AsUInt,
+            0);
+    }
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitWrmsr(_In_ PGUEST_CONTEXT Context)
 {
-        LARGE_INTEGER          msr  = {0};
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    LARGE_INTEGER msr = {0};
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        if (Context->rcx == IA32_X2APIC_TPR) {
-                *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) =
-                    (UINT32)Context->rcx << 4;
-        }
-        else {
-                msr.LowPart  = (UINT32)Context->rax;
-                msr.HighPart = (UINT32)Context->rdx;
-                __writemsr((UINT32)Context->rcx, msr.QuadPart);
-        }
+    msr.LowPart = (UINT32)Context->rax;
+    msr.HighPart = (UINT32)Context->rdx;
+    __writemsr((UINT32)Context->rcx, msr.QuadPart);
 }
 
 #define X2APIC_MSR_LOW  0x800
@@ -702,35 +692,27 @@ DispatchExitReasonWrmsr(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 BOOLEAN
-IsMsrReadX2Apic(UINT32 Ecx)
+HvDispIsRmsrX2Apic(UINT32 Ecx)
 {
-        return Ecx >= X2APIC_MSR_LOW && Ecx <= X2APIC_MSR_HIGH ? TRUE : FALSE;
+    return Ecx >= X2APIC_MSR_LOW && Ecx <= X2APIC_MSR_HIGH ? TRUE : FALSE;
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitRdmsr(_In_ PGUEST_CONTEXT Context)
 {
-        LARGE_INTEGER          msr  = {0};
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    LARGE_INTEGER msr = {0};
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        if ((UINT32)Context->rcx == IA32_X2APIC_TPR) {
-                Context->rax = 0;
-                (UINT32) Context->rax =
-                    *(UINT32*)(vcpu->virtual_apic_va + APIC_TASK_PRIORITY) >> 4;
-                Context->rdx = 0;
-        }
-        else {
-                msr.QuadPart = __readmsr((UINT32)Context->rcx);
-                Context->rax = msr.LowPart;
-                Context->rdx = msr.HighPart;
-        }
+    msr.QuadPart = __readmsr((UINT32)Context->rcx);
+    Context->rax = msr.LowPart;
+    Context->rdx = msr.HighPart;
 }
 
 /*
@@ -740,19 +722,19 @@ DispatchExitReasonRdmsr(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 PUINT64
-GetIoInstructionOutputRegister(
-    _In_ PGUEST_CONTEXT                         Context,
+HvDispIoGetOutReg(
+    _In_ PGUEST_CONTEXT Context,
     _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
 {
-        if (Qualification->StringInstruction ==
-            VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
-                return Qualification->DirectionOfAccess ==
-                               VMX_EXIT_QUALIFICATION_DIRECTION_IN
-                           ? &Context->rdi
-                           : &Context->rsi;
-        }
+    if (Qualification->StringInstruction ==
+        VMX_EXIT_QUALIFICATION_IS_STRING_STRING) {
+        return Qualification->DirectionOfAccess ==
+                       VMX_EXIT_QUALIFICATION_DIRECTION_IN
+                   ? &Context->rdi
+                   : &Context->rsi;
+    }
 
-        return &Context->rax;
+    return &Context->rax;
 }
 
 /*
@@ -764,103 +746,100 @@ GetIoInstructionOutputRegister(
 FORCEINLINE
 STATIC
 UINT32
-GetIoInstructionRepeatCount(
-    _In_ PGUEST_CONTEXT                         Context,
+HvDispIoGetRepCount(
+    _In_ PGUEST_CONTEXT Context,
     _In_ VMX_EXIT_QUALIFICATION_IO_INSTRUCTION* Qualification)
 {
-        return Qualification->RepPrefixed ? (UINT32)Context->rcx : 1;
+    return Qualification->RepPrefixed ? (UINT32)Context->rcx : 1;
 }
 
 FORCEINLINE
 STATIC
 VOID
-HandleIoInStringOrByte(_In_ UINT16     PortNumber,
-                       _Inout_ PUINT32 OutRegister,
-                       _In_ UINT32     AccessSize,
-                       _In_ BOOLEAN    String)
+HvDispIoHandleInStringOrByte(
+    _In_ UINT16 PortNumber,
+    _Inout_ PUINT32 OutRegister,
+    _In_ UINT32 AccessSize,
+    _In_ BOOLEAN String)
 {
-        if (String) {
-                switch (AccessSize) {
-                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
-                        __inbytestring(
-                            PortNumber, (PUINT8)OutRegister, AccessSize);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
-                        __inwordstring(
-                            PortNumber, (PUINT16)OutRegister, AccessSize);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
-                        __indwordstring(
-                            PortNumber, (PUINT32)OutRegister, AccessSize);
-                        break;
-                }
+    if (String) {
+        switch (AccessSize) {
+        case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+            __inbytestring(PortNumber, (PUINT8)OutRegister, AccessSize);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+            __inwordstring(PortNumber, (PUINT16)OutRegister, AccessSize);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+            __indwordstring(PortNumber, (PUINT32)OutRegister, AccessSize);
+            break;
         }
-        else {
-                switch (AccessSize) {
-                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
-                        *OutRegister = __inbyte(PortNumber);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
-                        *OutRegister = __inword(PortNumber);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
-                        *OutRegister = __indword(PortNumber);
-                        break;
-                }
+    }
+    else {
+        switch (AccessSize) {
+        case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+            *OutRegister = __inbyte(PortNumber);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+            *OutRegister = __inword(PortNumber);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+            *OutRegister = __indword(PortNumber);
+            break;
         }
+    }
 }
 
 FORCEINLINE
 STATIC
 VOID
-HandleIoOutStringOrByte(_In_ UINT16     PortNumber,
-                        _Inout_ PUINT32 OutRegister,
-                        _In_ UINT32     AccessSize,
-                        _In_ BOOLEAN    String)
+HvDispIoHandleOutStringOrByte(
+    _In_ UINT16 PortNumber,
+    _Inout_ PUINT32 OutRegister,
+    _In_ UINT32 AccessSize,
+    _In_ BOOLEAN String)
 {
-        if (String) {
-                switch (AccessSize) {
-                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
-                        __outbytestring(
-                            PortNumber, (PUINT8)OutRegister, AccessSize);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
-                        __outwordstring(
-                            PortNumber, (PUINT16)OutRegister, AccessSize);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
-                        __outdwordstring(
-                            PortNumber, (PUINT32)OutRegister, AccessSize);
-                        break;
-                }
+    if (String) {
+        switch (AccessSize) {
+        case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+            __outbytestring(PortNumber, (PUINT8)OutRegister, AccessSize);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+            __outwordstring(PortNumber, (PUINT16)OutRegister, AccessSize);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+            __outdwordstring(PortNumber, (PUINT32)OutRegister, AccessSize);
+            break;
         }
-        else {
-                switch (AccessSize) {
-                case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
-                        __outbyte(PortNumber, (UINT8)*OutRegister);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
-                        __outword(PortNumber, (UINT16)*OutRegister);
-                        break;
-                case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
-                        __outdword(PortNumber, (UINT32)*OutRegister);
-                        break;
-                }
+    }
+    else {
+        switch (AccessSize) {
+        case VMX_EXIT_QUALIFICATION_WIDTH_1_BYTE:
+            __outbyte(PortNumber, (UINT8)*OutRegister);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_2_BYTE:
+            __outword(PortNumber, (UINT16)*OutRegister);
+            break;
+        case VMX_EXIT_QUALIFICATION_WIDTH_4_BYTE:
+            __outdword(PortNumber, (UINT32)*OutRegister);
+            break;
         }
+    }
 }
 
 FORCEINLINE
 STATIC
 VOID
-UpdateDirectionFlagRegister(_Inout_ PUINT64     Output,
-                            _In_ PGUEST_CONTEXT Context,
-                            _In_ UINT32         Repetitions,
-                            _In_ UINT32         AccessSize)
+HvDispIoUpdateDirFlagReg(
+    _Inout_ PUINT64 Output,
+    _In_ PGUEST_CONTEXT Context,
+    _In_ UINT32 Repetitions,
+    _In_ UINT32 AccessSize)
 {
-        if (Context->rflags & EFLAGS_DIRECTION_FLAG_BIT)
-                (UINT32)* Output -= Repetitions * AccessSize;
-        else
-                (UINT32)* Output += Repetitions * AccessSize;
+    if (Context->rflags & EFLAGS_DIRECTION_FLAG_BIT)
+        (UINT32)* Output -= Repetitions * AccessSize;
+    else
+        (UINT32)* Output += Repetitions * AccessSize;
 }
 
 #define KPCR_TSS_BASE_OFFSET 0x008
@@ -868,73 +847,78 @@ UpdateDirectionFlagRegister(_Inout_ PUINT64     Output,
 FORCEINLINE
 STATIC
 BOOLEAN
-IsIoPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
+HvDispIoIsPortAvailable(_In_ UINT64 GuestKpcr, _In_ UINT64 Port)
 {
-        TASK_STATE_SEGMENT_64* tss =
-            *(TASK_STATE_SEGMENT_64**)(GuestKpcr + KPCR_TSS_BASE_OFFSET);
+    TASK_STATE_SEGMENT_64* tss =
+        *(TASK_STATE_SEGMENT_64**)(GuestKpcr + KPCR_TSS_BASE_OFFSET);
 
-        /* If no tss lets just return true e.e */
-        if (!tss)
-                return TRUE;
+    /* If no tss lets just return true e.e */
+    if (!tss)
+        return TRUE;
 
-        UINT64 bitmap     = (UINT64)tss + tss->IoMapBase;
-        UINT64 byte_index = Port / sizeof(UINT64);
-        UINT64 bit_index  = Port % sizeof(UINT64);
-        UINT8  byte       = *(UINT8*)(bitmap + byte_index);
+    UINT64 bitmap = (UINT64)tss + tss->IoMapBase;
+    UINT64 byte_index = Port / sizeof(UINT64);
+    UINT64 bit_index = Port % sizeof(UINT64);
+    UINT8 byte = *(UINT8*)(bitmap + byte_index);
 
-        /* if port bit is 0, its available, else its not. */
-        return byte & (1 << bit_index) ? FALSE : TRUE;
+    /* if port bit is 0, its available, else its not. */
+    return byte & (1 << bit_index) ? FALSE : TRUE;
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitIoInstruction(_In_ PGUEST_CONTEXT Context)
 {
-        VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
-            .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
-        UINT64 guest_kpcr  = VmxVmRead(VMCS_GUEST_GS_BASE);
-        EFLAGS guest_flags = {.AsUInt = Context->rflags};
+    VMX_EXIT_QUALIFICATION_IO_INSTRUCTION qual = {
+        .AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION)};
+    UINT64 guest_kpcr = HvVmcsRead(VMCS_GUEST_GS_BASE);
+    EFLAGS guest_flags = {.AsUInt = Context->rflags};
 
-        /* If CPL > IOPL, raise #GP */
-        if (ProbeGuestCurrentProtectionLevel() > guest_flags.IoPrivilegeLevel) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    /* If CPL > IOPL, raise #GP */
+    if (HvDispGuestGetProtectionLevel() > guest_flags.IoPrivilegeLevel) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        /*
-         * If the specified I/O port permission bit is set, the operation is not
-         * allowed -> raise #GP
-         */
-        if (!IsIoPortAvailable(guest_kpcr, qual.PortNumber)) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    /*
+     * If the specified I/O port permission bit is set, the operation is not
+     * allowed -> raise #GP
+     */
+    if (!HvDispIoIsPortAvailable(guest_kpcr, qual.PortNumber)) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        PUINT64 output      = GetIoInstructionOutputRegister(Context, &qual);
-        UINT32  repetitions = GetIoInstructionRepeatCount(Context, &qual);
+    PUINT64 output = HvDispIoGetOutReg(Context, &qual);
+    UINT32 repetitions = HvDispIoGetRepCount(Context, &qual);
 
-        if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
-                HandleIoInStringOrByte(qual.PortNumber,
-                                       (PUINT32)output,
-                                       qual.SizeOfAccess,
-                                       qual.StringInstruction);
-        }
-        else {
-                HandleIoOutStringOrByte(qual.PortNumber,
-                                        (PUINT32)output,
-                                        qual.SizeOfAccess,
-                                        qual.StringInstruction);
-        }
+    if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_IN) {
+        HvDispIoHandleInStringOrByte(
+            qual.PortNumber,
+            (PUINT32)output,
+            qual.SizeOfAccess,
+            qual.StringInstruction);
+    }
+    else {
+        HvDispIoHandleOutStringOrByte(
+            qual.PortNumber,
+            (PUINT32)output,
+            qual.SizeOfAccess,
+            qual.StringInstruction);
+    }
 
-        /*
-         * RCX contains the number of iterations that the I/O
-         * instruction will run, update the register to ensure the
-         * instruction is executed the correct number of times.
-         */
-        if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING)
-                UpdateDirectionFlagRegister(
-                    output, Context, repetitions, qual.SizeOfAccess);
+    /*
+     * RCX contains the number of iterations that the I/O
+     * instruction will run, update the register to ensure the
+     * instruction is executed the correct number of times.
+     */
+    if (qual.StringInstruction == VMX_EXIT_QUALIFICATION_IS_STRING_STRING)
+        HvDispIoUpdateDirFlagReg(
+            output,
+            Context,
+            repetitions,
+            qual.SizeOfAccess);
 }
 
 #define DEBUG_DR0 0
@@ -947,80 +931,80 @@ DispatchExitReasonIoInstruction(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-WriteToDebugRegister(_In_ PGUEST_CONTEXT Context,
-                     _In_ UINT8          Register,
-                     _In_ UINT64         Value)
+HvDispDebugWriteReg(
+    _In_ PGUEST_CONTEXT Context,
+    _In_ UINT8 Register,
+    _In_ UINT64 Value)
 {
-        //switch (Register) {
-        //case DEBUG_DR0: Context->dr0 = Value; break;
-        //case DEBUG_DR1: Context->dr1 = Value; break;
-        //case DEBUG_DR2: Context->dr2 = Value; break;
-        //case DEBUG_DR3: Context->dr3 = Value; break;
-        //case DEBUG_DR6: Context->dr6 = Value; break;
-        //case DEBUG_DR7: Context->dr7 = Value; break;
-        //default: InjectGuestWithGpFault(); return;
-        //}
+    switch (Register) {
+    case DEBUG_DR0: Context->dr0 = Value; break;
+    case DEBUG_DR1: Context->dr1 = Value; break;
+    case DEBUG_DR2: Context->dr2 = Value; break;
+    case DEBUG_DR3: Context->dr3 = Value; break;
+    case DEBUG_DR6: Context->dr6 = Value; break;
+    case DEBUG_DR7: Context->dr7 = Value; break;
+    default: HvDispInjectFaultGp(); return;
+    }
 }
 
 FORCEINLINE
 STATIC
 UINT64
-ReadDebugRegister(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
+HvDispDebugReadReg(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
 {
-        //switch (Register) {
-        //case DEBUG_DR0: return Context->dr0;
-        //case DEBUG_DR1: return Context->dr1;
-        //case DEBUG_DR2: return Context->dr2;
-        //case DEBUG_DR3: return Context->dr3;
-        //case DEBUG_DR6: return Context->dr6;
-        //case DEBUG_DR7: return Context->dr7;
-        //default: InjectGuestWithGpFault(); return;
-        //}
+    switch (Register) {
+    case DEBUG_DR0: return Context->dr0;
+    case DEBUG_DR1: return Context->dr1;
+    case DEBUG_DR2: return Context->dr2;
+    case DEBUG_DR3: return Context->dr3;
+    case DEBUG_DR6: return Context->dr6;
+    case DEBUG_DR7: return Context->dr7;
+    default: HvDispInjectFaultGp(); return;
+    }
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
 {
-        VMX_EXIT_QUALIFICATION_MOV_DR qual = {
-            .AsUInt = VmxVmRead(VMCS_EXIT_QUALIFICATION)};
-        CR4 cr4 = {.AsUInt = VmxVmRead(VMCS_GUEST_CR4)};
-        DR7 dr7 = {.AsUInt = VmxVmRead(VMCS_GUEST_DR7)};
+    VMX_EXIT_QUALIFICATION_MOV_DR qual = {
+        .AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION)};
+    CR4 cr4 = {.AsUInt = HvVmcsRead(VMCS_GUEST_CR4)};
+    DR7 dr7 = {.AsUInt = HvVmcsRead(VMCS_GUEST_DR7)};
 
-        if (ProbeGuestCurrentProtectionLevel() != CPL_KERNEL) {
-                InjectGuestWithGpFault();
-                return;
-        }
+    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+        HvDispInjectFaultGp();
+        return;
+    }
 
-        /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
-         * #UD */
-        if (cr4.DebuggingExtensions &&
-                qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
-            qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
-                InjectGuestWithUdFault();
-                return;
-        }
+    /* if CR3.DE = 1 and a mov instruction is involving DR4 or DR5, raise
+     * #UD */
+    if (cr4.DebuggingExtensions &&
+            qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR4 ||
+        qual.DebugRegister == VMX_EXIT_QUALIFICATION_REGISTER_DR5) {
+        HvDispInjectFaultUd();
+        return;
+    }
 
-        /* any dr register access while DR7.GD = 1, raise #DB */
-        if (dr7.GeneralDetect) {
-                InjectGuestWithDbFault();
-                return;
-        }
+    /* any dr register access while DR7.GD = 1, raise #DB */
+    if (dr7.GeneralDetect) {
+        HvDispInjectFaultDb();
+        return;
+    }
 
-        if (qual.DirectionOfAccess ==
-            VMX_EXIT_QUALIFICATION_DIRECTION_MOV_TO_DR) {
-                WriteToDebugRegister(Context,
-                                     qual.DebugRegister,
-                                     RetrieveValueInContextRegister(
-                                         Context, qual.GeneralPurposeRegister));
-        }
-        else {
-                WriteValueInContextRegister(
-                    Context,
-                    qual.GeneralPurposeRegister,
-                    ReadDebugRegister(Context, qual.DebugRegister));
-        }
+    if (qual.DirectionOfAccess == VMX_EXIT_QUALIFICATION_DIRECTION_MOV_TO_DR) {
+        HvDispDebugWriteReg(
+            Context,
+            qual.DebugRegister,
+            HvDispContextRegRead(Context, qual.GeneralPurposeRegister));
+    }
+    else {
+        HvDispContextRegWrite(
+            Context,
+            qual.GeneralPurposeRegister,
+            HvDispDebugReadReg(Context, qual.DebugRegister));
+    }
 }
 
 /*
@@ -1038,121 +1022,124 @@ DispatchExitReasonDebugRegisterAccess(_In_ PGUEST_CONTEXT Context)
  */
 
 VOID
-LoadHostDebugRegisterState()
+HvDispDebugLoadRootRegState()
 {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
-        __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
-        __writedr(DEBUG_DR1, vcpu->debug_state.dr1);
-        __writedr(DEBUG_DR2, vcpu->debug_state.dr2);
-        __writedr(DEBUG_DR3, vcpu->debug_state.dr3);
-        __writedr(DEBUG_DR6, vcpu->debug_state.dr6);
-        __writedr(DEBUG_DR7, vcpu->debug_state.dr7);
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
+    __writedr(DEBUG_DR1, vcpu->debug_state.dr1);
+    __writedr(DEBUG_DR2, vcpu->debug_state.dr2);
+    __writedr(DEBUG_DR3, vcpu->debug_state.dr3);
+    __writedr(DEBUG_DR6, vcpu->debug_state.dr6);
+    __writedr(DEBUG_DR7, vcpu->debug_state.dr7);
 }
 
 VOID
-StoreHostDebugRegisterState()
+HvDispDebugStoreRootRegState()
 {
-        PVIRTUAL_MACHINE_STATE vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
-        vcpu->debug_state.dr0       = __readdr(DEBUG_DR0);
-        vcpu->debug_state.dr1       = __readdr(DEBUG_DR1);
-        vcpu->debug_state.dr2       = __readdr(DEBUG_DR2);
-        vcpu->debug_state.dr3       = __readdr(DEBUG_DR3);
-        vcpu->debug_state.dr6       = __readdr(DEBUG_DR6);
-        vcpu->debug_state.dr7       = __readdr(DEBUG_DR7);
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    vcpu->debug_state.dr0 = __readdr(DEBUG_DR0);
+    vcpu->debug_state.dr1 = __readdr(DEBUG_DR1);
+    vcpu->debug_state.dr2 = __readdr(DEBUG_DR2);
+    vcpu->debug_state.dr3 = __readdr(DEBUG_DR3);
+    vcpu->debug_state.dr6 = __readdr(DEBUG_DR6);
+    vcpu->debug_state.dr7 = __readdr(DEBUG_DR7);
 }
 
 FORCEINLINE
 STATIC
 VOID
-DispatchExitReasonVirtualisedEoi(_In_ PGUEST_CONTEXT Context)
+HvDispHandleExitVirtualEoi(_In_ PGUEST_CONTEXT Context)
 {
-        DEBUG_LOG("EOI EXIUT REASON!");
-        __debugbreak();
+    __debugbreak();
 }
 
 BOOLEAN
-VmExitDispatcher(_In_ PGUEST_CONTEXT Context)
+HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 {
-        UINT64                 additional_rip_offset = 0;
-        PVIRTUAL_MACHINE_STATE state = &vmm_state[KeGetCurrentProcessorIndex()];
+    UINT64 additional_rip_offset = 0;
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
 
-        switch (VmxVmRead(VMCS_EXIT_REASON)) {
-        case VMX_EXIT_REASON_EXECUTE_CPUID:
-                DispatchExitReasonCPUID(Context);
-                break;
-        case VMX_EXIT_REASON_EXECUTE_INVD:
-                DispatchExitReasonINVD(Context);
-                break;
-        case VMX_EXIT_REASON_EXECUTE_VMCALL:
-                Context->rax = VmCallDispatcher(
-                    Context->rcx, Context->rdx, Context->r8, Context->r9);
-                break;
-        case VMX_EXIT_REASON_MOV_CR:
-                if (DispatchExitReasonControlRegisterAccess(Context))
-                        goto no_rip_increment;
-                break;
-        case VMX_EXIT_REASON_EXECUTE_WBINVD:
-                DispatchExitReasonWBINVD(Context);
-                break;
+    HIGH_IRQL_LOG_SAFE("Exit reason: %llx", HvVmcsRead(VMCS_EXIT_REASON));
 
-        /*
-         * TPR_BELOW_THRESHOLD is a trap-like exit and will perform the
-         * exit-casuing instruction before invoking our handler, hence
-         * we shouldn't increment the rip.
-         */
-        case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
-                DispatchExitReasonTprBelowThreshold(Context);
-                goto no_rip_increment;
+    switch (HvVmcsRead(VMCS_EXIT_REASON)) {
+    case VMX_EXIT_REASON_EXECUTE_CPUID: HvDispHandleExitCpuid(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_INVD: HvDispHandleExitInvd(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_VMCALL:
+        Context->rax = HvDispVmCallHandler(
+            Context->rcx,
+            Context->rdx,
+            Context->r8,
+            Context->r9);
+        break;
+    case VMX_EXIT_REASON_MOV_CR:
+        if (HvDispHandleExitCrAccess(Context))
+            goto no_rip_increment;
+        break;
+    case VMX_EXIT_REASON_EXECUTE_WBINVD: HvDispHandleExitWbinvd(Context); break;
 
-        /*
-         * If DispatchExitReasonExceptionOrNmi returns FALSE, we don't
-         * advanced the guest rip, else we do as normal.
-         */
-        case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
-                if (!DispatchExitReasonExceptionOrNmi(Context))
-                        goto no_rip_increment;
-                break;
+    /*
+     * TPR_BELOW_THRESHOLD is a trap-like exit and will perform the
+     * exit-casuing instruction before invoking our handler, hence
+     * we shouldn't increment the rip.
+     */
+    case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
+        HvDispHandleExitTprThreshold(Context);
+        goto no_rip_increment;
 
-        case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
-                DispatchExitReasonMonitorTrapFlag(Context);
-                goto no_rip_increment;
-        case VMX_EXIT_REASON_EXECUTE_WRMSR:
-                DispatchExitReasonWrmsr(Context);
-                break;
-        case VMX_EXIT_REASON_EXECUTE_RDMSR:
-                DispatchExitReasonRdmsr(Context);
-                break;
-        case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
-                DispatchExitReasonIoInstruction(Context);
-                break;
-        case VMX_EXIT_REASON_MOV_DR:
-                DispatchExitReasonDebugRegisterAccess(Context);
-                break;
-        case VMX_EXIT_REASON_VIRTUALIZED_EOI:
-                /* EOI induced exits are trap like */
-                DispatchExitReasonVirtualisedEoi(Context);
-                goto no_rip_increment;
-        default: break;
-        }
+    /*
+     * If DispatchExitReasonExceptionOrNmi returns FALSE, we don't
+     * advanced the guest rip, else we do as normal.
+     */
+    case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
+        if (!HvDispHandleExitExceptionOrNmi(Context))
+            goto no_rip_increment;
+        break;
 
-        /*
-         * Increment our guest rip by the size of the exiting
-         * instruction since we've processed it
-         */
-        IncrementGuestRip();
+    case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
+        HvDispHandleExitMonitorTrapFlag(Context);
+        goto no_rip_increment;
+    case VMX_EXIT_REASON_EXECUTE_WRMSR: HvDispHandleExitWrmsr(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_RDMSR: HvDispHandleExitRdmsr(Context); break;
+    case VMX_EXIT_REASON_EXECUTE_IO_INSTRUCTION:
+        HvDispHandleExitIoInstruction(Context);
+        break;
+    case VMX_EXIT_REASON_MOV_DR: HvDispHandleExitDebugRegAccess(Context); break;
+    case VMX_EXIT_REASON_VIRTUALIZED_EOI:
+        /* EOI induced exits are trap like */
+        HvDispHandleExitVirtualEoi(Context);
+        goto no_rip_increment;
+    default: __debugbreak(); break;
+    }
+
+    /*
+     * Increment our guest rip by the size of the exiting
+     * instruction since we've processed it
+     */
+    HvDispGuestRipIncrement();
 
 no_rip_increment:
-        /*
-         * If we are indeed exiting VMX operation, return TRUE to
-         * indicate to our handler that we have indeed exited VMX
-         * operation.
-         */
-        if (InterlockedExchange(&state->exit_state.exit_vmx,
-                                state->exit_state.exit_vmx)) {
-                RestoreGuestStateOnTerminateVmx(state);
-                return TRUE;
-        }
+    /*
+     * If we are indeed exiting VMX operation, return TRUE to
+     * indicate to our handler that we have indeed exited VMX
+     * operation.
+     */
+    if (InterlockedExchange(
+            &vcpu->exit_state.exit_vmx,
+            vcpu->exit_state.exit_vmx)) {
+        HvDispGuestRestoreStateOnTerminate(vcpu);
+        return TRUE;
+    }
 
-        /* continue vmx operation as usual */
-        return FALSE;
+    /*
+     * If TPR Shadowing is enabled, the TPR Threshold
+     * must be updated right before entering the guest.
+     *
+     * https://github.com/freebsd/freebsd-src/blob/c7ffe32b1b7de9d72add1b44d5d3a3a14605a8f0/sys/amd64/vmm/intel/vmx.c#L3143
+     */
+    if (vcpu->proc_ctls.UseTprShadow &&
+        !vcpu->proc_ctls2.VirtualInterruptDelivery)
+        HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
+
+    /* continue vmx operation as usual */
+    return FALSE;
 }

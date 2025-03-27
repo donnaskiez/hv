@@ -5,9 +5,11 @@
 #include <wdm.h>
 
 #define DEBUG_LOG(fmt, ...) \
-        DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-log: " fmt "\n", ##__VA_ARGS__)
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-log: " fmt "\n", ##__VA_ARGS__)
 #define DEBUG_ERROR(fmt, ...) \
-        DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-error: " fmt "\n", ##__VA_ARGS__)
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "hv-error: " fmt "\n", ##__VA_ARGS__)
+#define DEBUG_LOG_ROOT(fmt, ...) \
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, 0, "[ROOT]: " fmt "\n", ##__VA_ARGS__)
 
 #define POOL_TAG_VMM_STATE         'smmv'
 #define POOL_TAG_DRIVER_STATE      'dsds'

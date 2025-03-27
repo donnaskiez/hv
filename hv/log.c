@@ -1,94 +1,103 @@
 #include "log.h"
-
 #include "common.h"
 
 #include <ntstrsafe.h>
 #include <stdarg.h>
 
-/* flush them every 1 second */
-#define LOGS_FLUSH_TIMER_INVOKE_TIME 1000
+#pragma warning(push)
+#pragma warning(disable : 28182)
 
 #if DEBUG
 
+/* Right now its quite interesting, if this routine doesnt cause a vmexit the
+ * logging should be fairly solid, however if this function causes a VM exit it
+ * may be a problem... */
 STATIC
 VOID
-LogFlushLogsDpcRoutine(_In_ PKDPC*    Dpc,
-                       _In_opt_ PVOID DeferredContext,
-                       _In_opt_ PVOID SystemArgument1,
-                       _In_opt_ PVOID SystemArgument2)
+HvpLogDpcFlushRoutine(
+    _In_ PKDPC* Dpc,
+    _In_opt_ PVOID DeferredContext,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2)
 {
-        UNREFERENCED_PARAMETER(Dpc);
-        UNREFERENCED_PARAMETER(SystemArgument1);
-        UNREFERENCED_PARAMETER(SystemArgument2);
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(SystemArgument1);
+    UNREFERENCED_PARAMETER(SystemArgument2);
 
-        PVCPU_LOG_STATE log  = (PVCPU_LOG_STATE)DeferredContext;
-        UINT32          core = KeGetCurrentProcessorNumber();
-        KIRQL           irql = {0};
+    NT_ASSERT(DeferredContext != NULL);
 
-        if (!log)
-                return;
+    PVCPU_LOG_STATE logger = (PVCPU_LOG_STATE)DeferredContext;
+    UINT32 head = 0;
+    UINT32 tail = 0;
+    UINT32 index = 0;
+    PLOG_ENTRY entry = NULL;
 
-        HighIrqlLockAcquire(&log->lock);
+    InterlockedIncrement(&logger->flushing);
 
-        if (!log->current_log_count)
-                goto unlock;
+    /* no need to check for valid context, assert used instead */
+    head = logger->head;
+    tail = logger->tail;
 
-        for (UINT64 index = 0; index < log->current_log_count; index++) {
-                PCSTR string = (UINT64)log->log_buffer +
-                               index * VMX_INIDIVIDUAL_LOG_MAX_SIZE;
-                DEBUG_LOG("%s", string);
-        }
+    while (tail < head) {
+        index = tail % VMX_MAX_LOG_ENTRIES_COUNT;
+        entry = &logger->logs[index];
 
-        RtlZeroMemory(log->log_buffer, VMX_LOG_BUFFER_SIZE);
-        log->current_log_count = 0;
+        /* DPC runs on the same core, hence can defer work here */
+        DEBUG_LOG_ROOT(
+            "[CPU: %lu][VCPU: %llu] %s",
+            KeGetCurrentProcessorNumber(),
+            entry->timestamp,
+            entry->message);
 
-unlock:
-        HighIrqlLockRelease(&log->lock);
+        tail++;
+    }
+
+    logger->tail = tail;
+    InterlockedDecrement(&logger->flushing);
 }
 
 VOID
-CleanupLoggerOnUnload(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+HvLogCleanup(_In_ PVCPU Vcpu)
 {
-        KeFlushQueuedDpcs();
-        KeCancelTimer(&Vcpu->log_state.timer);
+    DEBUG_LOG(
+        "Vcpu: %lx - log count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.log_count);
+
+    DEBUG_LOG(
+        "Vcpu: %lx - flush miss count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.flush_miss_count);
+
+    DEBUG_LOG(
+        "Vcpu: %lx - discard count: %llx",
+        KeGetCurrentProcessorNumber(),
+        Vcpu->log_state.discard_count);
 }
 
 NTSTATUS
-InitialiseVcpuLogger(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+HvLogInitialise(_In_ PVCPU Vcpu)
 {
-        LARGE_INTEGER due_time            = {.QuadPart = ABSOLUTE(SECONDS(1))};
-        Vcpu->log_state.current_log_count = 0;
+    PVCPU_LOG_STATE state = &Vcpu->log_state;
 
-        HighIrqlLockInitialise(&Vcpu->log_state.lock);
+    state->head = 0;
+    state->tail = 0;
+    state->log_count = 0;
+    state->discard_count = 0;
+    RtlZeroMemory(state->logs, sizeof(state->logs));
 
-        Vcpu->log_state.log_buffer = ExAllocatePool2(
-            POOL_FLAG_NON_PAGED, VMX_LOG_BUFFER_SIZE, VMX_LOG_BUFFER_POOL_TAG);
+    KeInitializeDpc(&state->dpc, HvpLogDpcFlushRoutine, state);
 
-        if (!Vcpu->log_state.log_buffer)
-                return STATUS_MEMORY_NOT_ALLOCATED;
-
-        KeInitializeDpc(
-            &Vcpu->log_state.dpc, LogFlushLogsDpcRoutine, &Vcpu->log_state);
-
-        /*
-         * Set our timer to flush the logs every DUE_TIME_SECONDS amount, in
-         * this case lets stick with 1 second.
-         */
-        KeInitializeTimer(&Vcpu->log_state.timer);
-        KeSetTimerEx(&Vcpu->log_state.timer,
-                     due_time,
-                     LOGS_FLUSH_TIMER_INVOKE_TIME,
-                     &Vcpu->log_state.dpc);
-
-        return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 BOOLEAN
-CheckToFlushLogs(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
+HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
 {
-        return Vcpu->log_state.current_log_count == VMX_MAX_LOG_ENTRIES_COUNT
-                   ? TRUE
-                   : FALSE;
+    /* flush at 50% capacity */
+    UINT32 usage = Logger->head - Logger->tail;
+    UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 50) / 100);
+    return (usage >= threshold) ? TRUE : FALSE;
 }
 
 /*
@@ -102,35 +111,59 @@ CheckToFlushLogs(_In_ PVIRTUAL_MACHINE_STATE Vcpu)
  * production ready project anyway and more for just fun and learning purposes.
  */
 VOID
-LogToBuffer(PCSTR Format, ...)
+HvLogWrite(PCSTR Format, ...)
 {
-        PVCPU_LOG_STATE log =
-            &vmm_state[KeGetCurrentProcessorNumber()].log_state;
-        UINT64   destination = 0;
-        NTSTATUS status      = STATUS_UNSUCCESSFUL;
-        va_list  args        = {0};
+    NTSTATUS status = STATUS_SUCCESS;
+    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU_LOG_STATE logger = &vcpu->log_state;
+    UINT32 cur_head = 0;
+    UINT32 cur_tail = 0;
+    UINT32 usage = 0;
+    UINT32 old_head = 0;
+    UINT32 index = 0;
+    PLOG_ENTRY entry = NULL;
+    va_list args = NULL;
 
-        HighIrqlLockAcquire(&log->lock);
+    if (vcpu->state == VMX_VCPU_STATE_TERMINATING)
+        return;
 
-        if (log->current_log_count >= VMX_MAX_LOG_ENTRIES_COUNT)
-                goto end;
+    if (logger->flushing) {
+        InterlockedIncrement(&logger->flush_miss_count);
+        return;
+    }
 
-        destination =
-            (UINT64)log->log_buffer +
-            (UINT64)log->current_log_count * VMX_INIDIVIDUAL_LOG_MAX_SIZE;
+    cur_head = logger->head;
+    cur_tail = logger->tail;
+    usage = cur_head - cur_tail;
 
-        va_start(args, Format);
-        status = RtlStringCbVPrintfA(
-            destination, VMX_INIDIVIDUAL_LOG_MAX_SIZE, Format, args);
-        va_end(args);
+    if (usage >= VMX_MAX_LOG_ENTRIES_COUNT) {
+        InterlockedIncrement(&logger->discard_count);
+        return;
+    }
 
-        if (!NT_SUCCESS(status))
-                goto end;
+    old_head = InterlockedIncrement(&logger->head) - 1;
+    index = old_head % VMX_MAX_LOG_ENTRIES_COUNT;
+    entry = &logger->logs[index];
+    entry->timestamp = __rdtsc();
 
-        log->current_log_count++;
+    va_start(args, Format);
+    status = RtlStringCbVPrintfA(
+        entry->message,
+        VMX_INIDIVIDUAL_LOG_MAX_SIZE,
+        Format,
+        args);
+    va_end(args);
 
-end:
-        HighIrqlLockRelease(&log->lock);
+    if (!NT_SUCCESS(status)) {
+        InterlockedIncrement(&logger->discard_count);
+        return;
+    }
+
+    InterlockedIncrement(&logger->log_count);
+
+    if (HvpLogCheckToFlush(logger))
+        KeInsertQueueDpc(&logger->dpc, NULL, NULL);
 }
 
 #endif
+#pragma warning(pop)

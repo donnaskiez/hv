@@ -34,25 +34,26 @@ PUBLIC __vmx_vmcall
 ; Core vmx handler functions, which include the initiation of vmx operation, handling of 
 ; vm-exits and termination of vmx operation.
 
-PUBLIC SaveStateAndVirtualizeCore
-PUBLIC VmExitHandler
-PUBLIC VmxRestoreState
+PUBLIC HvArchVirtualiseCoreStub
+PUBLIC HvArchVmExitHandler
+PUBLIC HvArchRestoreState
 
 ; External functions required to be linked against this file.
 
-EXTERN VmExitDispatcher:PROC
-EXTERN VirtualizeCore:PROC
-EXTERN VmmReadGuestRip:PROC
-EXTERN VmmReadGuestRsp:PROC
-EXTERN VmmGetCoresVcpu:PROC
-EXTERN LoadHostDebugRegisterState:PROC
-EXTERN StoreHostDebugRegisterState:PROC
+EXTERN HvDispHandleVmExit:PROC
+EXTERN HvVmxVirtualiseCore:PROC
+EXTERN HvVmxGuestReadRip:PROC
+EXTERN HvVmxGuestReadRsp:PROC
+EXTERN HvVmxGetVcpu:PROC
+EXTERN HvDispDebugLoadRootRegState:PROC
+EXTERN HvDispDebugStoreRootRegState:PROC
 
 ;	The states that a vcpu can be at.
 
 VMX_VCPU_STATE_OFF        EQU 0
 VMX_VCPU_STATE_RUNNING    EQU 1
-VMX_VCPU_STATE_TERMINATED EQU 2
+VMX_VCPU_STATE_TERMINATING EQU 2
+VMX_VCPU_STATE_TERMINATED EQU 3
 
 .code _text
 
@@ -207,7 +208,7 @@ endm
 ;++
 ;
 ; VOID
-; VmExitHandler ()
+; HvArchVmExitHandler ()
 ;
 ; Routine Description:
 ;
@@ -225,11 +226,11 @@ endm
 ;
 ;--
 
-VmExitHandler PROC
+HvArchVmExitHandler PROC
 
 	pushfq
 	SAVE_GP	
-	; SAVE_DEBUG
+	SAVE_DEBUG
 
 	; Load the saved host debug register state after saving the guest 
 	; debug register state. This ensures 2 things:
@@ -238,16 +239,16 @@ VmExitHandler PROC
 	;	2. The continuous debug state remains valid across vmexits
 	;	   and entries. (mostly)
 
-	; sub rsp, 20h
-	; call LoadHostDebugRegisterState
-	; add rsp, 20h
+	sub rsp, 20h
+	call HvDispDebugLoadRootRegState
+	add rsp, 20h
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
 
 	mov rcx, rsp
 	sub rsp, 20h			
-	CALL VmExitDispatcher		
+	CALL HvDispHandleVmExit		
 	add rsp, 20h			
 
 	; check if the return value from our exit dispatcher is 1 (true)
@@ -259,16 +260,16 @@ VmExitHandler PROC
 	; the guests debug register state. This will allow us to reload the host
 	; debug state on the next vmexit.
 
-	; sub rsp, 20h
-	; call StoreHostDebugRegisterState
-	; add rsp, 20h
+	sub rsp, 20h
+	call HvDispDebugStoreRootRegState
+	add rsp, 20h
 
-	; RESTORE_DEBUG
+	RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	vmresume					
 	
-VmExitHandler ENDP
+HvArchVmExitHandler ENDP
 
 ;++
 ;
@@ -300,7 +301,7 @@ ExitVmx PROC
 	; Ensure we set the vcpus status to TERMINATED
 
 	sub rsp, 020h
-	call VmmGetCoresVcpu
+	call HvVmxGetVcpu
 	add rsp, 020h
 	mov [rax], dword ptr VMX_VCPU_STATE_TERMINATED
 	pop rax
@@ -311,14 +312,14 @@ ExitVmx PROC
 	; state we stored from the vmcs before we exited vmx operation.
 
 	sub rsp, 020h 
-	call VmmReadGuestRsp
+	call HvVmxGuestReadRsp
 	add rsp, 020h
-	mov [rsp+88h], rax
+	mov [rsp+0b8h], rax
 	sub rsp, 020h
-	call VmmReadGuestRip
+	call HvVmxGuestReadRip
 	add rsp, 020h
 	mov rdx, rsp
-	mov rbx, [rsp+88h]
+	mov rbx, [rsp+0b8h]
 	mov rsp, rbx
 	push rax
 
@@ -327,8 +328,8 @@ ExitVmx PROC
 
 	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+88h], rbx	
-	; RESTORE_DEBUG
+	mov [rsp+0b8h], rbx	
+	RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
 	pop rsp				
@@ -339,11 +340,11 @@ ExitVmx ENDP
 ;++
 ;
 ; VOID
-; SaveStateAndVirtualizeCore ()
+; HvArchVirtualiseCoreStub ()
 ;
 ; Routine Description:
 ;
-;	Store the guests current state and call VirtualizeCore, which will
+;	Store the guests current state and call HvVmxVirtualiseCore, which will
 ;	initiate vmx operation on the current core. This routine is executed
 ;	at IRQL = IPI_LEVEL.
 ;
@@ -357,33 +358,31 @@ ExitVmx ENDP
 ;
 ;--
 
-SaveStateAndVirtualizeCore PROC PUBLIC
+HvArchVirtualiseCoreStub PROC PUBLIC
 
 	SAVE_GP
-	; SAVE_DEBUG
-
-	; call StoreHostDebugRegisterState
+	SAVE_DEBUG
 
 	sub rsp, 28h
 	mov rdx, rsp
-	call VirtualizeCore	
+	call HvVmxVirtualiseCore	
 
-	; We should never reach this ret instruction. If we do, VirtualizeCore will
+	; We should never reach this ret instruction. If we do, HvVmxVirtualiseCore will
 	; log the error and set the vcpu's vmm_state->state to terminated.
 
 	ret
 
-SaveStateAndVirtualizeCore ENDP 
+HvArchVirtualiseCoreStub ENDP 
 
 ;++
 ;
 ; VOID
-; VmxRestoreState ()
+; HvArchRestoreState ()
 ;
 ; Routine Description:
 ;
 ;	Restores the initial guest state previously saved via 
-;	SaveStateAndVirtualizeCore. At this point we are executing as the guest.
+;	HvArchVirtualiseCoreStub. At this point we are executing as the guest.
 ;
 ; Arguments:
 ;
@@ -395,19 +394,17 @@ SaveStateAndVirtualizeCore ENDP
 ;
 ;--
 
-VmxRestoreState PROC
+HvArchRestoreState PROC
 
 	add rsp, 28h
-	call VmmGetCoresVcpu
+	call HvVmxGetVcpu
 	mov [rax], dword ptr VMX_VCPU_STATE_RUNNING
 
-	; call StoreHostDebugRegisterState
-
-	; RESTORE_DEBUG
+	RESTORE_DEBUG
 	RESTORE_GP
 	ret
 	
-VmxRestoreState ENDP
+HvArchRestoreState ENDP
 
 ;++
 ;

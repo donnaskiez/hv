@@ -1,9 +1,9 @@
-﻿BasedOnStyle: webkit
+BasedOnStyle: webkit
 AccessModifierOffset: -4
 
-AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: true 
-AlignConsecutiveDeclarations: true
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
 
 AlignConsecutiveMacros: true
 
@@ -12,11 +12,10 @@ AlignOperands: true
 
 AlignTrailingComments: true
 
-AllowAllArgumentsOnNextLine: true
+AllowAllArgumentsOnNextLine: false
 
 AllowShortBlocksOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: TopLevel
@@ -26,8 +25,9 @@ AlwaysBreakTemplateDeclarations: true #false
 
 BinPackArguments: false
 BinPackParameters: false
-
-AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortFunctionsOnASingleLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+PenaltyBreakBeforeFirstCallParameter: 0
 
 BreakBeforeBraces: Stroustrup
 BraceWrapping:
@@ -61,7 +61,7 @@ ExperimentalAutoDetectBinPacking: false
 
 IndentCaseLabels: false
 IndentPPDirectives: AfterHash
-IndentWidth: 8
+IndentWidth: 4
 
 KeepEmptyLinesAtTheStartOfBlocks: false
 Language: Cpp

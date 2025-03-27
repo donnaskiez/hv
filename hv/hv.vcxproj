@@ -60,6 +60,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -69,6 +70,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - CR8|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -78,6 +80,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -88,6 +91,7 @@
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
     <WholeProgramOptimization>true</WholeProgramOptimization>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -98,6 +102,7 @@
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
     <WholeProgramOptimization>true</WholeProgramOptimization>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -150,34 +155,34 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - CR8|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
     <EnableInf2cat>true</EnableInf2cat>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <TimeStampServer />
+    <TimeStampServer>http://timestamp.verisign.com/scripts/timstamp.dll</TimeStampServer>
     <DisableProductionSignDebugWarnings>true</DisableProductionSignDebugWarnings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -397,7 +402,6 @@
   <ItemGroup>
     <ClCompile Include="driver.c" />
     <ClCompile Include="dispatch.c" />
-    <ClCompile Include="lock.c" />
     <ClCompile Include="log.c" />
     <ClCompile Include="mm.c" />
     <ClCompile Include="vmcs.c" />
@@ -409,7 +413,6 @@
     <ClInclude Include="driver.h" />
     <ClInclude Include="dispatch.h" />
     <ClInclude Include="ia32.h" />
-    <ClInclude Include="lock.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="mm.h" />
     <ClInclude Include="vmcs.h" />
