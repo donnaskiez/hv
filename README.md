@@ -3,7 +3,6 @@
 work in progress hypervisor for learning purposes but also hoping to build something around it in the future.
 
 - apic virtualisation is very initial and only includes TPR shadowing. It technically works for a very short period but then the cpu hard faults. Ive tried to reference freebsd and linux but i cant seem to get it consistently working and the manual is fairly vague when it comes to TPR shadowing.
-unconditional io exiting is buggy and will crash u
 - unconditional io exiting is buggy and will crash u
 
 ## windows versions
