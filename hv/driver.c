@@ -64,6 +64,7 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
         HvVmxPowerCbUnregister();
+        HvVmxFreeVcpuArray();
         HvVmxFreeDriverState();
         return status;
     }

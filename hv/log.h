@@ -24,4 +24,10 @@ HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger);
 VOID
 HvLogCleanup(_In_ PVCPU Vcpu);
 
+NTSTATUS
+HvLogInitialisePreemptionTime(_In_ PVCPU Vcpu);
+
+VOID
+HvLogFlush(_In_ PVCPU_LOG_STATE Logger);
+
 #endif

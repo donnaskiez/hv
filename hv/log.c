@@ -1,11 +1,18 @@
 #include "log.h"
+
 #include "common.h"
+#include "arch.h"
 
 #include <ntstrsafe.h>
 #include <stdarg.h>
 
 #pragma warning(push)
 #pragma warning(disable : 28182)
+
+#define VMX_LOG_PREEMPTION_INTERVAL_MS 500
+
+/* For when we are running in a vm */
+#define VMX_LOG_PREEMPTION_TIME_FALLBACK 2
 
 #if DEBUG
 
@@ -56,6 +63,40 @@ HvpLogDpcFlushRoutine(
     InterlockedDecrement(&logger->flushing);
 }
 
+/* 500ms preemption intervals */
+NTSTATUS
+HvLogInitialisePreemptionTime(_In_ PVCPU Vcpu)
+{
+    UINT64 tsc_hz = 0;
+    UINT8 tsc_shift = 0;
+    UINT64 tsc_per_timer_tick = 0;
+    UINT64 desired_tsc_ticks = 0;
+    CPUID_EAX_15 cpuid_15 = {0};
+    IA32_VMX_MISC_REGISTER misc = {.AsUInt = __readmsr(IA32_VMX_MISC)};
+
+    __cpuidex(&cpuid_15, CPUID_TIME_STAMP_COUNTER_INFORMATION, 0);
+
+    if (!cpuid_15.Eax.Denominator || !cpuid_15.Ebx.Numerator ||
+        !cpuid_15.Ecx.NominalFrequency) {
+        Vcpu->preemption_time = VMX_LOG_PREEMPTION_TIME_FALLBACK;
+        return STATUS_SUCCESS;
+    }
+
+    tsc_hz = ((UINT64)cpuid_15.Ecx.NominalFrequency *
+              (UINT64)cpuid_15.Ebx.Numerator) /
+             (UINT64)cpuid_15.Eax.Denominator;
+
+    tsc_shift = IA32_VMX_MISC_PREEMPTION_TIMER_TSC_RELATIONSHIP(misc.AsUInt);
+    tsc_per_timer_tick = 1ull << tsc_shift;
+    desired_tsc_ticks = (tsc_hz * VMX_LOG_PREEMPTION_INTERVAL_MS) / 1000ull;
+
+    Vcpu->preemption_time =
+        (UINT32)((desired_tsc_ticks + tsc_per_timer_tick - 1) /
+                 tsc_per_timer_tick);
+
+    return STATUS_SUCCESS;
+}
+
 VOID
 HvLogCleanup(_In_ PVCPU Vcpu)
 {
@@ -98,6 +139,12 @@ HvpLogCheckToFlush(_In_ PVCPU_LOG_STATE Logger)
     UINT32 usage = Logger->head - Logger->tail;
     UINT32 threshold = (UINT32)((VMX_MAX_LOG_ENTRIES_COUNT * 50) / 100);
     return (usage >= threshold) ? TRUE : FALSE;
+}
+
+VOID
+HvLogFlush(_In_ PVCPU_LOG_STATE Logger)
+{
+    KeInsertQueueDpc(&Logger->dpc, NULL, NULL);
 }
 
 /*
@@ -162,7 +209,7 @@ HvLogWrite(PCSTR Format, ...)
     InterlockedIncrement(&logger->log_count);
 
     if (HvpLogCheckToFlush(logger))
-        KeInsertQueueDpc(&logger->dpc, NULL, NULL);
+        HvLogFlush(logger);
 }
 
 #endif

@@ -6,6 +6,7 @@
 #include "vmcs.h"
 #include "log.h"
 #include "dispatch.h"
+#include "hypercall.h"
 
 #include <intrin.h>
 
@@ -376,6 +377,12 @@ HvVmxDpcInitOperation(
         goto end;
     }
 
+    status = HvLogInitialisePreemptionTime(vcpu);
+    if (!NT_SUCCESS(status)) {
+        DEBUG_ERROR("Failed to initialise preemption timer");
+        goto end;
+    }
+
     status = HvVmxAllocateVmxon(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
@@ -443,7 +450,7 @@ HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
     status = HvVmcsInitialise(vcpu, StackPointer);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("SetupVmcs failed with status %x", status);
-        return;
+        goto error;
     }
 
     /* Initialise the root debug state */
@@ -455,6 +462,7 @@ HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
 
     __vmx_vmlaunch();
 
+error:
     /* only if vmlaunch fails will we end up here */
     DEBUG_ERROR(
         "vmlaunch failed with status %llx",

@@ -154,6 +154,7 @@ typedef struct _VCPU {
     IA32_VMX_EXIT_CTLS_REGISTER exit_ctls;
     IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls;
 #ifdef DEBUG
+    UINT32 preemption_time;
     VCPU_LOG_STATE log_state;
 #endif
 
@@ -205,15 +206,12 @@ NTSTATUS
 HvVmxAllocateDriverState();
 
 VOID
-FreeVmxState();
-
-VOID
-FreeGlobalVmmState();
-
-VOID
 HvVmxFreeDriverState();
 
 VOID
 HvVmxPowerCbUnregister();
+
+VOID
+HvVmxFreeVcpuArray();
 
 #endif

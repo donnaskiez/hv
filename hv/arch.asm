@@ -673,8 +673,8 @@ __lgdt ENDP
 
 ;++
 ;
-; NTSTATUS INLINE
-; __vmx_vmcall(_In_ UINT64 VmCallNumber,
+; HVSTATUS INLINE
+; __vmx_vmcall(_In_ UINT64 HypercallId,
 ;              _In_ UINT64 OptionalParam1,
 ;              _In_ UINT64 OptionalParam2,
 ;              _In_ UINT64 OptionalParam3);
@@ -686,14 +686,14 @@ __lgdt ENDP
 ;
 ; Arguments:
 ;
-;   VmcallNumber   - The number specifying the VM call to be made.
+;   HypercallId   - The number specifying the hypercall id.
 ;   OptionalParam1 - The first optional parameter for the VM call.
 ;   OptionalParam2 - The second optional parameter for the VM call.
 ;   OptionalParam3 - The third optional parameter for the VM call.
 ;
 ; Return Value:
 ;
-;   NTSTATUS - The status of the VM call execution.
+;   HV_STATUS - The status of the VM call execution.
 ;
 ;--
 
