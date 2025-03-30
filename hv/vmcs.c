@@ -3,6 +3,8 @@
 #include "ia32.h"
 #include "vmx.h"
 #include "arch.h"
+#include "log.h"
+
 #include <intrin.h>
 
 /* Wrapper functions to read and write to and from the vmcs. */
@@ -15,9 +17,27 @@ HvVmcsRead(_In_ UINT64 VmcsField)
 }
 
 VOID
-HvVmcsWrite(_In_ UINT64 VmcsField, _In_ UINT64 Value)
+HvVmcsWrite64(_In_ UINT64 VmcsField, _In_ UINT64 Value)
 {
     __vmx_vmwrite(VmcsField, Value);
+}
+
+VOID
+HvVmcsWrite32(_In_ UINT64 VmcsField, _In_ UINT32 Value)
+{
+    __vmx_vmwrite(VmcsField, Value);
+}
+
+/*
+ * CS or SS segment selector contain the current protection level (CPL) for the
+ * currently executing program.
+ */
+UINT16
+HvVmcsGuestGetProtectionLevel()
+{
+    SEGMENT_SELECTOR cs = {
+        .AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
+    return cs.RequestPrivilegeLevel;
 }
 
 STATIC
@@ -142,31 +162,33 @@ HvVmcsHostStateFieldsWrite(_In_ PVCPU GuestState)
 
     tr.AsUInt = __readtr();
 
-    HvVmcsWrite(VMCS_HOST_ES_SELECTOR, __reades() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_CS_SELECTOR, __readcs() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_SS_SELECTOR, __readss() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_DS_SELECTOR, __readds() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_FS_SELECTOR, __readfs() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_GS_SELECTOR, __readgs() & VMCS_HOST_SELECTOR_MASK);
-    HvVmcsWrite(VMCS_HOST_TR_SELECTOR, __readtr() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_ES_SELECTOR, __reades() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_CS_SELECTOR, __readcs() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_SS_SELECTOR, __readss() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_DS_SELECTOR, __readds() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_FS_SELECTOR, __readfs() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_GS_SELECTOR, __readgs() & VMCS_HOST_SELECTOR_MASK);
+    HvVmcsWrite64(VMCS_HOST_TR_SELECTOR, __readtr() & VMCS_HOST_SELECTOR_MASK);
 
-    HvVmcsWrite(VMCS_HOST_CR0, __readcr0());
-    HvVmcsWrite(VMCS_HOST_CR3, __readcr3());
-    HvVmcsWrite(VMCS_HOST_CR4, __readcr4());
+    HvVmcsWrite64(VMCS_HOST_CR0, __readcr0());
+    HvVmcsWrite64(VMCS_HOST_CR3, __readcr3());
+    HvVmcsWrite64(VMCS_HOST_CR4, __readcr4());
 
-    HvVmcsWrite(VMCS_HOST_GDTR_BASE, gdtr.BaseAddress);
-    HvVmcsWrite(VMCS_HOST_IDTR_BASE, idtr.BaseAddress);
+    HvVmcsWrite64(VMCS_HOST_GDTR_BASE, gdtr.BaseAddress);
+    HvVmcsWrite64(VMCS_HOST_IDTR_BASE, idtr.BaseAddress);
 
-    HvVmcsWrite(VMCS_HOST_RSP, GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE);
-    HvVmcsWrite(VMCS_HOST_RIP, HvArchVmExitHandler);
+    HvVmcsWrite64(
+        VMCS_HOST_RSP,
+        GuestState->vmm_stack_va + VMX_HOST_STACK_SIZE);
+    HvVmcsWrite64(VMCS_HOST_RIP, HvArchVmExitHandler);
 
-    HvVmcsWrite(VMCS_HOST_FS_BASE, __readmsr(IA32_FS_BASE));
-    HvVmcsWrite(VMCS_HOST_GS_BASE, __readmsr(IA32_GS_BASE));
-    HvVmcsWrite(VMCS_HOST_TR_BASE, __segmentbase(&gdtr, &tr));
+    HvVmcsWrite64(VMCS_HOST_FS_BASE, __readmsr(IA32_FS_BASE));
+    HvVmcsWrite64(VMCS_HOST_GS_BASE, __readmsr(IA32_GS_BASE));
+    HvVmcsWrite64(VMCS_HOST_TR_BASE, __segmentbase(&gdtr, &tr));
 
-    HvVmcsWrite(VMCS_HOST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
-    HvVmcsWrite(VMCS_HOST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
-    HvVmcsWrite(VMCS_HOST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
+    HvVmcsWrite64(VMCS_HOST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
+    HvVmcsWrite64(VMCS_HOST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
+    HvVmcsWrite64(VMCS_HOST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
 }
 
 STATIC
@@ -197,59 +219,65 @@ HvVmcsGuestStateFieldsWrite(_In_ PVOID StackPointer, _In_ PVCPU GuestState)
     __sgdt(&gdtr);
     __sidt(&idtr);
 
-    HvVmcsWrite(VMCS_GUEST_ES_SELECTOR, es.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_CS_SELECTOR, cs.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_SS_SELECTOR, ss.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_DS_SELECTOR, ds.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_FS_SELECTOR, fs.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_GS_SELECTOR, gs.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_TR_SELECTOR, tr.AsUInt);
-    HvVmcsWrite(VMCS_GUEST_LDTR_SELECTOR, ldtr.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_ES_SELECTOR, es.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_CS_SELECTOR, cs.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_SS_SELECTOR, ss.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_DS_SELECTOR, ds.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_FS_SELECTOR, fs.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_GS_SELECTOR, gs.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_TR_SELECTOR, tr.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_LDTR_SELECTOR, ldtr.AsUInt);
 
-    HvVmcsWrite(VMCS_GUEST_ES_BASE, __segmentbase(&gdtr, &es));
-    HvVmcsWrite(VMCS_GUEST_CS_BASE, __segmentbase(&gdtr, &cs));
-    HvVmcsWrite(VMCS_GUEST_SS_BASE, __segmentbase(&gdtr, &ss));
-    HvVmcsWrite(VMCS_GUEST_DS_BASE, __segmentbase(&gdtr, &ds));
-    HvVmcsWrite(VMCS_GUEST_FS_BASE, __segmentbase(&gdtr, &fs));
-    HvVmcsWrite(VMCS_GUEST_GS_BASE, __segmentbase(&gdtr, &gs));
-    HvVmcsWrite(VMCS_GUEST_TR_BASE, __segmentbase(&gdtr, &tr));
-    HvVmcsWrite(VMCS_GUEST_LDTR_BASE, __segmentbase(&gdtr, &ldtr));
+    HvVmcsWrite64(VMCS_GUEST_ES_BASE, __segmentbase(&gdtr, &es));
+    HvVmcsWrite64(VMCS_GUEST_CS_BASE, __segmentbase(&gdtr, &cs));
+    HvVmcsWrite64(VMCS_GUEST_SS_BASE, __segmentbase(&gdtr, &ss));
+    HvVmcsWrite64(VMCS_GUEST_DS_BASE, __segmentbase(&gdtr, &ds));
+    HvVmcsWrite64(VMCS_GUEST_FS_BASE, __segmentbase(&gdtr, &fs));
+    HvVmcsWrite64(VMCS_GUEST_GS_BASE, __segmentbase(&gdtr, &gs));
+    HvVmcsWrite64(VMCS_GUEST_TR_BASE, __segmentbase(&gdtr, &tr));
+    HvVmcsWrite64(VMCS_GUEST_LDTR_BASE, __segmentbase(&gdtr, &ldtr));
 
-    HvVmcsWrite(VMCS_GUEST_ES_LIMIT, __segmentlimit(es.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_CS_LIMIT, __segmentlimit(cs.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_SS_LIMIT, __segmentlimit(ss.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_DS_LIMIT, __segmentlimit(ds.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_FS_LIMIT, __segmentlimit(fs.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_GS_LIMIT, __segmentlimit(gs.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_TR_LIMIT, __segmentlimit(tr.AsUInt));
-    HvVmcsWrite(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(ldtr.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_ES_LIMIT, __segmentlimit(es.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_CS_LIMIT, __segmentlimit(cs.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_SS_LIMIT, __segmentlimit(ss.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_DS_LIMIT, __segmentlimit(ds.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_FS_LIMIT, __segmentlimit(fs.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_GS_LIMIT, __segmentlimit(gs.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_TR_LIMIT, __segmentlimit(tr.AsUInt));
+    HvVmcsWrite64(VMCS_GUEST_LDTR_LIMIT, __segmentlimit(ldtr.AsUInt));
 
-    HvVmcsWrite(VMCS_GUEST_ES_ACCESS_RIGHTS, __segmentar(&es));
-    HvVmcsWrite(VMCS_GUEST_CS_ACCESS_RIGHTS, __segmentar(&cs));
-    HvVmcsWrite(VMCS_GUEST_SS_ACCESS_RIGHTS, __segmentar(&ss));
-    HvVmcsWrite(VMCS_GUEST_DS_ACCESS_RIGHTS, __segmentar(&ds));
-    HvVmcsWrite(VMCS_GUEST_FS_ACCESS_RIGHTS, __segmentar(&fs));
-    HvVmcsWrite(VMCS_GUEST_GS_ACCESS_RIGHTS, __segmentar(&gs));
-    HvVmcsWrite(VMCS_GUEST_TR_ACCESS_RIGHTS, __segmentar(&tr));
-    HvVmcsWrite(VMCS_GUEST_LDTR_ACCESS_RIGHTS, __segmentar(&ldtr));
+    HvVmcsWrite64(VMCS_GUEST_ES_ACCESS_RIGHTS, __segmentar(&es));
+    HvVmcsWrite64(VMCS_GUEST_CS_ACCESS_RIGHTS, __segmentar(&cs));
+    HvVmcsWrite64(VMCS_GUEST_SS_ACCESS_RIGHTS, __segmentar(&ss));
+    HvVmcsWrite64(VMCS_GUEST_DS_ACCESS_RIGHTS, __segmentar(&ds));
+    HvVmcsWrite64(VMCS_GUEST_FS_ACCESS_RIGHTS, __segmentar(&fs));
+    HvVmcsWrite64(VMCS_GUEST_GS_ACCESS_RIGHTS, __segmentar(&gs));
+    HvVmcsWrite64(VMCS_GUEST_TR_ACCESS_RIGHTS, __segmentar(&tr));
+    HvVmcsWrite64(VMCS_GUEST_LDTR_ACCESS_RIGHTS, __segmentar(&ldtr));
 
-    HvVmcsWrite(VMCS_GUEST_GDTR_LIMIT, gdtr.Limit);
-    HvVmcsWrite(VMCS_GUEST_IDTR_LIMIT, idtr.Limit);
-    HvVmcsWrite(VMCS_GUEST_GDTR_BASE, gdtr.BaseAddress);
-    HvVmcsWrite(VMCS_GUEST_IDTR_BASE, idtr.BaseAddress);
+    HvVmcsWrite64(VMCS_GUEST_GDTR_LIMIT, gdtr.Limit);
+    HvVmcsWrite64(VMCS_GUEST_IDTR_LIMIT, idtr.Limit);
+    HvVmcsWrite64(VMCS_GUEST_GDTR_BASE, gdtr.BaseAddress);
+    HvVmcsWrite64(VMCS_GUEST_IDTR_BASE, idtr.BaseAddress);
 
-    HvVmcsWrite(VMCS_GUEST_VMCS_LINK_POINTER, MAXULONG_PTR);
+    HvVmcsWrite64(VMCS_GUEST_VMCS_LINK_POINTER, MAXULONG_PTR);
 
-    HvVmcsWrite(VMCS_GUEST_CR0, __readcr0());
-    HvVmcsWrite(VMCS_GUEST_CR3, __readcr3());
-    HvVmcsWrite(VMCS_GUEST_CR4, __readcr4());
+    HvVmcsWrite64(VMCS_GUEST_CR0, __readcr0());
+    HvVmcsWrite64(VMCS_GUEST_CR3, __readcr3());
+    HvVmcsWrite64(VMCS_GUEST_CR4, __readcr4());
 
-    HvVmcsWrite(VMCS_GUEST_RFLAGS, __readeflags());
-    HvVmcsWrite(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
-    HvVmcsWrite(VMCS_GUEST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
-    HvVmcsWrite(VMCS_GUEST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
-    HvVmcsWrite(VMCS_GUEST_FS_BASE, __readmsr(IA32_FS_BASE));
-    HvVmcsWrite(VMCS_GUEST_GS_BASE, __readmsr(IA32_GS_BASE));
+    HvVmcsWrite64(VMCS_GUEST_RFLAGS, __readeflags());
+    HvVmcsWrite64(VMCS_GUEST_SYSENTER_CS, __readmsr(IA32_SYSENTER_CS));
+    HvVmcsWrite64(VMCS_GUEST_SYSENTER_EIP, __readmsr(IA32_SYSENTER_EIP));
+    HvVmcsWrite64(VMCS_GUEST_SYSENTER_ESP, __readmsr(IA32_SYSENTER_ESP));
+    HvVmcsWrite64(VMCS_GUEST_FS_BASE, __readmsr(IA32_FS_BASE));
+    HvVmcsWrite64(VMCS_GUEST_GS_BASE, __readmsr(IA32_GS_BASE));
+
+#if DEBUG
+    HvVmcsWrite32(
+        VMCS_GUEST_VMX_PREEMPTION_TIMER_VALUE,
+        HvVmxGetVcpu()->preemption_time);
+#endif
 
     /*
      * Since the goal of this hypervisor is to virtualise and already
@@ -259,8 +287,8 @@ HvVmcsGuestStateFieldsWrite(_In_ PVOID StackPointer, _In_ PVCPU GuestState)
      * been initiated, guest operation will continue as normal as if nothing
      * happened.
      */
-    HvVmcsWrite(VMCS_GUEST_RSP, StackPointer);
-    HvVmcsWrite(VMCS_GUEST_RIP, HvArchRestoreState);
+    HvVmcsWrite64(VMCS_GUEST_RSP, StackPointer);
+    HvVmcsWrite64(VMCS_GUEST_RIP, HvArchRestoreState);
 }
 
 BOOLEAN
@@ -292,10 +320,71 @@ HvVmcsBitmapSetBit(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
 
 STATIC
 VOID
-HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
+HvVmcsWritePrimaryProcessorControls(_In_ PVCPU Vcpu)
 {
-    IA32_APIC_BASE_REGISTER apic = {.AsUInt = __readmsr(IA32_APIC_BASE)};
+    HvVmcsWrite64(
+        VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls.AsUInt,
+            IA32_VMX_PROCBASED_CTLS));
+}
 
+STATIC
+VOID
+HvVmcsWriteSecondaryProcessControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls2.AsUInt,
+            IA32_VMX_PROCBASED_CTLS2));
+}
+
+STATIC
+VOID
+HvVmcsWritePinBasedControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteExitControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteEntryControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_VMENTRY_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteExceptionBitmap(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
+}
+
+STATIC
+VOID
+HvVmcsWriteMsrBitmap(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
+}
+
+STATIC
+VOID
+HvVmcsSetControlFields(_In_ PVCPU Vcpu)
+{
     /*
      * ActivateSecondaryControls activates the secondary processor-based
      * VM-execution controls. If UseMsrBitmaps is not set, all RDMSR and
@@ -311,72 +400,65 @@ HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
     Vcpu->proc_ctls.UnconditionalIoExiting = FALSE;
 
 #if APIC
-    Vcpu->proc_ctls.Cr8LoadExiting = FALSE;
-    Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
-
     if (HvVmcsIsApicPresent()) {
-        DEBUG_LOG("lapic present. Enabling TPR shadowing.");
         Vcpu->proc_ctls.UseTprShadow = TRUE;
+        Vcpu->proc_ctls.Cr8LoadExiting = FALSE;
+        Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
         HvVmcsWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS, Vcpu->virtual_apic_pa);
         HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
     }
 #endif
 
-    HvVmcsWrite(
-        VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(
-            Vcpu->proc_ctls.AsUInt,
-            IA32_VMX_PROCBASED_CTLS));
-
     Vcpu->proc_ctls2.EnableRdtscp = TRUE;
     Vcpu->proc_ctls2.EnableInvpcid = TRUE;
     Vcpu->proc_ctls2.EnableXsaves = TRUE;
 
-    HvVmcsWrite(
-        VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(
-            Vcpu->proc_ctls2.AsUInt,
-            IA32_VMX_PROCBASED_CTLS2));
-
     Vcpu->pin_ctls.NmiExiting = FALSE;
 
-    HvVmcsWrite(
-        VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
+#if DEBUG
+    /* For debug mode, in some cases we want to log events that wont cause the
+     * buffer to flush too often, in this case preempt into vmx and flush */
+    Vcpu->pin_ctls.ActivateVmxPreemptionTimer = FALSE;
+#endif
 
     Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
     Vcpu->exit_ctls.HostAddressSpaceSize = TRUE;
     Vcpu->exit_ctls.SaveDebugControls = TRUE;
 
-    HvVmcsWrite(
-        VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
+    /* Ensure we persist the preemption value across guest runtime slices */
+    if (Vcpu->pin_ctls.ActivateVmxPreemptionTimer)
+        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = FALSE;
 
     Vcpu->entry_ctls.Ia32EModeGuest = TRUE;
     Vcpu->entry_ctls.LoadDebugControls = TRUE;
 
-    HvVmcsWrite(
-        VMCS_CTRL_VMENTRY_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
-
     Vcpu->exception_bitmap |= EXCEPTION_DIVIDED_BY_ZERO;
+}
 
-    HvVmcsWrite(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
-    HvVmcsWrite(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
+VOID
+HvVmcsWriteControlFields(_In_ PVCPU Vcpu)
+{
+    HvVmcsWritePrimaryProcessorControls(Vcpu);
+    HvVmcsWriteSecondaryProcessControls(Vcpu);
+    HvVmcsWritePinBasedControls(Vcpu);
+    HvVmcsWriteExitControls(Vcpu);
+    HvVmcsWriteEntryControls(Vcpu);
+    HvVmcsWriteExceptionBitmap(Vcpu);
+    HvVmcsWriteMsrBitmap(Vcpu);
 }
 
 NTSTATUS
-HvVmcsInitialise(_In_ PVCPU GuestState, _In_ PVOID StackPointer)
+HvVmcsInitialise(_In_ PVCPU Vcpu, _In_ PVOID StackPointer)
 {
     UCHAR status = 0;
 
-    status = __vmx_vmclear(&GuestState->vmcs_region_pa);
+    status = __vmx_vmclear(&Vcpu->vmcs_region_pa);
     if (!VMX_OK(status)) {
         DEBUG_ERROR("__vmx_vmclear failed with status %x", status);
         return STATUS_UNSUCCESSFUL;
     }
 
-    status = __vmx_vmptrld(&GuestState->vmcs_region_pa);
+    status = __vmx_vmptrld(&Vcpu->vmcs_region_pa);
     if (!VMX_OK(status)) {
         if (status == VMX_STATUS_OPERATION_FAILED) {
             DEBUG_ERROR(
@@ -390,9 +472,49 @@ HvVmcsInitialise(_In_ PVCPU GuestState, _In_ PVOID StackPointer)
         }
     }
 
-    HvVmcsControlStateFieldsWrite(GuestState);
-    HvVmcsGuestStateFieldsWrite(StackPointer, GuestState);
-    HvVmcsHostStateFieldsWrite(GuestState);
+    HvVmcsSetControlFields(Vcpu);
+    HvVmcsWriteControlFields(Vcpu);
+    HvVmcsGuestStateFieldsWrite(StackPointer, Vcpu);
+    HvVmcsHostStateFieldsWrite(Vcpu);
 
     return STATUS_SUCCESS;
+}
+
+VOID
+HvVmcsSyncConfiguration(_In_ PVCPU Vcpu)
+{
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PROC_CTLS_UPDATE) {
+        HvVmcsWritePrimaryProcessorControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PROC_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PROC_CTLS2_UPDATE) {
+        HvVmcsWriteSecondaryProcessControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PROC_CTLS2_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PIN_CTLS_UPDATE) {
+        HvVmcsWritePinBasedControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PIN_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_EXIT_CTLS_UPDATE) {
+        HvVmcsWriteExitControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_EXIT_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_ENTRY_CTLS_UPDATE) {
+        HvVmcsWriteEntryControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_ENTRY_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE) {
+        HvVmcsWriteExceptionBitmap(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_MSR_BITMAP_UPDATE) {
+        HvVmcsWriteMsrBitmap(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_MSR_BITMAP_UPDATE;
+    }
 }

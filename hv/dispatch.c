@@ -2,9 +2,9 @@
 
 #include "vmx.h"
 #include "vmcs.h"
-#include <intrin.h>
 #include "arch.h"
 #include "log.h"
+#include "hypercall.h"
 
 #define CPUID_HYPERVISOR_INTERFACE_VENDOR 0x40000000
 #define CPUID_HYPERVISOR_INTERFACE_LOL    0x40000001
@@ -24,7 +24,7 @@ STATIC
 VOID
 HvDispGuestRipIncrement()
 {
-    HvVmcsWrite(
+    HvVmcsWrite64(
         VMCS_GUEST_RIP,
         HvVmcsRead(VMCS_GUEST_RIP) +
             HvVmcsRead(VMCS_VMEXIT_INSTRUCTION_LENGTH));
@@ -127,23 +127,6 @@ __read_vapic_64(_In_ UINT64 VirtualApicPage, _In_ UINT32 Register)
     return *(UINT64*)(VirtualApicPage + offset);
 }
 
-#define CPL_KERNEL 0
-#define CPL_USER   3
-
-/*
- * CS or SS segment selector contain the current protection level (CPL) for the
- * currently executing program.
- */
-FORCEINLINE
-STATIC
-UINT16
-HvDispGuestGetProtectionLevel()
-{
-    SEGMENT_SELECTOR cs = {
-        .AsUInt = (UINT16)HvVmcsRead(VMCS_GUEST_CS_SELECTOR)};
-    return cs.RequestPrivilegeLevel;
-}
-
 FORCEINLINE
 STATIC
 VOID
@@ -154,7 +137,7 @@ HvDispInjectExceptionHardware(_In_ UINT8 Vector, _In_ UINT8 DeliverErrorCode)
     gp.InterruptionType = HardwareException;
     gp.Valid = TRUE;
     gp.Vector = Vector;
-    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
+    HvVmcsWrite64(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, gp.AsUInt);
 }
 
 FORCEINLINE
@@ -245,11 +228,11 @@ HvDispHandleExitMovToCr(
             return;
         }
 
-        HvVmcsWrite(VMCS_GUEST_CR0, value);
-        HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, value);
+        HvVmcsWrite64(VMCS_GUEST_CR0, value);
+        HvVmcsWrite64(VMCS_CTRL_CR0_READ_SHADOW, value);
         return;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR3:;
-        HvVmcsWrite(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
+        HvVmcsWrite64(VMCS_GUEST_CR3, CLEAR_CR3_RESERVED_BIT(value));
         return;
     case VMX_EXIT_QUALIFICATION_REGISTER_CR4:;
         CR4 cr4 = {.AsUInt = value};
@@ -260,8 +243,8 @@ HvDispHandleExitMovToCr(
             return;
         }
 
-        HvVmcsWrite(VMCS_GUEST_CR4, value);
-        HvVmcsWrite(VMCS_CTRL_CR4_READ_SHADOW, value);
+        HvVmcsWrite64(VMCS_GUEST_CR4, value);
+        HvVmcsWrite64(VMCS_CTRL_CR4_READ_SHADOW, value);
         return;
     default: return;
     }
@@ -322,13 +305,13 @@ HvDispHandleExitClts(
     cr0.AsUInt = HvVmcsRead(VMCS_GUEST_CR0);
     cr0.Fields.TaskSwitched = FALSE;
 
-    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+    if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
         return;
     }
 
-    HvVmcsWrite(VMCS_GUEST_CR0, cr0.AsUInt);
-    HvVmcsWrite(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
+    HvVmcsWrite64(VMCS_GUEST_CR0, cr0.AsUInt);
+    HvVmcsWrite64(VMCS_CTRL_CR0_READ_SHADOW, cr0.AsUInt);
 }
 
 STATIC
@@ -338,7 +321,7 @@ HvDispHandleExitCrAccess(_In_ PGUEST_CONTEXT Context)
     VMX_EXIT_QUALIFICATION_MOV_CR qualification = {0};
     qualification.AsUInt = HvVmcsRead(VMCS_EXIT_QUALIFICATION);
 
-    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+    if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
         return FALSE;
     }
@@ -356,16 +339,6 @@ HvDispHandleExitCrAccess(_In_ PGUEST_CONTEXT Context)
     case VMX_EXIT_QUALIFICATION_ACCESS_LMSW: break;
     default: break;
     }
-
-    /*
-     * MOV to CR8 and MOV from CR8 are trap-like exits, where the
-     * instruction completes before the vmx host handler is invoked, hence
-     * we shouldnt increment the guest rip.
-     */
-    // if (qualification.ControlRegister ==
-    //     VMX_EXIT_QUALIFICATION_REGISTER_CR8) {
-    //         return TRUE;
-    // }
 
     return FALSE;
 }
@@ -403,8 +376,6 @@ HvDispHandleExitCpuid(_In_ PGUEST_CONTEXT GuestState)
     /* todo: implement some sort of caching mechanism */
     PVCPU state = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    HIGH_IRQL_LOG_SAFE("Exit Reason CPUID!");
-
     if (HvDispCpuidIsHvAltitude(GuestState->rax)) {
         switch (GuestState->rax) {
         case CPUID_HYPERVISOR_INTERFACE_VENDOR:
@@ -413,11 +384,7 @@ HvDispHandleExitCpuid(_In_ PGUEST_CONTEXT GuestState)
             state->cache.cpuid.value[CPUID_ECX] = 'trof';
             state->cache.cpuid.value[CPUID_EDX] = 'etin';
             break;
-        default:
-#if DEBUG
-            HIGH_IRQL_LOG_SAFE("Invalid HV CPUID Function identifier passed.");
-#endif
-            break;
+        default: break;
         }
     }
     else {
@@ -439,40 +406,6 @@ VOID
 HvDispHandleExitWbinvd(_In_ PGUEST_CONTEXT Context)
 {
     __wbinvd();
-}
-
-FORCEINLINE
-STATIC
-VOID
-HvDispHandleVmCallTerminate()
-{
-    PVCPU state = &vmm_state[KeGetCurrentProcessorIndex()];
-    InterlockedExchange(&state->exit_state.exit_vmx, TRUE);
-}
-
-FORCEINLINE
-STATIC
-NTSTATUS
-HvDispHandleVmCallPing()
-{
-    return STATUS_SUCCESS;
-}
-
-STATIC
-NTSTATUS
-HvDispVmCallHandler(
-    _In_ UINT64 HypercallId,
-    _In_opt_ UINT64 OptionalParameter1,
-    _In_opt_ UINT64 OptionalParameter2,
-    _In_opt_ UINT64 OptionalParameter3)
-{
-    switch (HypercallId) {
-    case VMX_HYPERCALL_TERMINATE_VMX: HvDispHandleVmCallTerminate(); break;
-    case VMX_HYPERCALL_PING: return HvDispHandleVmCallPing();
-    default: break;
-    }
-
-    return STATUS_SUCCESS;
 }
 
 FORCEINLINE
@@ -558,12 +491,14 @@ HvDispInjectExceptionOnVmEntry(VMEXIT_INTERRUPT_INFORMATION* ExitInterrupt)
      * that would've been pushed onto the stack by the exception.
      */
     if (ExitInterrupt->Valid && ExitInterrupt->ErrorCodeValid) {
-        HvVmcsWrite(
+        HvVmcsWrite64(
             VMCS_CTRL_VMENTRY_EXCEPTION_ERROR_CODE,
             HvVmcsRead(VMCS_VMEXIT_INTERRUPTION_ERROR_CODE));
     }
 
-    HvVmcsWrite(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, intr.AsUInt);
+    HvVmcsWrite64(
+        VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD,
+        intr.AsUInt);
 }
 
 /*
@@ -676,7 +611,7 @@ HvDispHandleExitWrmsr(_In_ PGUEST_CONTEXT Context)
     LARGE_INTEGER msr = {0};
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+    if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
         return;
     }
@@ -705,7 +640,7 @@ HvDispHandleExitRdmsr(_In_ PGUEST_CONTEXT Context)
     LARGE_INTEGER msr = {0};
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
 
-    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+    if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
         return;
     }
@@ -876,7 +811,7 @@ HvDispHandleExitIoInstruction(_In_ PGUEST_CONTEXT Context)
     EFLAGS guest_flags = {.AsUInt = Context->rflags};
 
     /* If CPL > IOPL, raise #GP */
-    if (HvDispGuestGetProtectionLevel() > guest_flags.IoPrivilegeLevel) {
+    if (HvVmcsGuestGetProtectionLevel() > guest_flags.IoPrivilegeLevel) {
         HvDispInjectFaultGp();
         return;
     }
@@ -973,7 +908,7 @@ HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
     CR4 cr4 = {.AsUInt = HvVmcsRead(VMCS_GUEST_CR4)};
     DR7 dr7 = {.AsUInt = HvVmcsRead(VMCS_GUEST_DR7)};
 
-    if (HvDispGuestGetProtectionLevel() != CPL_KERNEL) {
+    if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
         return;
     }
@@ -1050,7 +985,60 @@ STATIC
 VOID
 HvDispHandleExitVirtualEoi(_In_ PGUEST_CONTEXT Context)
 {
+    UNREFERENCED_PARAMETER(Context);
     __debugbreak();
+}
+
+FORCEINLINE
+STATIC
+VOID
+HvDispHandleExitPreemptionTimerExpiry(_In_ PGUEST_CONTEXT Context)
+{
+    UNREFERENCED_PARAMETER(Context);
+
+    HIGH_IRQL_LOG_SAFE("Premption timer expired, flushing logs!");
+
+    HvLogFlush(&HvVmxGetVcpu()->log_state);
+
+    /* reset the preemption timer value */
+    HvVmcsWrite32(
+        VMCS_GUEST_VMX_PREEMPTION_TIMER_VALUE,
+        HvVmxGetVcpu()->preemption_time);
+}
+
+FORCEINLINE
+STATIC
+VOID
+HvDispatchIncrementStatistics(_In_ PVCPU Vcpu)
+{
+    Vcpu->stats.exit_count++;
+
+    switch (HvVmcsRead(VMCS_EXIT_REASON)) {
+    case VMX_EXIT_REASON_EXECUTE_CPUID: Vcpu->stats.reasons.cpuid++; break;
+    case VMX_EXIT_REASON_EXECUTE_INVD: Vcpu->stats.reasons.invd++; break;
+    case VMX_EXIT_REASON_EXECUTE_VMCALL: Vcpu->stats.reasons.vmcall++; break;
+    case VMX_EXIT_REASON_MOV_CR: Vcpu->stats.reasons.mov_cr++; break;
+    case VMX_EXIT_REASON_EXECUTE_WBINVD: Vcpu->stats.reasons.wbinvd++; break;
+    case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
+        Vcpu->stats.reasons.tpr_threshold++;
+        break;
+    case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
+        Vcpu->stats.reasons.exception_or_nmi++;
+        break;
+    case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
+        Vcpu->stats.reasons.trap_flags++;
+        break;
+    case VMX_EXIT_REASON_EXECUTE_WRMSR: Vcpu->stats.reasons.wrmsr++; break;
+    case VMX_EXIT_REASON_EXECUTE_RDMSR: Vcpu->stats.reasons.rdmsr++; break;
+    case VMX_EXIT_REASON_MOV_DR: Vcpu->stats.reasons.mov_dr++; break;
+    case VMX_EXIT_REASON_VIRTUALIZED_EOI:
+        Vcpu->stats.reasons.virtualised_eoi++;
+        break;
+    case VMX_EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED:
+        Vcpu->stats.reasons.preemption_timer++;
+        break;
+    default: break;
+    }
 }
 
 BOOLEAN
@@ -1059,13 +1047,19 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
     UINT64 additional_rip_offset = 0;
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
 
-    HIGH_IRQL_LOG_SAFE("Exit reason: %llx", HvVmcsRead(VMCS_EXIT_REASON));
+    /* If the VMCS is pending updates, make sure we write those updates */
+    if (HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu)) {
+        HvVmcsSyncConfiguration(vcpu);
+    }
+
+    HvDispatchIncrementStatistics(vcpu);
 
     switch (HvVmcsRead(VMCS_EXIT_REASON)) {
     case VMX_EXIT_REASON_EXECUTE_CPUID: HvDispHandleExitCpuid(Context); break;
     case VMX_EXIT_REASON_EXECUTE_INVD: HvDispHandleExitInvd(Context); break;
     case VMX_EXIT_REASON_EXECUTE_VMCALL:
-        Context->rax = HvDispVmCallHandler(
+        Context->rax = HvHypercallDispatch(
+            vcpu,
             Context->rcx,
             Context->rdx,
             Context->r8,
@@ -1108,6 +1102,10 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
         /* EOI induced exits are trap like */
         HvDispHandleExitVirtualEoi(Context);
         goto no_rip_increment;
+    case VMX_EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED:
+        HvDispHandleExitPreemptionTimerExpiry(Context);
+        goto no_rip_increment;
+
     default: __debugbreak(); break;
     }
 
@@ -1130,6 +1128,7 @@ no_rip_increment:
         return TRUE;
     }
 
+#if APIC
     /*
      * If TPR Shadowing is enabled, the TPR Threshold
      * must be updated right before entering the guest.
@@ -1139,6 +1138,7 @@ no_rip_increment:
     if (vcpu->proc_ctls.UseTprShadow &&
         !vcpu->proc_ctls2.VirtualInterruptDelivery)
         HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, 0);
+#endif
 
     /* continue vmx operation as usual */
     return FALSE;

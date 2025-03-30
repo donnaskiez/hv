@@ -402,6 +402,7 @@
   <ItemGroup>
     <ClCompile Include="driver.c" />
     <ClCompile Include="dispatch.c" />
+    <ClCompile Include="hypercall.c" />
     <ClCompile Include="log.c" />
     <ClCompile Include="mm.c" />
     <ClCompile Include="vmcs.c" />
@@ -412,6 +413,7 @@
     <ClInclude Include="common.h" />
     <ClInclude Include="driver.h" />
     <ClInclude Include="dispatch.h" />
+    <ClInclude Include="hypercall.h" />
     <ClInclude Include="ia32.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="mm.h" />

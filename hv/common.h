@@ -29,9 +29,6 @@
 #define INLINE inline
 #define EXTERN extern
 
-#define VMX_HYPERCALL_TERMINATE_VMX 0ull
-#define VMX_HYPERCALL_PING          1ull
-
 #define VMCS_HOST_SELECTOR_MASK 0xF8
 
 #define CLEAR_CR3_RESERVED_BIT(value) ((value) & ~(1ull << 63))
