@@ -239,9 +239,17 @@ HvArchVmExitHandler PROC
 	;	2. The continuous debug state remains valid across vmexits
 	;	   and entries. (mostly)
 
+	push rax
+	push rcx
+	push rdx
 	sub rsp, 20h
+
 	call HvDispDebugLoadRootRegState
+
 	add rsp, 20h
+	pop rdx
+	pop rcx
+	pop rax
 
 	; first argument for our exit handler is the guest register state, 
 	; so store the base of the stack in rcx
@@ -260,9 +268,17 @@ HvArchVmExitHandler PROC
 	; the guests debug register state. This will allow us to reload the host
 	; debug state on the next vmexit.
 
+	push rax
+	push rcx
+	push rdx
 	sub rsp, 20h
+
 	call HvDispDebugStoreRootRegState
+
 	add rsp, 20h
+	pop rdx
+	pop rcx
+	pop rax
 
 	RESTORE_DEBUG
 	RESTORE_GP			

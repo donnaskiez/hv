@@ -320,10 +320,71 @@ HvVmcsBitmapSetBit(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
 
 STATIC
 VOID
-HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
+HvVmcsWritePrimaryProcessorControls(_In_ PVCPU Vcpu)
 {
-    IA32_APIC_BASE_REGISTER apic = {.AsUInt = __readmsr(IA32_APIC_BASE)};
+    HvVmcsWrite64(
+        VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls.AsUInt,
+            IA32_VMX_PROCBASED_CTLS));
+}
 
+STATIC
+VOID
+HvVmcsWriteSecondaryProcessControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(
+            Vcpu->proc_ctls2.AsUInt,
+            IA32_VMX_PROCBASED_CTLS2));
+}
+
+STATIC
+VOID
+HvVmcsWritePinBasedControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteExitControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteEntryControls(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(
+        VMCS_CTRL_VMENTRY_CONTROLS,
+        HvVmcsMsrAdjustControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
+}
+
+STATIC
+VOID
+HvVmcsWriteExceptionBitmap(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
+}
+
+STATIC
+VOID
+HvVmcsWriteMsrBitmap(_In_ PVCPU Vcpu)
+{
+    HvVmcsWrite64(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
+}
+
+STATIC
+VOID
+HvVmcsSetControlFields(_In_ PVCPU Vcpu)
+{
     /*
      * ActivateSecondaryControls activates the secondary processor-based
      * VM-execution controls. If UseMsrBitmaps is not set, all RDMSR and
@@ -339,44 +400,26 @@ HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
     Vcpu->proc_ctls.UnconditionalIoExiting = FALSE;
 
 #if APIC
-    Vcpu->proc_ctls.Cr8LoadExiting = FALSE;
-    Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
-
     if (HvVmcsIsApicPresent()) {
-        DEBUG_LOG("lapic present. Enabling TPR shadowing.");
         Vcpu->proc_ctls.UseTprShadow = TRUE;
+        Vcpu->proc_ctls.Cr8LoadExiting = FALSE;
+        Vcpu->proc_ctls.Cr8StoreExiting = FALSE;
         HvVmcsWrite(VMCS_CTRL_VIRTUAL_APIC_ADDRESS, Vcpu->virtual_apic_pa);
         HvVmcsWrite(VMCS_CTRL_TPR_THRESHOLD, VMX_APIC_TPR_THRESHOLD);
     }
 #endif
 
-    HvVmcsWrite64(
-        VMCS_CTRL_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(
-            Vcpu->proc_ctls.AsUInt,
-            IA32_VMX_PROCBASED_CTLS));
-
     Vcpu->proc_ctls2.EnableRdtscp = TRUE;
     Vcpu->proc_ctls2.EnableInvpcid = TRUE;
     Vcpu->proc_ctls2.EnableXsaves = TRUE;
-
-    HvVmcsWrite64(
-        VMCS_CTRL_SECONDARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(
-            Vcpu->proc_ctls2.AsUInt,
-            IA32_VMX_PROCBASED_CTLS2));
 
     Vcpu->pin_ctls.NmiExiting = FALSE;
 
 #if DEBUG
     /* For debug mode, in some cases we want to log events that wont cause the
      * buffer to flush too often, in this case preempt into vmx and flush */
-    Vcpu->pin_ctls.ActivateVmxPreemptionTimer = TRUE;
+    Vcpu->pin_ctls.ActivateVmxPreemptionTimer = FALSE;
 #endif
-
-    HvVmcsWrite64(
-        VMCS_CTRL_PIN_BASED_VM_EXECUTION_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
 
     Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
     Vcpu->exit_ctls.HostAddressSpaceSize = TRUE;
@@ -384,37 +427,38 @@ HvVmcsControlStateFieldsWrite(_In_ PVCPU Vcpu)
 
     /* Ensure we persist the preemption value across guest runtime slices */
     if (Vcpu->pin_ctls.ActivateVmxPreemptionTimer)
-        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = TRUE;
-
-    HvVmcsWrite64(
-        VMCS_CTRL_PRIMARY_VMEXIT_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
+        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = FALSE;
 
     Vcpu->entry_ctls.Ia32EModeGuest = TRUE;
     Vcpu->entry_ctls.LoadDebugControls = TRUE;
 
-    HvVmcsWrite64(
-        VMCS_CTRL_VMENTRY_CONTROLS,
-        HvVmcsMsrAdjustControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
-
     Vcpu->exception_bitmap |= EXCEPTION_DIVIDED_BY_ZERO;
+}
 
-    HvVmcsWrite64(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
-    HvVmcsWrite64(VMCS_CTRL_MSR_BITMAP_ADDRESS, Vcpu->msr_bitmap_pa);
+VOID
+HvVmcsWriteControlFields(_In_ PVCPU Vcpu)
+{
+    HvVmcsWritePrimaryProcessorControls(Vcpu);
+    HvVmcsWriteSecondaryProcessControls(Vcpu);
+    HvVmcsWritePinBasedControls(Vcpu);
+    HvVmcsWriteExitControls(Vcpu);
+    HvVmcsWriteEntryControls(Vcpu);
+    HvVmcsWriteExceptionBitmap(Vcpu);
+    HvVmcsWriteMsrBitmap(Vcpu);
 }
 
 NTSTATUS
-HvVmcsInitialise(_In_ PVCPU GuestState, _In_ PVOID StackPointer)
+HvVmcsInitialise(_In_ PVCPU Vcpu, _In_ PVOID StackPointer)
 {
     UCHAR status = 0;
 
-    status = __vmx_vmclear(&GuestState->vmcs_region_pa);
+    status = __vmx_vmclear(&Vcpu->vmcs_region_pa);
     if (!VMX_OK(status)) {
         DEBUG_ERROR("__vmx_vmclear failed with status %x", status);
         return STATUS_UNSUCCESSFUL;
     }
 
-    status = __vmx_vmptrld(&GuestState->vmcs_region_pa);
+    status = __vmx_vmptrld(&Vcpu->vmcs_region_pa);
     if (!VMX_OK(status)) {
         if (status == VMX_STATUS_OPERATION_FAILED) {
             DEBUG_ERROR(
@@ -428,9 +472,49 @@ HvVmcsInitialise(_In_ PVCPU GuestState, _In_ PVOID StackPointer)
         }
     }
 
-    HvVmcsControlStateFieldsWrite(GuestState);
-    HvVmcsGuestStateFieldsWrite(StackPointer, GuestState);
-    HvVmcsHostStateFieldsWrite(GuestState);
+    HvVmcsSetControlFields(Vcpu);
+    HvVmcsWriteControlFields(Vcpu);
+    HvVmcsGuestStateFieldsWrite(StackPointer, Vcpu);
+    HvVmcsHostStateFieldsWrite(Vcpu);
 
     return STATUS_SUCCESS;
+}
+
+VOID
+HvVmcsSyncConfiguration(_In_ PVCPU Vcpu)
+{
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PROC_CTLS_UPDATE) {
+        HvVmcsWritePrimaryProcessorControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PROC_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PROC_CTLS2_UPDATE) {
+        HvVmcsWriteSecondaryProcessControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PROC_CTLS2_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_PIN_CTLS_UPDATE) {
+        HvVmcsWritePinBasedControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_PIN_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_EXIT_CTLS_UPDATE) {
+        HvVmcsWriteExitControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_EXIT_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_ENTRY_CTLS_UPDATE) {
+        HvVmcsWriteEntryControls(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_ENTRY_CTLS_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE) {
+        HvVmcsWriteExceptionBitmap(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE;
+    }
+
+    if (Vcpu->pend_updates & HV_VCPU_PENDING_MSR_BITMAP_UPDATE) {
+        HvVmcsWriteMsrBitmap(Vcpu);
+        Vcpu->pend_updates &= ~HV_VCPU_PENDING_MSR_BITMAP_UPDATE;
+    }
 }

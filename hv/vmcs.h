@@ -35,4 +35,7 @@ HvVmxGetVcpu();
 BOOLEAN
 HvVmcsIsApicPresent();
 
+VOID
+HvVmcsSyncConfiguration(_In_ PVCPU Vcpu);
+
 #endif

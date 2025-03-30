@@ -985,6 +985,7 @@ STATIC
 VOID
 HvDispHandleExitVirtualEoi(_In_ PGUEST_CONTEXT Context)
 {
+    UNREFERENCED_PARAMETER(Context);
     __debugbreak();
 }
 
@@ -1005,11 +1006,53 @@ HvDispHandleExitPreemptionTimerExpiry(_In_ PGUEST_CONTEXT Context)
         HvVmxGetVcpu()->preemption_time);
 }
 
+FORCEINLINE
+STATIC
+VOID
+HvDispatchIncrementStatistics(_In_ PVCPU Vcpu)
+{
+    Vcpu->stats.exit_count++;
+
+    switch (HvVmcsRead(VMCS_EXIT_REASON)) {
+    case VMX_EXIT_REASON_EXECUTE_CPUID: Vcpu->stats.reasons.cpuid++; break;
+    case VMX_EXIT_REASON_EXECUTE_INVD: Vcpu->stats.reasons.invd++; break;
+    case VMX_EXIT_REASON_EXECUTE_VMCALL: Vcpu->stats.reasons.vmcall++; break;
+    case VMX_EXIT_REASON_MOV_CR: Vcpu->stats.reasons.mov_cr++; break;
+    case VMX_EXIT_REASON_EXECUTE_WBINVD: Vcpu->stats.reasons.wbinvd++; break;
+    case VMX_EXIT_REASON_TPR_BELOW_THRESHOLD:
+        Vcpu->stats.reasons.tpr_threshold++;
+        break;
+    case VMX_EXIT_REASON_EXCEPTION_OR_NMI:
+        Vcpu->stats.reasons.exception_or_nmi++;
+        break;
+    case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:
+        Vcpu->stats.reasons.trap_flags++;
+        break;
+    case VMX_EXIT_REASON_EXECUTE_WRMSR: Vcpu->stats.reasons.wrmsr++; break;
+    case VMX_EXIT_REASON_EXECUTE_RDMSR: Vcpu->stats.reasons.rdmsr++; break;
+    case VMX_EXIT_REASON_MOV_DR: Vcpu->stats.reasons.mov_dr++; break;
+    case VMX_EXIT_REASON_VIRTUALIZED_EOI:
+        Vcpu->stats.reasons.virtualised_eoi++;
+        break;
+    case VMX_EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED:
+        Vcpu->stats.reasons.preemption_timer++;
+        break;
+    default: break;
+    }
+}
+
 BOOLEAN
 HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 {
     UINT64 additional_rip_offset = 0;
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+
+    /* If the VMCS is pending updates, make sure we write those updates */
+    if (HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu)) {
+        HvVmcsSyncConfiguration(vcpu);
+    }
+
+    HvDispatchIncrementStatistics(vcpu);
 
     switch (HvVmcsRead(VMCS_EXIT_REASON)) {
     case VMX_EXIT_REASON_EXECUTE_CPUID: HvDispHandleExitCpuid(Context); break;

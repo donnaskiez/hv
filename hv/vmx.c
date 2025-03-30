@@ -541,6 +541,36 @@ HvVmxFreeDriverState()
     }
 }
 
+/* just so it displays properly in Windbg / DbgView */
+KSPIN_LOCK g_StatsLock;
+
+STATIC
+VOID
+HvVmxDisplaySessionStats(_In_ PVCPU Vcpu)
+{
+    KeAcquireSpinLockAtDpcLevel(&g_StatsLock);
+
+    DEBUG_LOG("****************************************************");
+    DEBUG_LOG("VM Exit Stats for Core %u: ", KeGetCurrentProcessorNumber());
+    DEBUG_LOG("Total Exits: %llu ", Vcpu->stats.exit_count);
+    DEBUG_LOG("CPUID: %llu ", Vcpu->stats.reasons.cpuid);
+    DEBUG_LOG("INVD: %llu ", Vcpu->stats.reasons.invd);
+    DEBUG_LOG("VMCALL: %llu ", Vcpu->stats.reasons.vmcall);
+    DEBUG_LOG("MOV_CR: %llu ", Vcpu->stats.reasons.mov_cr);
+    DEBUG_LOG("WBINVD: %llu ", Vcpu->stats.reasons.wbinvd);
+    DEBUG_LOG("TPR Threshold: %llu ", Vcpu->stats.reasons.tpr_threshold);
+    DEBUG_LOG("Exception/NMI: %llu ", Vcpu->stats.reasons.exception_or_nmi);
+    DEBUG_LOG("Monitor Trap Flag: %llu ", Vcpu->stats.reasons.trap_flags);
+    DEBUG_LOG("WRMSR: %llu ", Vcpu->stats.reasons.wrmsr);
+    DEBUG_LOG("RDMSR: %llu ", Vcpu->stats.reasons.rdmsr);
+    DEBUG_LOG("MOV_DR: %llu ", Vcpu->stats.reasons.mov_dr);
+    DEBUG_LOG("Virtualised EOI: %llu ", Vcpu->stats.reasons.virtualised_eoi);
+    DEBUG_LOG("Preemption Timer: %llu ", Vcpu->stats.reasons.preemption_timer);
+    DEBUG_LOG("****************************************************");
+
+    KeReleaseSpinLockFromDpcLevel(&g_StatsLock);
+}
+
 STATIC
 VOID
 HvVmxDpcTerminateOperation(
@@ -572,6 +602,8 @@ HvVmxDpcTerminateOperation(
     HvVmxFreeCoreVcpuState(core);
 
     DEBUG_LOG("Core: %lx - Terminated VMX Operation.", core);
+
+    HvVmxDisplaySessionStats(vcpu);
 
 end:
     KeSignalCallDpcSynchronize(SystemArgument2);
@@ -621,6 +653,8 @@ HvVmxInitialiseOperation()
     PDPC_CALL_CONTEXT context = NULL;
     EPT_POINTER* pept = NULL;
     UINT32 core_count = 0;
+
+    KeInitializeSpinLock(&g_StatsLock);
 
     core_count = KeQueryActiveProcessorCount(NULL);
 

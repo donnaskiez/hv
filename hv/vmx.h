@@ -113,10 +113,10 @@ typedef struct _GUEST_CONTEXT {
 } GUEST_CONTEXT, *PGUEST_CONTEXT;
 
 typedef struct _MSR_BITMAP {
-    UINT8 msr_low_read[1000];
-    UINT8 msr_high_read[1000];
-    UINT8 msr_low_write[1000];
-    UINT8 msr_high_write[1000];
+    UINT8 msr_low_read[1024];
+    UINT8 msr_high_read[1024];
+    UINT8 msr_low_write[1024];
+    UINT8 msr_high_write[1024];
 } MSR_BITMAP, *PMSR_BITMAP;
 
 typedef struct _HOST_DEBUG_STATE {
@@ -129,6 +129,37 @@ typedef struct _HOST_DEBUG_STATE {
     UINT64 debug_ctl;
 
 } HOST_DEBUG_STATE, *PHOST_DEBUG_STATE;
+
+typedef struct _VCPU_STATS {
+    UINT64 exit_count;
+
+    struct {
+        UINT64 cpuid;
+        UINT64 invd;
+        UINT64 vmcall;
+        UINT64 mov_cr;
+        UINT64 wbinvd;
+        UINT64 tpr_threshold;
+        UINT64 exception_or_nmi;
+        UINT64 trap_flags;
+        UINT64 wrmsr;
+        UINT64 rdmsr;
+        UINT64 mov_dr;
+        UINT64 virtualised_eoi;
+        UINT64 preemption_timer;
+    } reasons;
+
+} VCPU_STATS, *PVCPU_STATS;
+
+#define HV_VCPU_PENDING_PROC_CTLS_UPDATE        (1ul << 0)
+#define HV_VCPU_PENDING_PROC_CTLS2_UPDATE       (1ul << 1)
+#define HV_VCPU_PENDING_PIN_CTLS_UPDATE         (1ul << 2)
+#define HV_VCPU_PENDING_EXIT_CTLS_UPDATE        (1ul << 3)
+#define HV_VCPU_PENDING_ENTRY_CTLS_UPDATE       (1ul << 4)
+#define HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE (1ul << 5)
+#define HV_VCPU_PENDING_MSR_BITMAP_UPDATE       (1ul << 6)
+
+#define HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu) ((vcpu)->pend_updates != 0)
 
 typedef struct _VCPU {
     VCPU_STATE state;
@@ -153,6 +184,8 @@ typedef struct _VCPU {
     IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls;
     IA32_VMX_EXIT_CTLS_REGISTER exit_ctls;
     IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls;
+    UINT32 pend_updates;
+    VCPU_STATS stats;
 #ifdef DEBUG
     UINT32 preemption_time;
     VCPU_LOG_STATE log_state;
