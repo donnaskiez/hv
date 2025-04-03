@@ -330,12 +330,13 @@ ExitVmx PROC
 	sub rsp, 020h 
 	call HvVmxGuestReadRsp
 	add rsp, 020h
-	mov [rsp+0b8h], rax
+	int 3
+	mov [rsp+184], rax
 	sub rsp, 020h
 	call HvVmxGuestReadRip
 	add rsp, 020h
 	mov rdx, rsp
-	mov rbx, [rsp+0b8h]
+	mov rbx, [rsp+184]
 	mov rsp, rbx
 	push rax
 
@@ -344,7 +345,7 @@ ExitVmx PROC
 
 	mov rsp, rdx			                 
 	sub rbx,08h			
-	mov [rsp+0b8h], rbx	
+	mov [rsp+184], rbx	
 	RESTORE_DEBUG
 	RESTORE_GP			
 	popfq				
