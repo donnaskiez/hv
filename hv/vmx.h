@@ -128,7 +128,7 @@ typedef struct _HOST_DEBUG_STATE {
     UINT64 dr7;
     UINT64 debug_ctl;
 
-} HOST_DEBUG_STATE, *PHOST_DEBUG_STATE;
+} VCPU_ROOT_DBG_STATE, *PHOST_DEBUG_STATE;
 
 typedef struct _VCPU_STATS {
     UINT64 exit_count;
@@ -178,7 +178,7 @@ typedef struct _VCPU {
     PUINT8 virtual_apic_pa;
     UINT32 exception_bitmap;
     UINT32 exception_bitmap_mask;
-    HOST_DEBUG_STATE debug_state;
+    VCPU_ROOT_DBG_STATE debug_state;
     IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls;
     IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
     IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls;

@@ -256,7 +256,7 @@ HvArchVmExitHandler PROC
 
 	mov rcx, rsp
 	sub rsp, 20h			
-	CALL HvDispHandleVmExit		
+	call HvDispHandleVmExit		
 	add rsp, 20h			
 
 	; check if the return value from our exit dispatcher is 1 (true)
@@ -282,7 +282,7 @@ HvArchVmExitHandler PROC
 
 	RESTORE_DEBUG
 	RESTORE_GP			
-	popfq				
+	popfq
 	vmresume					
 	
 HvArchVmExitHandler ENDP

@@ -1048,9 +1048,8 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
     PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
 
     /* If the VMCS is pending updates, make sure we write those updates */
-    if (HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu)) {
+    if (HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu))
         HvVmcsSyncConfiguration(vcpu);
-    }
 
     HvDispatchIncrementStatistics(vcpu);
 

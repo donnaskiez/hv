@@ -418,7 +418,7 @@ HvVmcsSetControlFields(_In_ PVCPU Vcpu)
 #if DEBUG
     /* For debug mode, in some cases we want to log events that wont cause the
      * buffer to flush too often, in this case preempt into vmx and flush */
-    Vcpu->pin_ctls.ActivateVmxPreemptionTimer = FALSE;
+    Vcpu->pin_ctls.ActivateVmxPreemptionTimer = TRUE;
 #endif
 
     Vcpu->exit_ctls.AcknowledgeInterruptOnExit = TRUE;
@@ -427,12 +427,23 @@ HvVmcsSetControlFields(_In_ PVCPU Vcpu)
 
     /* Ensure we persist the preemption value across guest runtime slices */
     if (Vcpu->pin_ctls.ActivateVmxPreemptionTimer)
-        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = FALSE;
+        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = TRUE;
 
     Vcpu->entry_ctls.Ia32EModeGuest = TRUE;
     Vcpu->entry_ctls.LoadDebugControls = TRUE;
 
     Vcpu->exception_bitmap |= EXCEPTION_DIVIDED_BY_ZERO;
+}
+
+STATIC
+VOID
+HvVmcsValidateControlFields(_In_ PVCPU Vcpu)
+{
+    if (!Vcpu->preemption_time) {
+        DEBUG_LOG("Disabling preemption timer");
+        Vcpu->pin_ctls.ActivateVmxPreemptionTimer = FALSE;
+        Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = FALSE;
+    }
 }
 
 VOID
@@ -445,6 +456,7 @@ HvVmcsWriteControlFields(_In_ PVCPU Vcpu)
     HvVmcsWriteEntryControls(Vcpu);
     HvVmcsWriteExceptionBitmap(Vcpu);
     HvVmcsWriteMsrBitmap(Vcpu);
+    HvVmcsValidateControlFields(Vcpu);
 }
 
 NTSTATUS

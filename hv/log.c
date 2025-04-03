@@ -78,7 +78,8 @@ HvLogInitialisePreemptionTime(_In_ PVCPU Vcpu)
 
     if (!cpuid_15.Eax.Denominator || !cpuid_15.Ebx.Numerator ||
         !cpuid_15.Ecx.NominalFrequency) {
-        Vcpu->preemption_time = VMX_LOG_PREEMPTION_TIME_FALLBACK;
+        //Vcpu->preemption_time = VMX_LOG_PREEMPTION_TIME_FALLBACK;
+        Vcpu->preemption_time = 0;
         return STATUS_SUCCESS;
     }
 
