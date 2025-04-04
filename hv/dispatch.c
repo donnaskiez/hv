@@ -6,6 +6,8 @@
 #include "log.h"
 #include "hypercall.h"
 
+#include <intrin.h>
+
 #define CPUID_HYPERVISOR_INTERFACE_VENDOR 0x40000000
 #define CPUID_HYPERVISOR_INTERFACE_LOL    0x40000001
 
@@ -192,7 +194,7 @@ HvDispHandleExitMovToCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
     UINT64 value =
         HvDispContextRegRead(Context, Qualification->GeneralPurposeRegister);
 
@@ -260,8 +262,7 @@ HvDispHandleExitMovFromCr(
     _In_ VMX_EXIT_QUALIFICATION_MOV_CR* Qualification,
     _In_ PGUEST_CONTEXT Context)
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-    UINT32 tpr = 0;
+    PVCPU vcpu = HvVmxGetVcpu();
 
     switch (Qualification->ControlRegister) {
     case VMX_EXIT_QUALIFICATION_REGISTER_CR0:
@@ -374,7 +375,7 @@ VOID
 HvDispHandleExitCpuid(_In_ PGUEST_CONTEXT GuestState)
 {
     /* todo: implement some sort of caching mechanism */
-    PVCPU state = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU state = HvVmxGetVcpu();
 
     if (HvDispCpuidIsHvAltitude(GuestState->rax)) {
         switch (GuestState->rax) {
@@ -413,6 +414,8 @@ STATIC
 VOID
 HvDispGuestRestoreStateOnTerminate(PVCPU State)
 {
+    SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
+    SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
     /*
      * Before we execute vmxoff, store the guests rip and rsp in our vmxoff
      * state structure, this will allow us to use these values in the vmxoff
@@ -449,12 +452,10 @@ HvDispGuestRestoreStateOnTerminate(PVCPU State)
     /*
      * Write back the guest gdtr and idtrs
      */
-    SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
     gdtr.BaseAddress = HvVmcsRead(VMCS_GUEST_GDTR_BASE);
     gdtr.Limit = HvVmcsRead(VMCS_GUEST_GDTR_LIMIT);
     __lgdt(&gdtr);
 
-    SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
     idtr.BaseAddress = HvVmcsRead(VMCS_GUEST_IDTR_BASE);
     idtr.Limit = HvVmcsRead(VMCS_GUEST_IDTR_LIMIT);
     __lidt(&idtr);
@@ -581,7 +582,7 @@ STATIC
 VOID
 HvDispHandleExitMonitorTrapFlag(_In_ PGUEST_CONTEXT Context)
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
     /*
      * Since we don't set the monitor trap flag vmcs ctrl, lets
      * simply clear the mtf flag for the guest and continue
@@ -609,7 +610,7 @@ VOID
 HvDispHandleExitWrmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
@@ -638,7 +639,7 @@ VOID
 HvDispHandleExitRdmsr(_In_ PGUEST_CONTEXT Context)
 {
     LARGE_INTEGER msr = {0};
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     if (HvVmcsGuestGetProtectionLevel() != HV_GUEST_CPL_KERNEL) {
         HvDispInjectFaultGp();
@@ -894,7 +895,7 @@ HvDispDebugReadReg(_In_ PGUEST_CONTEXT Context, _In_ UINT8 Register)
     case DEBUG_DR3: return Context->dr3;
     case DEBUG_DR6: return Context->dr6;
     case DEBUG_DR7: return Context->dr7;
-    default: HvDispInjectFaultGp(); return;
+    default: HvDispInjectFaultGp(); return 0;
     }
 }
 
@@ -959,7 +960,7 @@ HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
 VOID
 HvDispDebugLoadRootRegState()
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = HvVmxGetVcpu();
     __writedr(DEBUG_DR0, vcpu->debug_state.dr0);
     __writedr(DEBUG_DR1, vcpu->debug_state.dr1);
     __writedr(DEBUG_DR2, vcpu->debug_state.dr2);
@@ -971,7 +972,7 @@ HvDispDebugLoadRootRegState()
 VOID
 HvDispDebugStoreRootRegState()
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = HvVmxGetVcpu();
     vcpu->debug_state.dr0 = __readdr(DEBUG_DR0);
     vcpu->debug_state.dr1 = __readdr(DEBUG_DR1);
     vcpu->debug_state.dr2 = __readdr(DEBUG_DR2);
@@ -989,6 +990,7 @@ HvDispHandleExitVirtualEoi(_In_ PGUEST_CONTEXT Context)
     __debugbreak();
 }
 
+#if DEBUG
 FORCEINLINE
 STATIC
 VOID
@@ -1005,6 +1007,7 @@ HvDispHandleExitPreemptionTimerExpiry(_In_ PGUEST_CONTEXT Context)
         VMCS_GUEST_VMX_PREEMPTION_TIMER_VALUE,
         HvVmxGetVcpu()->preemption_time);
 }
+#endif
 
 FORCEINLINE
 STATIC
@@ -1044,8 +1047,7 @@ HvDispatchIncrementStatistics(_In_ PVCPU Vcpu)
 BOOLEAN
 HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 {
-    UINT64 additional_rip_offset = 0;
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorIndex()];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     /* If the VMCS is pending updates, make sure we write those updates */
     if (HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu))
@@ -1101,10 +1103,10 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
         /* EOI induced exits are trap like */
         HvDispHandleExitVirtualEoi(Context);
         goto no_rip_increment;
+#if DEBUG
     case VMX_EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED:
         HvDispHandleExitPreemptionTimerExpiry(Context);
-        goto no_rip_increment;
-
+#endif
     default: __debugbreak(); break;
     }
 

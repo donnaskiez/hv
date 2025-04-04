@@ -330,7 +330,6 @@ ExitVmx PROC
 	sub rsp, 020h 
 	call HvVmxGuestReadRsp
 	add rsp, 020h
-	int 3
 	mov [rsp+184], rax
 	sub rsp, 020h
 	call HvVmxGuestReadRip

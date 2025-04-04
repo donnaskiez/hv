@@ -92,11 +92,9 @@ STATIC
 NTSTATUS
 HvVmxAllocateVmcs(_In_ PVCPU Vcpu)
 {
-    INT status = 0;
     PVOID virtual_allocation = NULL;
     UINT64 physical_allocation = NULL;
     PHYSICAL_ADDRESS physical_max = {0};
-    PHYSICAL_ADDRESS physical_address = {0};
     IA32_VMX_BASIC_REGISTER ia32_basic_msr = {0};
 
     physical_max.QuadPart = MAXULONG64;
@@ -134,7 +132,6 @@ HvVmxAllocateVmxon(_In_ PVCPU Vcpu)
     PVOID virtual_allocation = NULL;
     UINT64 physical_allocation = NULL;
     PHYSICAL_ADDRESS physical_max = {0};
-    PHYSICAL_ADDRESS physical_address = {0};
     IA32_VMX_BASIC_REGISTER ia32_basic_msr = {0};
 
     physical_max.QuadPart = MAXULONG64;
@@ -241,7 +238,6 @@ HvVmxAllocateMsrBitmap(_In_ PVCPU Vcpu)
     }
 
     RtlSecureZeroMemory(Vcpu->msr_bitmap_va, PAGE_SIZE);
-
     Vcpu->msr_bitmap_pa = MmGetPhysicalAddress(Vcpu->msr_bitmap_va).QuadPart;
 
     return STATUS_SUCCESS;
@@ -288,8 +284,6 @@ HvVmxAllocateVirtualApicPage(_In_ PVCPU Vcpu)
     Vcpu->virtual_apic_pa =
         MmGetPhysicalAddress(Vcpu->virtual_apic_va).QuadPart;
 
-    DEBUG_LOG("virtual apic pa: %llx", Vcpu->virtual_apic_pa);
-
     return STATUS_SUCCESS;
 }
 
@@ -318,7 +312,7 @@ STATIC
 VOID
 HvVmxFreeCoreVcpuState(_In_ UINT32 Core)
 {
-    PVCPU vcpu = &vmm_state[Core];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     if (vcpu->vmxon_region_va)
         MmFreeContiguousMemory(vcpu->vmxon_region_va);
@@ -359,20 +353,17 @@ HvVmxDpcInitOperation(
         return;
     }
 
-#ifdef DEBUG
-
-    status = HvLogInitialise(vcpu);
+    status = HvVmxEnableOnCore();
     if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
+        DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
         HvVmxFreeCoreVcpuState(core);
         goto end;
     }
 
-#endif
-
-    status = HvVmxEnableOnCore();
+#ifdef DEBUG
+    status = HvLogInitialise(vcpu);
     if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
+        DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
         HvVmxFreeCoreVcpuState(core);
         goto end;
     }
@@ -382,6 +373,7 @@ HvVmxDpcInitOperation(
         DEBUG_ERROR("Failed to initialise preemption timer");
         goto end;
     }
+#endif
 
     status = HvVmxAllocateVmxon(vcpu);
     if (!NT_SUCCESS(status)) {
@@ -583,10 +575,10 @@ HvVmxDpcTerminateOperation(
     UNREFERENCED_PARAMETER(DeferredContext);
 
     UINT32 core = KeGetCurrentProcessorNumber();
-    PVCPU vcpu = &vmm_state[core];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     if (!NT_SUCCESS(HvVmxExecuteVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
-        return STATUS_UNSUCCESSFUL;
+        return;
     }
 
     /* TODO: how should we handle this? */
@@ -673,7 +665,7 @@ HvVmxInitialiseOperation()
     if (!context->status)
         goto end;
 
-    for (INT core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
+    for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
         context[core].eptp = NULL;
         context[core].guest_stack = NULL;
         context->status[core] = STATUS_UNSUCCESSFUL;
@@ -752,7 +744,6 @@ HvVmxPowerCbCallback(
     UNREFERENCED_PARAMETER(CallbackContext);
 
     NTSTATUS status = STATUS_UNSUCCESSFUL;
-    HANDLE handle = NULL;
 
     if (Argument1 != (PVOID)PO_CB_SYSTEM_STATE_LOCK)
         return;

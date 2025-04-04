@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "arch.h"
+#include "vmcs.h"
 
 #include <ntstrsafe.h>
 #include <stdarg.h>
@@ -162,7 +163,7 @@ VOID
 HvLogWrite(PCSTR Format, ...)
 {
     NTSTATUS status = STATUS_SUCCESS;
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
     PVCPU_LOG_STATE logger = &vcpu->log_state;
     UINT32 cur_head = 0;
     UINT32 cur_tail = 0;

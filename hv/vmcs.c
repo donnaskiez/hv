@@ -439,11 +439,13 @@ STATIC
 VOID
 HvVmcsValidateControlFields(_In_ PVCPU Vcpu)
 {
+#if DEBUG
     if (!Vcpu->preemption_time) {
         DEBUG_LOG("Disabling preemption timer");
         Vcpu->pin_ctls.ActivateVmxPreemptionTimer = FALSE;
         Vcpu->exit_ctls.SaveVmxPreemptionTimerValue = FALSE;
     }
+#endif
 }
 
 VOID

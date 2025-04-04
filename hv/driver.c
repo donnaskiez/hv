@@ -82,6 +82,7 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         HvVmxBroadcastTermination();
         HvVmxPowerCbUnregister();
         HvVmxFreeDriverState();
+        return status;
     }
 
     status = IoCreateSymbolicLink(&device_link, &device_name);
@@ -90,7 +91,7 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         HvVmxBroadcastTermination();
         HvVmxPowerCbUnregister();
         HvVmxFreeDriverState();
-        IoDeleteDevice(&DriverObject->DeviceObject);
+        IoDeleteDevice(DriverObject->DeviceObject);
         return status;
     }
 
