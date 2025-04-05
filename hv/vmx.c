@@ -41,6 +41,16 @@ HvVmxGetVcpuByCore(_In_ UINT32 Core)
     return &vmm_state[Core];
 }
 
+FORCEINLINE
+STATIC
+VOID
+HvVmxSetAllVcpuState(_In_ UINT32 State)
+{
+    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
+        vmm_state[index].state = State;
+    }
+}
+
 /*
  * Assuming the thread calling this is binded to a particular core
  */
@@ -344,8 +354,8 @@ HvVmxDpcInitOperation(
 {
     NTSTATUS status = STATUS_ABANDONED;
     PVCPU vcpu = HvVmxGetVcpu();
-    PDPC_CALL_CONTEXT context = (PDPC_CALL_CONTEXT)DeferredContext;
     UINT32 core = KeGetCurrentProcessorNumber();
+    PVMX_INIT_CONTEXT context = &((PVMX_INIT_CONTEXT)DeferredContext)[core];
 
     DEBUG_LOG(
         "Core: %lx - Initiating VMX Operation state.",
@@ -430,18 +440,18 @@ HvVmxDpcInitOperation(
 
 end:
     DEBUG_LOG("Core: %lx - Initiation Status: %lx", core, status);
-    context->status[KeGetCurrentProcessorNumber()] = status;
+    context->status = status;
     KeSignalCallDpcSynchronize(SystemArgument2);
     KeSignalCallDpcDone(SystemArgument1);
 }
 
 VOID
-HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer)
+HvVmxVirtualiseCore(_In_ PVMX_INIT_CONTEXT Context, _In_ PVOID StackPointer)
 {
     UNREFERENCED_PARAMETER(Context);
 
     NTSTATUS status = STATUS_UNSUCCESSFUL;
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
 
     status = HvVmcsInitialise(vcpu, StackPointer);
     if (!NT_SUCCESS(status)) {
@@ -485,7 +495,7 @@ HvVmxValidateLaunch()
 }
 
 NTSTATUS
-HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context)
+HvVmxStartOperation(_In_ PVMX_INIT_CONTEXT Context)
 {
     NTSTATUS status = HvVmxIsSupported();
 
@@ -494,7 +504,7 @@ HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context)
         return status;
     }
 
-    KeIpiGenericCall(HvArchVirtualiseCoreStub, Context);
+    KeIpiGenericCall(HvArchVirtualiseCoreStub, NULL);
 
     /* lets make sure we entered VMX operation on ALL cores. If a core
      * failed to enter, the vcpu->state == VMX_VCPU_STATE_TERMINATED.*/
@@ -508,15 +518,11 @@ HvVmxExecuteVmCall(
     _In_opt_ UINT64 OptionalParameter2,
     _In_opt_ UINT64 OptionalParameter3)
 {
-    NTSTATUS status = __vmx_vmcall(
+    return __vmx_vmcall(
         VmCallId,
         OptionalParameter1,
         OptionalParameter2,
         OptionalParameter3);
-    if (!NT_SUCCESS(status))
-        DEBUG_ERROR("VmCall failed wtih status %x", status);
-
-    return status;
 }
 
 VOID
@@ -594,29 +600,17 @@ HvVmxDpcTerminateOperation(
         goto end;
     }
 
+    HvVmxDisplaySessionStats(vcpu);
+
     /*
      * At this point, we have exited VMX operation and we can safely free
      * our per core allocations.
      */
     HvVmxFreeCoreVcpuState(vcpu);
 
-    DEBUG_LOG("Core: %lx - Terminated VMX Operation.", core);
-
-    HvVmxDisplaySessionStats(vcpu);
-
 end:
     KeSignalCallDpcSynchronize(SystemArgument2);
     KeSignalCallDpcDone(SystemArgument1);
-}
-
-FORCEINLINE
-STATIC
-VOID
-HvVmxSetVcpuTermatingState()
-{
-    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
-        vmm_state[index].state = VMX_VCPU_STATE_TERMINATING;
-    }
 }
 
 NTSTATUS
@@ -624,7 +618,7 @@ HvVmxBroadcastTermination()
 {
     /* Since we arent in a DPC right now, we need to ensure we set the
      * terminating flag across all VPCUs */
-    HvVmxSetVcpuTermatingState();
+    HvVmxSetAllVcpuState(VMX_VCPU_STATE_TERMINATING);
 
     /* Flush all our queued DPCs */
     KeFlushQueuedDpcs();
@@ -644,15 +638,14 @@ HvVmxBroadcastTermination()
 
 STATIC
 NTSTATUS
-HvVmxValidateVmxInit(PDPC_CALL_CONTEXT Context)
+HvVmxValidateVmxInit(PVMX_INIT_CONTEXT Context)
 {
-    for (UINT32 index = 0; index < Context->status_count; index++) {
-        if (Context->status[index] != STATUS_SUCCESS)
-            return Context->status[index];
+    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
+        if (Context[index].status != STATUS_SUCCESS)
+            return Context[index].status;
+        Context[index].status = 0;
     }
 
-    /* zero the memory since we use these status codes for our IPI. */
-    RtlZeroMemory(Context->status, sizeof(NTSTATUS) * Context->status_count);
     return STATUS_SUCCESS;
 }
 
@@ -660,33 +653,22 @@ NTSTATUS
 HvVmxInitialiseOperation()
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
-    PDPC_CALL_CONTEXT context = NULL;
+    PVMX_INIT_CONTEXT context = NULL;
     EPT_POINTER* pept = NULL;
-    UINT32 core_count = 0;
+    UINT32 core_count = KeQueryActiveProcessorCount(NULL);
 
     KeInitializeSpinLock(&g_StatsLock);
 
-    core_count = KeQueryActiveProcessorCount(NULL);
-
     context = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
-        core_count * sizeof(DPC_CALL_CONTEXT),
+        core_count * sizeof(VMX_INIT_CONTEXT),
         POOL_TAG_DPC_CONTEXT);
     if (!context)
         goto end;
 
-    context->status_count = core_count;
-    context->status = ExAllocatePool2(
-        POOL_FLAG_NON_PAGED,
-        core_count * sizeof(NTSTATUS),
-        POOL_TAG_STATUS_ARRAY);
-    if (!context->status)
-        goto end;
-
     for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
-        context[core].eptp = NULL;
         context[core].guest_stack = NULL;
-        context->status[core] = STATUS_UNSUCCESSFUL;
+        context[core].status = STATUS_UNSUCCESSFUL;
     }
 
     status = HvVmxAllocateVcpuArray();
@@ -725,8 +707,6 @@ HvVmxInitialiseOperation()
     }
 
 end:
-    if (context && context->status)
-        ExFreePoolWithTag(context->status, POOL_TAG_STATUS_ARRAY);
     if (context)
         ExFreePoolWithTag(context, POOL_TAG_DPC_CONTEXT);
 

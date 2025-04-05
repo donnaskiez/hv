@@ -4,13 +4,11 @@
 #include "driver.h"
 #include "ia32.h"
 
-typedef struct _DPC_CALL_CONTEXT {
-    EPT_POINTER* eptp;
+typedef struct _VMX_INIT_CONTEXT {
     PVOID guest_stack;
-    NTSTATUS* status;
-    UINT32 status_count;
+    NTSTATUS status;
 
-} DPC_CALL_CONTEXT, *PDPC_CALL_CONTEXT;
+} VMX_INIT_CONTEXT, *PVMX_INIT_CONTEXT;
 
 typedef struct _CPUID_CACHE {
     INT32 value[4];
@@ -221,13 +219,13 @@ HvVmxDpcInitOperation(
     _In_opt_ PVOID SystemArgument2);
 
 NTSTATUS
-HvVmxStartOperation(_In_ PDPC_CALL_CONTEXT Context);
+HvVmxStartOperation(_In_ PVMX_INIT_CONTEXT Context);
 
 NTSTATUS
 HvVmxBroadcastTermination();
 
 VOID
-HvVmxVirtualiseCore(_In_ PDPC_CALL_CONTEXT Context, _In_ PVOID StackPointer);
+HvVmxVirtualiseCore(_In_ PVMX_INIT_CONTEXT Context, _In_ PVOID StackPointer);
 
 NTSTATUS
 HvVmxInitialiseOperation();
