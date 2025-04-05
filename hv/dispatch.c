@@ -412,7 +412,7 @@ HvDispHandleExitWbinvd(_In_ PGUEST_CONTEXT Context)
 FORCEINLINE
 STATIC
 VOID
-HvDispGuestRestoreStateOnTerminate(PVCPU State)
+HvDispGuestRestoreStateOnTerminate(PVCPU Vcpu)
 {
     SEGMENT_DESCRIPTOR_REGISTER_64 gdtr = {0};
     SEGMENT_DESCRIPTOR_REGISTER_64 idtr = {0};
@@ -427,8 +427,8 @@ HvDispGuestRestoreStateOnTerminate(PVCPU State)
      * vmcs, hence we need to save the 2 values and update the registers
      * with the values during our exit handler before we call vmxoff
      */
-    State->exit_state.guest_rip = HvVmcsRead(VMCS_GUEST_RIP);
-    State->exit_state.guest_rsp = HvVmcsRead(VMCS_GUEST_RSP);
+    Vcpu->exit_state.guest_rip = HvVmcsRead(VMCS_GUEST_RIP);
+    Vcpu->exit_state.guest_rsp = HvVmcsRead(VMCS_GUEST_RSP);
 
     /*
      * As with the guest RSP and RIP, we need to restore the guests DEBUGCTL

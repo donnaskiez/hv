@@ -35,6 +35,12 @@ HvVmxGetVcpu()
     return &vmm_state[KeGetCurrentProcessorNumber()];
 }
 
+PVCPU
+HvVmxGetVcpuByCore(_In_ UINT32 Core)
+{
+    return &vmm_state[Core];
+}
+
 /*
  * Assuming the thread calling this is binded to a particular core
  */
@@ -312,7 +318,7 @@ STATIC
 VOID
 HvVmxFreeCoreVcpuState(_In_ UINT32 Core)
 {
-    PVCPU vcpu = HvVmxGetVcpu();
+    PVCPU vcpu = HvVmxGetVcpuByCore(Core);
 
     if (vcpu->vmxon_region_va)
         MmFreeContiguousMemory(vcpu->vmxon_region_va);
@@ -339,7 +345,7 @@ HvVmxDpcInitOperation(
     _In_opt_ PVOID SystemArgument2)
 {
     NTSTATUS status = STATUS_ABANDONED;
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
+    PVCPU vcpu = HvVmxGetVcpu();
     PDPC_CALL_CONTEXT context = (PDPC_CALL_CONTEXT)DeferredContext;
     UINT32 core = KeGetCurrentProcessorNumber();
 
