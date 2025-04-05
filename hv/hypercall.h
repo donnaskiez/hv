@@ -47,7 +47,7 @@ typedef NTSTATUS HVSTATUS;
         VMX_HYPERCALL_CATEGORY_QUERY, \
         VMX_HYPERCALL_FUNCTION_QUERY_STATS)
 
-HVSTATUS
+NTSTATUS
 HvHypercallDispatch(
     _In_ PVCPU Vcpu,
     _In_ UINT64 HypercallId,

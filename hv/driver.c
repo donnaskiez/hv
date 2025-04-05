@@ -14,7 +14,6 @@ NTSTATUS
 HvDrvClose(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
     UNREFERENCED_PARAMETER(DeviceObject);
-    HvVmxBroadcastTermination();
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
     return Irp->IoStatus.Status;
 }

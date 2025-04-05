@@ -609,12 +609,22 @@ end:
     KeSignalCallDpcDone(SystemArgument1);
 }
 
+FORCEINLINE
+STATIC
+VOID
+HvVmxSetVcpuTermatingState()
+{
+    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
+        vmm_state[index].state = VMX_VCPU_STATE_TERMINATING;
+    }
+}
+
 NTSTATUS
 HvVmxBroadcastTermination()
 {
-    PVCPU vcpu = &vmm_state[KeGetCurrentProcessorNumber()];
-
-    vcpu->state = VMX_VCPU_STATE_TERMINATING;
+    /* Since we arent in a DPC right now, we need to ensure we set the
+     * terminating flag across all VPCUs */
+    HvVmxSetVcpuTermatingState();
 
     /* Flush all our queued DPCs */
     KeFlushQueuedDpcs();
@@ -628,6 +638,7 @@ HvVmxBroadcastTermination()
      * state array.
      */
     HvVmxFreeVcpuArray();
+
     return STATUS_SUCCESS;
 }
 

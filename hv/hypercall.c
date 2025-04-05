@@ -96,7 +96,7 @@ HvHypercallValidateArgs(_In_ PVCPU Vcpu, _In_ PHYPERCALL_ARGS Args)
     return HVSTATUS_SUCCESS;
 }
 
-HVSTATUS
+NTSTATUS
 HvHypercallDispatch(
     _In_ PVCPU Vcpu,
     _In_ UINT64 HypercallId,
@@ -123,7 +123,7 @@ HvHypercallDispatch(
 
     status = HvHypercallValidateArgs(Vcpu, &args);
     if (!HV_SUCCESS(status))
-        return status;
+        return STATUS_INVALID_PARAMETER;
 
     switch (HypercallId) {
     case VMX_HYPERCALL_TERMINATE_VMX: HvHypercallHandleTerminate(&args); break;
@@ -131,5 +131,6 @@ HvHypercallDispatch(
     default: break;
     }
 
-    return args.hypercall_status;
+    return args.hypercall_status == HVSTATUS_SUCCESS ? STATUS_SUCCESS
+                                                     : STATUS_UNSUCCESSFUL;
 }
