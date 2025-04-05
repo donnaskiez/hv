@@ -114,7 +114,12 @@ HvHypercallDispatch(
         OptionalParameter2,
         OptionalParameter3);
 
-    HIGH_IRQL_LOG_SAFE("Handling hypercall id: %llx", HypercallId);
+    HIGH_IRQL_LOG_SAFE(
+        "Handling hypercall id: %llx, arg1: %llx, arg2: %llx, arg3: %llx",
+        HypercallId,
+        args.hypercall_out_buf,
+        args.hypercall_out_buf_len,
+        args.hypercall_placeholder);
 
     status = HvHypercallValidateArgs(Vcpu, &args);
     if (!HV_SUCCESS(status))

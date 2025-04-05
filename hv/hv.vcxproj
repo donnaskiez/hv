@@ -60,7 +60,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - APIC|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -70,7 +70,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - CR8|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -80,7 +80,7 @@
     <DriverType>KMDF</DriverType>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -91,7 +91,7 @@
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - Apic|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -102,7 +102,7 @@
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <EnableKASAN>true</EnableKASAN>
+    <EnableKASAN>false</EnableKASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
