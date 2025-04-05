@@ -1106,6 +1106,7 @@ HvDispHandleVmExit(_In_ PGUEST_CONTEXT Context)
 #if DEBUG
     case VMX_EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED:
         HvDispHandleExitPreemptionTimerExpiry(Context);
+        goto no_rip_increment;
 #endif
     default: __debugbreak(); break;
     }

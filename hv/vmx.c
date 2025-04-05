@@ -316,24 +316,22 @@ InitialiseVirtualApicPage(_In_ PVCPU Vcpu)
 
 STATIC
 VOID
-HvVmxFreeCoreVcpuState(_In_ UINT32 Core)
+HvVmxFreeCoreVcpuState(_In_ PVCPU Vcpu)
 {
-    PVCPU vcpu = HvVmxGetVcpuByCore(Core);
-
-    if (vcpu->vmxon_region_va)
-        MmFreeContiguousMemory(vcpu->vmxon_region_va);
-    if (vcpu->vmcs_region_va)
-        MmFreeContiguousMemory(vcpu->vmcs_region_va);
-    if (vcpu->msr_bitmap_va)
-        MmFreeContiguousMemory(vcpu->msr_bitmap_va);
-    if (vcpu->vmm_stack_va)
-        ExFreePoolWithTag(vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
+    if (Vcpu->vmxon_region_va)
+        MmFreeContiguousMemory(Vcpu->vmxon_region_va);
+    if (Vcpu->vmcs_region_va)
+        MmFreeContiguousMemory(Vcpu->vmcs_region_va);
+    if (Vcpu->msr_bitmap_va)
+        MmFreeContiguousMemory(Vcpu->msr_bitmap_va);
+    if (Vcpu->vmm_stack_va)
+        ExFreePoolWithTag(Vcpu->vmm_stack_va, POOL_TAG_VMM_STACK);
 #if APIC
-    if (vcpu->virtual_apic_va)
-        MmFreeContiguousMemory(vcpu->virtual_apic_va);
+    if (Vcpu->virtual_apic_va)
+        MmFreeContiguousMemory(Vcpu->virtual_apic_va);
 #endif
 #if DEBUG
-    HvLogCleanup(vcpu);
+    HvLogCleanup(Vcpu);
 #endif
 }
 
@@ -362,7 +360,7 @@ HvVmxDpcInitOperation(
     status = HvVmxEnableOnCore();
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("EnableVmxOperationOnCore failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
@@ -370,7 +368,7 @@ HvVmxDpcInitOperation(
     status = HvLogInitialise(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitialiseVcpuLogger failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
@@ -384,35 +382,35 @@ HvVmxDpcInitOperation(
     status = HvVmxAllocateVmxon(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmxonRegion failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
     status = HvVmxAllocateVmcs(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmcsRegion failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
     status = HvVmxAllocateVcpuStack(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateVmmStack failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
     status = HvVmxAllocateMsrBitmap(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateMsrBitmap failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
     status = HvVmxInitialiseVcpu(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("InitiateVcpu failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         goto end;
     }
 
@@ -425,7 +423,7 @@ HvVmxDpcInitOperation(
     status = HvVmxAllocateVirtualApicPage(vcpu);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("AllocateApicVirtualPage failed with status %x", status);
-        HvVmxFreeCoreVcpuState(core);
+        HvVmxFreeCoreVcpuState(vcpu);
         return status;
     }
 #endif
@@ -580,11 +578,14 @@ HvVmxDpcTerminateOperation(
     UNREFERENCED_PARAMETER(Dpc);
     UNREFERENCED_PARAMETER(DeferredContext);
 
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
     UINT32 core = KeGetCurrentProcessorNumber();
     PVCPU vcpu = HvVmxGetVcpu();
 
-    if (!NT_SUCCESS(HvVmxExecuteVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0))) {
-        return;
+    status = HvVmxExecuteVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0);
+    if (!NT_SUCCESS(status)) {
+        DEBUG_ERROR("HvVmxExecuteVmCall failed: %lx", status);
+        goto end;
     }
 
     /* TODO: how should we handle this? */
@@ -597,7 +598,7 @@ HvVmxDpcTerminateOperation(
      * At this point, we have exited VMX operation and we can safely free
      * our per core allocations.
      */
-    HvVmxFreeCoreVcpuState(core);
+    HvVmxFreeCoreVcpuState(vcpu);
 
     DEBUG_LOG("Core: %lx - Terminated VMX Operation.", core);
 

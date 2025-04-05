@@ -45,7 +45,7 @@ typedef struct _EXIT_STATE {
 
 typedef enum _VCPU_STATE { off, running, terminated } VCPU_STATE;
 
-#define VMX_LOG_BUFFER_SIZE          64000
+#define VMX_LOG_BUFFER_SIZE          6400
 #define VMX_INIDIVIDUAL_LOG_MAX_SIZE 128
 #define VMX_MAX_LOG_ENTRIES_COUNT \
     (VMX_LOG_BUFFER_SIZE / VMX_INIDIVIDUAL_LOG_MAX_SIZE)
