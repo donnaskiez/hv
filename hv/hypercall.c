@@ -732,6 +732,24 @@ HvHypercallUpdateRetStats(
     ret->hypercall.ping += local->hypercall.ping;
     ret->hypercall.query_stats += local->hypercall.query_stats;
     ret->hypercall.terminate += local->hypercall.terminate;
+
+    ret->hypercall.write_proc_ctls += local->hypercall.write_proc_ctls;
+    ret->hypercall.write_proc_ctls2 += local->hypercall.write_proc_ctls2;
+    ret->hypercall.write_pin_ctls += local->hypercall.write_pin_ctls;
+    ret->hypercall.write_exit_ctls += local->hypercall.write_exit_ctls;
+    ret->hypercall.write_entry_ctls += local->hypercall.write_entry_ctls;
+    ret->hypercall.write_exception_bitmap +=
+        local->hypercall.write_exception_bitmap;
+    ret->hypercall.write_msr_bitmap += local->hypercall.write_msr_bitmap;
+
+    ret->hypercall.read_proc_ctls += local->hypercall.read_proc_ctls;
+    ret->hypercall.read_proc_ctls2 += local->hypercall.read_proc_ctls2;
+    ret->hypercall.read_pin_ctls += local->hypercall.read_pin_ctls;
+    ret->hypercall.read_exit_ctls += local->hypercall.read_exit_ctls;
+    ret->hypercall.read_entry_ctls += local->hypercall.read_entry_ctls;
+    ret->hypercall.read_exception_bitmap +=
+        local->hypercall.read_exception_bitmap;
+    ret->hypercall.read_msr_bitmap += local->hypercall.read_msr_bitmap;
 }
 
 STATIC
