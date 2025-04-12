@@ -74,22 +74,6 @@ typedef struct _GUEST_CONTEXT {
     UINT64 dr2;
     UINT64 dr1;
     UINT64 dr0;
-    // M128A  Xmm0;
-    // M128A  Xmm1;
-    // M128A  Xmm2;
-    // M128A  Xmm3;
-    // M128A  Xmm4;
-    // M128A  Xmm5;
-    // M128A  Xmm6;
-    // M128A  Xmm7;
-    // M128A  Xmm8;
-    // M128A  Xmm9;
-    // M128A  Xmm10;
-    // M128A  Xmm11;
-    // M128A  Xmm12;
-    // M128A  Xmm13;
-    // M128A  Xmm14;
-    // M128A  Xmm15;
     UINT64 rax;
     UINT64 rcx;
     UINT64 rdx;
@@ -147,6 +131,28 @@ typedef struct _VCPU_STATS {
         UINT64 preemption_timer;
     } reasons;
 
+    struct {
+        UINT64 ping;
+        UINT64 query_stats;
+        UINT64 terminate;
+
+        UINT64 write_proc_ctls;
+        UINT64 write_proc_ctls2;
+        UINT64 write_pin_ctls;
+        UINT64 write_exit_ctls;
+        UINT64 write_entry_ctls;
+        UINT64 write_exception_bitmap;
+        UINT64 write_msr_bitmap;
+
+        UINT64 read_proc_ctls;
+        UINT64 read_proc_ctls2;
+        UINT64 read_pin_ctls;
+        UINT64 read_exit_ctls;
+        UINT64 read_entry_ctls;
+        UINT64 read_exception_bitmap;
+        UINT64 read_msr_bitmap;
+    } hypercall;
+
 } VCPU_STATS, *PVCPU_STATS;
 
 #define HV_VCPU_PENDING_PROC_CTLS_UPDATE        (1ul << 0)
@@ -159,10 +165,23 @@ typedef struct _VCPU_STATS {
 
 #define HV_VCPU_IS_PENDING_VMCS_UPDATE(vcpu) ((vcpu)->pend_updates != 0)
 
+//
+// Helper macros for combining and extracting the core ID and sequence value
+// in a single 32-bit integer.
+//
+// Bits:  [31:24] = Core ID
+//        [23:00] = Sequence value
+//
+#define HV_VCPU_SEQ_NUM_SET(core, seq) \
+    (((UINT32)(core) << 24) | ((seq) & 0xFFFFFF))
+#define HV_VCPU_SEQ_NUM_GET_CORE(seq) ((UINT8)((seq) >> 24))
+#define HV_VCPU_SEQ_NUM_GET_SEQ(seq)  ((seq) & 0xFFFFFF)
+
 typedef struct _VCPU {
     VCPU_STATE state;
     VMM_CACHE cache;
     EXIT_STATE exit_state;
+    UINT64 sequence_number;
     PGUEST_CONTEXT guest_context;
     UINT64 vmxon_region_pa;
     UINT64 vmxon_region_va;
@@ -244,5 +263,15 @@ HvVmxPowerCbUnregister();
 
 VOID
 HvVmxFreeVcpuArray();
+
+NTSTATUS
+HvVmxExecuteVmCall(
+    _In_ UINT64 VmCallId,
+    _In_opt_ UINT64 OptionalParameter1,
+    _In_opt_ UINT64 OptionalParameter2,
+    _In_opt_ UINT64 OptionalParameter3);
+
+VOID
+HvVmxIncrementSequenceNumber(_Inout_ PVCPU Vcpu);
 
 #endif

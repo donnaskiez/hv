@@ -944,7 +944,7 @@ HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
 }
 
 /*
- * Assuming no debug state is stored upon vmexit, it would mean the host makes
+ * Assuming no debug state is stored upon vmexit, it would mean if the host makes
  * use of the guests debug register state. This can make debugging hard and very
  * buggy. To combat this, we should store the hosts state on vmexit and vmentry
  * in the associated vcpu. This allows us to keep track of both the guest and
@@ -956,7 +956,6 @@ HvDispHandleExitDebugRegAccess(_In_ PGUEST_CONTEXT Context)
  * General implementation idea can be found in this openbsd patch:
  * https://reviews.freebsd.org/D13229
  */
-
 VOID
 HvDispDebugLoadRootRegState()
 {
@@ -967,6 +966,7 @@ HvDispDebugLoadRootRegState()
     __writedr(DEBUG_DR3, vcpu->debug_state.dr3);
     __writedr(DEBUG_DR6, vcpu->debug_state.dr6);
     __writedr(DEBUG_DR7, vcpu->debug_state.dr7);
+    __writemsr(IA32_DEBUGCTL, vcpu->debug_state.debug_ctl);
 }
 
 VOID
@@ -979,6 +979,7 @@ HvDispDebugStoreRootRegState()
     vcpu->debug_state.dr3 = __readdr(DEBUG_DR3);
     vcpu->debug_state.dr6 = __readdr(DEBUG_DR6);
     vcpu->debug_state.dr7 = __readdr(DEBUG_DR7);
+    vcpu->debug_state.debug_ctl = __readmsr(IA32_DEBUGCTL);
 }
 
 FORCEINLINE
@@ -1123,9 +1124,7 @@ no_rip_increment:
      * indicate to our handler that we have indeed exited VMX
      * operation.
      */
-    if (InterlockedExchange(
-            &vcpu->exit_state.exit_vmx,
-            vcpu->exit_state.exit_vmx)) {
+    if (vcpu->exit_state.exit_vmx) {
         HvDispGuestRestoreStateOnTerminate(vcpu);
         return TRUE;
     }

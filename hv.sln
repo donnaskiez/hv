@@ -5,6 +5,8 @@ VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hv", "hv\hv.vcxproj", "{83E58D2B-DEF6-4494-B130-866397B47CD6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cli", "cli\cli.vcxproj", "{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug - APIC|ARM64 = Debug - APIC|ARM64
@@ -41,6 +43,22 @@ Global
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|x64.ActiveCfg = Release|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|x64.Build.0 = Release|x64
 		{83E58D2B-DEF6-4494-B130-866397B47CD6}.Release|x64.Deploy.0 = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug - APIC|ARM64.ActiveCfg = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug - APIC|ARM64.Build.0 = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug - APIC|x64.ActiveCfg = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug - APIC|x64.Build.0 = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug|ARM64.ActiveCfg = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug|ARM64.Build.0 = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug|x64.ActiveCfg = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Debug|x64.Build.0 = Debug|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release - Apic|ARM64.ActiveCfg = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release - Apic|ARM64.Build.0 = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release - Apic|x64.ActiveCfg = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release - Apic|x64.Build.0 = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release|ARM64.ActiveCfg = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release|ARM64.Build.0 = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release|x64.ActiveCfg = Release|x64
+		{3BC76209-8145-4BF5-B1C4-A30A566C8A2C}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

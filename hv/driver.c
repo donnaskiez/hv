@@ -3,6 +3,7 @@
 #include <intrin.h>
 #include "vmx.h"
 #include "common.h"
+#include "hypercall.h"
 
 #include <intrin.h>
 #include "arch.h"
@@ -26,17 +27,30 @@ HvDrvCreate(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
     return Irp->IoStatus.Status;
 }
 
+NTSTATUS
+HvDrvDeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
+{
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
+    PIO_STACK_LOCATION io = IoGetCurrentIrpStackLocation(Irp);
+
+    /* Pass the IOCTL to our hypercall handler */
+    status = HvHypercallDispatchFromGuest(Irp, io);
+
+    Irp->IoStatus.Status = status;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return status;
+}
+
 VOID
 DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
     DEBUG_LOG("Unloading driver...");
-
-    /* if this fails... Who cares!  xD*/
     HvVmxBroadcastTermination();
     HvVmxPowerCbUnregister();
     HvVmxFreeDriverState();
     IoDeleteSymbolicLink(&device_link);
     IoDeleteDevice(DriverObject->DeviceObject);
+    DEBUG_LOG("Driver unloaded.");
 }
 
 NTSTATUS
@@ -46,27 +60,10 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 
     NTSTATUS status = STATUS_SUCCESS;
 
-    status = HvVmxAllocateDriverState();
-    if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("AllocateDriverState failed with status %x", status);
-        return status;
-    }
-
-    status = HvVmxPowerCbInit();
-    if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
-        HvVmxFreeDriverState();
-        return status;
-    }
-
-    status = HvVmxInitialiseOperation();
-    if (!NT_SUCCESS(status)) {
-        DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
-        HvVmxPowerCbUnregister();
-        HvVmxFreeVcpuArray();
-        HvVmxFreeDriverState();
-        return status;
-    }
+    DriverObject->MajorFunction[IRP_MJ_CREATE] = HvDrvCreate;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE] = HvDrvClose;
+    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = HvDrvDeviceControl;
+    DriverObject->DriverUnload = DriverUnload;
 
     status = IoCreateDevice(
         DriverObject,
@@ -78,25 +75,42 @@ DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
         &DriverObject->DeviceObject);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateDevice failed with status %x", status);
-        HvVmxBroadcastTermination();
-        HvVmxPowerCbUnregister();
-        HvVmxFreeDriverState();
         return status;
     }
 
     status = IoCreateSymbolicLink(&device_link, &device_name);
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("IoCreateSymbolicLink failed with status %x", status);
-        HvVmxBroadcastTermination();
-        HvVmxPowerCbUnregister();
-        HvVmxFreeDriverState();
         IoDeleteDevice(DriverObject->DeviceObject);
         return status;
     }
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = HvDrvCreate;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = HvDrvClose;
-    DriverObject->DriverUnload = DriverUnload;
+    status = HvVmxAllocateDriverState();
+    if (!NT_SUCCESS(status)) {
+        DEBUG_ERROR("AllocateDriverState failed with status %x", status);
+        IoDeleteSymbolicLink(&device_link);
+        IoDeleteDevice(DriverObject->DeviceObject);
+        return status;
+    }
+
+    status = HvVmxPowerCbInit();
+    if (!NT_SUCCESS(status)) {
+        DEBUG_ERROR("InitialisePowerCallback failed with status %x", status);
+        HvVmxFreeDriverState();
+        IoDeleteSymbolicLink(&device_link);
+        IoDeleteDevice(DriverObject->DeviceObject);
+        return status;
+    }
+
+    status = HvVmxInitialiseOperation();
+    if (!NT_SUCCESS(status)) {
+        DEBUG_ERROR("SetupVmxOperation failed with status %x", status);
+        HvVmxPowerCbUnregister();
+        HvVmxFreeDriverState();
+        IoDeleteSymbolicLink(&device_link);
+        IoDeleteDevice(DriverObject->DeviceObject);
+        return status;
+    }
 
     DEBUG_LOG("Driver entry complete");
     return status;

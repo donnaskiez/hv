@@ -36,6 +36,30 @@ BOOLEAN
 HvVmcsIsApicPresent();
 
 VOID
+HvVmcsWritePrimaryProcessorControls(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWriteSecondaryProcessControls(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWritePinBasedControls(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWriteExitControls(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWriteEntryControls(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWriteExceptionBitmap(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsWriteMsrBitmap(_In_ PVCPU Vcpu);
+
+VOID
 HvVmcsSyncConfiguration(_In_ PVCPU Vcpu);
+
+VOID
+HvVmcsPropagateUpdate(_In_ PVCPU Vcpu, _In_ UINT32 Update);
 
 #endif

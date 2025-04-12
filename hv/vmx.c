@@ -13,6 +13,14 @@
 PDRIVER_STATE driver_state = NULL;
 PVCPU vmm_state = NULL;
 
+PVCPU
+HvVmxGetVcpu()
+{
+    PROCESSOR_NUMBER proc_number = {0};
+    KeGetCurrentProcessorNumberEx(&proc_number);
+    return &vmm_state[KeGetProcessorIndexFromNumber(&proc_number)];
+}
+
 /*
  * Some wrapper functions to read from our vmm state structure so we dont have
  * to write as much assembly.
@@ -20,25 +28,13 @@ PVCPU vmm_state = NULL;
 UINT64
 HvVmxGuestReadRip()
 {
-    return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rip;
+    return HvVmxGetVcpu()->exit_state.guest_rip;
 }
 
 UINT64
 HvVmxGuestReadRsp()
 {
-    return vmm_state[KeGetCurrentProcessorNumber()].exit_state.guest_rsp;
-}
-
-PVCPU
-HvVmxGetVcpu()
-{
-    return &vmm_state[KeGetCurrentProcessorNumber()];
-}
-
-PVCPU
-HvVmxGetVcpuByCore(_In_ UINT32 Core)
-{
-    return &vmm_state[Core];
+    return HvVmxGetVcpu()->exit_state.guest_rsp;
 }
 
 FORCEINLINE
@@ -46,7 +42,9 @@ STATIC
 VOID
 HvVmxSetAllVcpuState(_In_ UINT32 State)
 {
-    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
+    for (UINT32 index = 0;
+         index < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         index++) {
         vmm_state[index].state = State;
     }
 }
@@ -265,7 +263,7 @@ HvVmxAllocateVcpuArray()
 {
     vmm_state = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
-        sizeof(VCPU) * KeQueryActiveProcessorCount(0),
+        sizeof(VCPU) * KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS),
         POOL_TAG_VMM_STATE);
     if (!vmm_state) {
         DEBUG_LOG("Failed to allocate vmm state");
@@ -343,6 +341,23 @@ HvVmxFreeCoreVcpuState(_In_ PVCPU Vcpu)
 #if DEBUG
     HvLogCleanup(Vcpu);
 #endif
+}
+
+VOID
+HvVmxIncrementSequenceNumber(_Inout_ PVCPU Vcpu)
+{
+    UINT32 seq_val =
+        (HV_VCPU_SEQ_NUM_GET_SEQ(Vcpu->sequence_number) + 1) & 0xFFFFFF;
+    Vcpu->sequence_number =
+        HV_VCPU_SEQ_NUM_SET(KeGetCurrentProcessorIndex(), seq_val);
+}
+
+STATIC
+VOID
+HvVmxInitSequenceNumber(_Inout_ PVCPU Vcpu)
+{
+    Vcpu->sequence_number =
+        HV_VCPU_SEQ_NUM_SET(KeGetCurrentProcessorIndex(), 0);
 }
 
 VOID
@@ -462,6 +477,8 @@ HvVmxVirtualiseCore(_In_ PVMX_INIT_CONTEXT Context, _In_ PVOID StackPointer)
     /* Initialise the root debug state */
     HvDispDebugStoreRootRegState();
 
+    HvVmxInitSequenceNumber(vcpu);
+
 #if APIC
     InitialiseVirtualApicPage(vcpu);
 #endif
@@ -482,7 +499,9 @@ HvVmxValidateLaunch()
 {
     PVCPU vcpu = NULL;
 
-    for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
+    for (UINT32 core = 0;
+         core < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         core++) {
         vcpu = &vmm_state[core];
         if (vcpu->state != VMX_VCPU_STATE_RUNNING) {
             DEBUG_LOG("Core: %lx failed to enter VMX operation.", core);
@@ -588,7 +607,7 @@ HvVmxDpcTerminateOperation(
     UINT32 core = KeGetCurrentProcessorNumber();
     PVCPU vcpu = HvVmxGetVcpu();
 
-    status = HvVmxExecuteVmCall(VMX_HYPERCALL_TERMINATE_VMX, 0, 0, 0);
+    status = HvHypercallInternalVmxTerminate();
     if (!NT_SUCCESS(status)) {
         DEBUG_ERROR("HvVmxExecuteVmCall failed: %lx", status);
         goto end;
@@ -640,7 +659,9 @@ STATIC
 NTSTATUS
 HvVmxValidateVmxInit(PVMX_INIT_CONTEXT Context)
 {
-    for (UINT32 index = 0; index < KeQueryActiveProcessorCount(0); index++) {
+    for (UINT32 index = 0;
+         index < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         index++) {
         if (Context[index].status != STATUS_SUCCESS)
             return Context[index].status;
         Context[index].status = 0;
@@ -655,7 +676,7 @@ HvVmxInitialiseOperation()
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PVMX_INIT_CONTEXT context = NULL;
     EPT_POINTER* pept = NULL;
-    UINT32 core_count = KeQueryActiveProcessorCount(NULL);
+    UINT32 core_count = KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
 
     KeInitializeSpinLock(&g_StatsLock);
 
@@ -666,7 +687,7 @@ HvVmxInitialiseOperation()
     if (!context)
         goto end;
 
-    for (UINT32 core = 0; core < KeQueryActiveProcessorCount(NULL); core++) {
+    for (UINT32 core = 0; core < core_count; core++) {
         context[core].guest_stack = NULL;
         context[core].status = STATUS_UNSUCCESSFUL;
     }

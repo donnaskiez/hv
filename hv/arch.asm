@@ -232,12 +232,19 @@ HvArchVmExitHandler PROC
 	SAVE_GP	
 	SAVE_DEBUG
 
-	; Load the saved host debug register state after saving the guest 
+	; Load the saved root debug register state after saving the guest 
 	; debug register state. This ensures 2 things:
 	;
-	;	1. The guest does not receive leaked host values
+	;	1. The guest does not receive leaked root values
 	;	2. The continuous debug state remains valid across vmexits
 	;	   and entries. (mostly)
+	;
+	; Its important to note that this assumes that ExitControls->SaveDebugControls
+	; and EntryControls->LoadDebugControls are both TRUE as we only save dr0-dr7 reg
+	; state and not the msr for the guest.
+	;
+	; To ensure correct debugging, only once we have loaded the root debug state
+	; can debugging function correctly.
 
 	push rax
 	push rcx
@@ -264,8 +271,8 @@ HvArchVmExitHandler PROC
 	cmp al, 1			
 	je ExitVmx	
 	
-	; Store the final values of the host debug register state before we restore
-	; the guests debug register state. This will allow us to reload the host
+	; Store the final values of the root debug register state before we restore
+	; the guests debug register state. This will allow us to reload the root
 	; debug state on the next vmexit.
 
 	push rax
@@ -339,7 +346,7 @@ ExitVmx PROC
 	mov rsp, rbx
 	push rax
 
-	; Restore the guests state from the host stack before finally 
+	; Restore the guests state from the root stack before finally 
 	; loading the guests stack back and continuing execution.
 
 	mov rsp, rdx			                 

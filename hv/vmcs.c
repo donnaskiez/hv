@@ -318,7 +318,6 @@ HvVmcsBitmapSetBit(_Inout_ PUINT64 Bitmap, _In_ UINT32 Bit)
     Bitmap[index] |= (1ull << offset);
 }
 
-STATIC
 VOID
 HvVmcsWritePrimaryProcessorControls(_In_ PVCPU Vcpu)
 {
@@ -329,7 +328,6 @@ HvVmcsWritePrimaryProcessorControls(_In_ PVCPU Vcpu)
             IA32_VMX_PROCBASED_CTLS));
 }
 
-STATIC
 VOID
 HvVmcsWriteSecondaryProcessControls(_In_ PVCPU Vcpu)
 {
@@ -340,7 +338,6 @@ HvVmcsWriteSecondaryProcessControls(_In_ PVCPU Vcpu)
             IA32_VMX_PROCBASED_CTLS2));
 }
 
-STATIC
 VOID
 HvVmcsWritePinBasedControls(_In_ PVCPU Vcpu)
 {
@@ -349,7 +346,6 @@ HvVmcsWritePinBasedControls(_In_ PVCPU Vcpu)
         HvVmcsMsrAdjustControl(Vcpu->pin_ctls.AsUInt, IA32_VMX_PINBASED_CTLS));
 }
 
-STATIC
 VOID
 HvVmcsWriteExitControls(_In_ PVCPU Vcpu)
 {
@@ -358,7 +354,6 @@ HvVmcsWriteExitControls(_In_ PVCPU Vcpu)
         HvVmcsMsrAdjustControl(Vcpu->exit_ctls.AsUInt, IA32_VMX_EXIT_CTLS));
 }
 
-STATIC
 VOID
 HvVmcsWriteEntryControls(_In_ PVCPU Vcpu)
 {
@@ -367,14 +362,12 @@ HvVmcsWriteEntryControls(_In_ PVCPU Vcpu)
         HvVmcsMsrAdjustControl(Vcpu->entry_ctls.AsUInt, IA32_VMX_ENTRY_CTLS));
 }
 
-STATIC
 VOID
 HvVmcsWriteExceptionBitmap(_In_ PVCPU Vcpu)
 {
     HvVmcsWrite64(VMCS_CTRL_EXCEPTION_BITMAP, Vcpu->exception_bitmap);
 }
 
-STATIC
 VOID
 HvVmcsWriteMsrBitmap(_In_ PVCPU Vcpu)
 {
@@ -392,9 +385,9 @@ HvVmcsSetControlFields(_In_ PVCPU Vcpu)
      */
     Vcpu->proc_ctls.ActivateSecondaryControls = TRUE;
     Vcpu->proc_ctls.UseMsrBitmaps = TRUE;
-    Vcpu->proc_ctls.Cr3LoadExiting = FALSE;
-    Vcpu->proc_ctls.Cr3StoreExiting = FALSE;
-    Vcpu->proc_ctls.MovDrExiting = FALSE;
+    Vcpu->proc_ctls.Cr3LoadExiting = TRUE;
+    Vcpu->proc_ctls.Cr3StoreExiting = TRUE;
+    Vcpu->proc_ctls.MovDrExiting = TRUE;
 
     /* buggy TODO fix! */
     Vcpu->proc_ctls.UnconditionalIoExiting = FALSE;
@@ -495,8 +488,59 @@ HvVmcsInitialise(_In_ PVCPU Vcpu, _In_ PVOID StackPointer)
 }
 
 VOID
+HvVmcsPropagateUpdate(_In_ PVCPU vcpu, _In_ UINT32 update)
+{
+    PVCPU target = NULL;
+    UINT32 vcpu_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+
+    for (UINT32 index = 0; index < vcpu_count; index++) {
+        target = &vmm_state[index];
+
+        if (target == vcpu)
+            continue;
+
+        if (update & HV_VCPU_PENDING_PROC_CTLS_UPDATE) {
+            target->proc_ctls.AsUInt = vcpu->proc_ctls.AsUInt;
+            target->pend_updates |= HV_VCPU_PENDING_PROC_CTLS_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_PROC_CTLS2_UPDATE) {
+            target->proc_ctls2.AsUInt = vcpu->proc_ctls2.AsUInt;
+            target->pend_updates |= HV_VCPU_PENDING_PROC_CTLS2_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_PIN_CTLS_UPDATE) {
+            target->pin_ctls.AsUInt = vcpu->pin_ctls.AsUInt;
+            target->pend_updates |= HV_VCPU_PENDING_PIN_CTLS_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_EXIT_CTLS_UPDATE) {
+            target->exit_ctls.AsUInt = vcpu->exit_ctls.AsUInt;
+            target->pend_updates |= HV_VCPU_PENDING_EXIT_CTLS_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_ENTRY_CTLS_UPDATE) {
+            target->entry_ctls.AsUInt = vcpu->entry_ctls.AsUInt;
+            target->pend_updates |= HV_VCPU_PENDING_ENTRY_CTLS_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE) {
+            target->exception_bitmap = vcpu->exception_bitmap;
+            target->pend_updates |= HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE;
+        }
+
+        if (update & HV_VCPU_PENDING_MSR_BITMAP_UPDATE) {
+            target->msr_bitmap_pa = vcpu->msr_bitmap_pa;
+            target->pend_updates |= HV_VCPU_PENDING_MSR_BITMAP_UPDATE;
+        }
+    }
+}
+
+VOID
 HvVmcsSyncConfiguration(_In_ PVCPU Vcpu)
 {
+    HIGH_IRQL_LOG_SAFE("Syncing VMCS.");
+
     if (Vcpu->pend_updates & HV_VCPU_PENDING_PROC_CTLS_UPDATE) {
         HvVmcsWritePrimaryProcessorControls(Vcpu);
         Vcpu->pend_updates &= ~HV_VCPU_PENDING_PROC_CTLS_UPDATE;
