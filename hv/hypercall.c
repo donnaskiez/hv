@@ -20,15 +20,6 @@
 typedef ULONG HVSTATUS;
 
 /*
- * Extracts the hypercall "Function" bits from a 32-bit IOCTL code.
- * We shift right by 2 to remove the METHOD bits (bits [1..0]),
- * then mask off as many bits as needed. Here we use 0xFFF (12 bits)
- * to match valid function field size in CTL_CODE macros.
- */
-#define VMX_HYPERCALL_GET_FUNCTION(Io) \
-    (((Io)->Parameters.DeviceIoControl.IoControlCode >> 2) & 0xFFF)
-
-/*
  * VMX Hypercall (and IOCTL Function) IDs
  */
 #define VMX_HYPERCALL_FUNCTION_TERMINATE   0x800
@@ -50,6 +41,11 @@ typedef ULONG HVSTATUS;
 #define VMX_HYPERCALL_FUNCTION_READ_ENTRY_CTLS       0x814
 #define VMX_HYPERCALL_FUNCTION_READ_EXCEPTION_BITMAP 0x815
 #define VMX_HYPERCALL_FUNCTION_READ_MSR_BITMAP       0x816
+
+typedef struct _HYPERCALL_HEADER {
+    UINT32 bytes_written; /* bytes written to output buffer */
+    UINT32 bytes_read;    /* bytes read from input buffer */
+} HYPERCALL_HEADER, *PHYPERCALL_HEADER;
 
 /*
  * IOCTL: IOCTL_HYPERCALL_TERMINATE_VMX
@@ -73,7 +69,10 @@ typedef ULONG HVSTATUS;
         METHOD_BUFFERED,             \
         FILE_ANY_ACCESS)
 
+#define HV_VMX_PING_VALUE 999
+
 typedef struct _HYPERCALL_PING {
+    HYPERCALL_HEADER header;
     UINT32 value;
 } HYPERCALL_PING, *PHYPERCALL_PING;
 
@@ -89,6 +88,7 @@ typedef struct _HYPERCALL_PING {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_QUERY_STATS {
+    HYPERCALL_HEADER header;
     VCPU_STATS stats;
 } HYPERCALL_QUERY_STATS, *PHYPERCALL_QUERY_STATS;
 
@@ -112,6 +112,7 @@ typedef struct _HYPERCALL_QUERY_STATS {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_PROC_CTLS {
+    HYPERCALL_HEADER header;
     IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls;
 } HYPERCALL_RW_PROC_CTLS, *PHYPERCALL_RW_PROC_CTLS;
 
@@ -135,6 +136,7 @@ typedef struct _HYPERCALL_RW_PROC_CTLS {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_PROC_CTLS2 {
+    HYPERCALL_HEADER header;
     IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
 } HYPERCALL_RW_PROC_CTLS2, *PHYPERCALL_RW_PROC_CTLS2;
 
@@ -158,6 +160,7 @@ typedef struct _HYPERCALL_RW_PROC_CTLS2 {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_PIN_CTLS {
+    HYPERCALL_HEADER header;
     IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls;
 } HYPERCALL_RW_PIN_CTLS, *PHYPERCALL_RW_PIN_CTLS;
 
@@ -181,6 +184,7 @@ typedef struct _HYPERCALL_RW_PIN_CTLS {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_EXIT_CTLS {
+    HYPERCALL_HEADER header;
     IA32_VMX_EXIT_CTLS_REGISTER exit_ctls;
 } HYPERCALL_RW_EXIT_CTLS, *PHYPERCALL_RW_EXIT_CTLS;
 
@@ -204,6 +208,7 @@ typedef struct _HYPERCALL_RW_EXIT_CTLS {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_ENTRY_CTLS {
+    HYPERCALL_HEADER header;
     IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls;
 } HYPERCALL_RW_ENTRY_CTLS, *PHYPERCALL_RW_ENTRY_CTLS;
 
@@ -227,6 +232,7 @@ typedef struct _HYPERCALL_RW_ENTRY_CTLS {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_EXCEPTION_BITMAP {
+    HYPERCALL_HEADER header;
     UINT32 exception_bitmap;
 } HYPERCALL_RW_EXCEPTION_BITMAP, *PHYPERCALL_RW_EXCEPTION_BITMAP;
 
@@ -250,23 +256,18 @@ typedef struct _HYPERCALL_RW_EXCEPTION_BITMAP {
         FILE_ANY_ACCESS)
 
 typedef struct _HYPERCALL_RW_MSR_BITMAP {
-    UINT64 msr_bitmap;
+    HYPERCALL_HEADER header;
+    MSR_BITMAP msr_bitmap;
 } HYPERCALL_RW_MSR_BITMAP, *PHYPERCALL_RW_MSR_BITMAP;
 
 /*
- * IOCTL: IOCTL_HYPERCALL_WRITE_MSR_BITMAP
- * Summary: Updates the MSR bitmap pointer in the VMCS.
+ * Extracts the hypercall "Function" bits from a 32-bit IOCTL code.
+ * We shift right by 2 to remove the METHOD bits (bits [1..0]),
+ * then mask off as many bits as needed. Here we use 0xFFF (12 bits)
+ * to match valid function field size in CTL_CODE macros.
  */
-#define IOCTL_HYPERCALL_WRITE_MSR_BITMAP         \
-    CTL_CODE(                                    \
-        FILE_DEVICE_UNKNOWN,                     \
-        VMX_HYPERCALL_FUNCTION_WRITE_MSR_BITMAP, \
-        METHOD_BUFFERED,                         \
-        FILE_ANY_ACCESS)
-
-typedef struct _HYPERCALL_WRITE_MSR_BITMAP {
-    UINT64 msr_bitmap;
-} HYPERCALL_WRITE_MSR_BITMAP, *PHYPERCALL_WRITE_MSR_BITMAP;
+#define VMX_HYPERCALL_GET_FUNCTION(Io) \
+    (((Io)->Parameters.DeviceIoControl.IoControlCode >> 2) & 0xFFF)
 
 STATIC
 UINT32
@@ -303,7 +304,8 @@ HvHypercallGetRequiredInOutBufSize(_In_ UINT32 hypercall_id)
     do {                                                           \
         (ptr)->hypercall_status = HVSTATUS_NOT_HANDLED;            \
         (ptr)->hypercall_id = (id);                                \
-        (ptr)->hypercall_buf = (buf);                              \
+        (ptr)->hypercall_hdr = (buf);                              \
+        (ptr)->hypercall_buf = (buf + sizeof(HYPERCALL_HEADER));   \
         (ptr)->hypercall_buf_len = (buf_len);                      \
         (ptr)->hypercall_placeholder = (placeholder);              \
     } while (0)
@@ -314,6 +316,7 @@ typedef struct _HYPERCALL_ARGS {
     PUINT8 hypercall_buf;         /* rdx */
     UINT64 hypercall_buf_len;     /* r8 */
     UINT64 hypercall_placeholder; /* r9 */
+    PHYPERCALL_HEADER hypercall_hdr;
 } HYPERCALL_ARGS, *PHYPERCALL_ARGS;
 
 FORCEINLINE
@@ -330,15 +333,9 @@ STATIC
 VOID
 HvHypercallHandlePing(_In_ PHYPERCALL_ARGS Args)
 {
-    PVCPU vcpu = HvVmxGetVcpu();
-
-    HvVmxIncrementSequenceNumber(vcpu);
-
-    RtlCopyMemory(
-        Args->hypercall_buf,
-        &vcpu->sequence_number,
-        Args->hypercall_buf_len);
-
+    PHYPERCALL_PING ping = Args->hypercall_hdr;
+    ping->value = HV_VMX_PING_VALUE;
+    Args->hypercall_hdr->bytes_written = sizeof(*ping);
     Args->hypercall_status = HVSTATUS_SUCCESS;
 }
 
@@ -353,11 +350,12 @@ STATIC
 VOID
 HvHypercallHandleQueryStats(_In_ PHYPERCALL_ARGS Args)
 {
-    RtlCopyMemory(
-        Args->hypercall_buf,
-        &HvVmxGetVcpu()->stats,
-        Args->hypercall_buf_len);
+    PVCPU vcpu = HvVmxGetVcpu();
+    PHYPERCALL_QUERY_STATS stats = Args->hypercall_hdr;
 
+    RtlCopyMemory(&stats->stats, &vcpu->stats, sizeof(stats->stats));
+
+    Args->hypercall_hdr->bytes_written = sizeof(*stats);
     Args->hypercall_status = HVSTATUS_SUCCESS;
 }
 
@@ -378,6 +376,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_PROC_CTLS input =
             (PHYPERCALL_RW_PROC_CTLS)Args->hypercall_buf;
         vcpu->proc_ctls.AsUInt = input->proc_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWritePrimaryProcessorControls(vcpu);
         update = HV_VCPU_PENDING_PROC_CTLS_UPDATE;
         break;
@@ -386,6 +385,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_PROC_CTLS2 input =
             (PHYPERCALL_RW_PROC_CTLS2)Args->hypercall_buf;
         vcpu->proc_ctls2.AsUInt = input->proc_ctls2.AsUInt;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWriteSecondaryProcessControls(vcpu);
         update = HV_VCPU_PENDING_PROC_CTLS2_UPDATE;
         break;
@@ -394,6 +394,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_PIN_CTLS input =
             (PHYPERCALL_RW_PIN_CTLS)Args->hypercall_buf;
         vcpu->pin_ctls.AsUInt = input->pin_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWritePinBasedControls(vcpu);
         update = HV_VCPU_PENDING_PIN_CTLS_UPDATE;
         break;
@@ -402,6 +403,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_EXIT_CTLS input =
             (PHYPERCALL_RW_EXIT_CTLS)Args->hypercall_buf;
         vcpu->exit_ctls.AsUInt = input->exit_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWriteExitControls(vcpu);
         update = HV_VCPU_PENDING_EXIT_CTLS_UPDATE;
         break;
@@ -410,6 +412,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_ENTRY_CTLS input =
             (PHYPERCALL_RW_ENTRY_CTLS)Args->hypercall_buf;
         vcpu->entry_ctls.AsUInt = input->entry_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWriteEntryControls(vcpu);
         update = HV_VCPU_PENDING_ENTRY_CTLS_UPDATE;
         break;
@@ -418,6 +421,7 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_EXCEPTION_BITMAP input =
             (PHYPERCALL_RW_EXCEPTION_BITMAP)Args->hypercall_buf;
         vcpu->exception_bitmap = input->exception_bitmap;
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWriteExceptionBitmap(vcpu);
         update = HV_VCPU_PENDING_EXCEPTION_BITMAP_UPDATE;
         break;
@@ -425,13 +429,18 @@ HvHypercallHandleVmcsWrite(_In_ PHYPERCALL_ARGS Args)
     case VMX_HYPERCALL_FUNCTION_WRITE_MSR_BITMAP: {
         PHYPERCALL_RW_MSR_BITMAP input =
             (PHYPERCALL_RW_MSR_BITMAP)Args->hypercall_buf;
-        vcpu->msr_bitmap_pa = (PMSR_BITMAP)(UINT_PTR)input->msr_bitmap;
+        RtlCopyMemory(
+            &vcpu->msr_bitmap_va,
+            &input->msr_bitmap,
+            sizeof(Args->hypercall_buf_len));
+        Args->hypercall_hdr->bytes_read = sizeof(*input);
         HvVmcsWriteMsrBitmap(vcpu);
         update = HV_VCPU_PENDING_MSR_BITMAP_UPDATE;
         break;
     }
     default: {
         Args->hypercall_status = HVSTATUS_INVALID_PARAMETER;
+        Args->hypercall_hdr->bytes_read = 0;
         return;
     }
     }
@@ -452,46 +461,57 @@ HvHypercallHandleVmcsRead(_In_ PHYPERCALL_ARGS Args)
         PHYPERCALL_RW_PROC_CTLS output =
             (PHYPERCALL_RW_PROC_CTLS)Args->hypercall_buf;
         output->proc_ctls.AsUInt = vcpu->proc_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_PROC_CTLS2: {
         PHYPERCALL_RW_PROC_CTLS2 output =
             (PHYPERCALL_RW_PROC_CTLS2)Args->hypercall_buf;
         output->proc_ctls2.AsUInt = vcpu->proc_ctls2.AsUInt;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_PIN_CTLS: {
         PHYPERCALL_RW_PIN_CTLS output =
             (PHYPERCALL_RW_PIN_CTLS)Args->hypercall_buf;
         output->pin_ctls.AsUInt = vcpu->pin_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_EXIT_CTLS: {
         PHYPERCALL_RW_EXIT_CTLS output =
             (PHYPERCALL_RW_EXIT_CTLS)Args->hypercall_buf;
         output->exit_ctls.AsUInt = vcpu->exit_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_ENTRY_CTLS: {
         PHYPERCALL_RW_ENTRY_CTLS output =
             (PHYPERCALL_RW_ENTRY_CTLS)Args->hypercall_buf;
         output->entry_ctls.AsUInt = vcpu->entry_ctls.AsUInt;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_EXCEPTION_BITMAP: {
         PHYPERCALL_RW_EXCEPTION_BITMAP output =
             (PHYPERCALL_RW_EXCEPTION_BITMAP)Args->hypercall_buf;
         output->exception_bitmap = vcpu->exception_bitmap;
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     case VMX_HYPERCALL_FUNCTION_READ_MSR_BITMAP: {
         PHYPERCALL_RW_MSR_BITMAP output =
             (PHYPERCALL_RW_MSR_BITMAP)Args->hypercall_buf;
-        output->msr_bitmap = (UINT64)(UINT_PTR)vcpu->msr_bitmap_pa;
+        RtlCopyMemory(
+            &output->msr_bitmap,
+            &vcpu->msr_bitmap_va,
+            sizeof(Args->hypercall_buf_len));
+        Args->hypercall_hdr->bytes_written = sizeof(*output);
         break;
     }
     default: {
         Args->hypercall_status = HVSTATUS_INVALID_PARAMETER;
+        Args->hypercall_hdr->bytes_written = 0;
         return;
     }
     }
@@ -808,7 +828,9 @@ HvHypercallDispatchQueryStats(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION Io)
         HvHypercallUpdateRetStats(ret_stats, &core_stats);
     }
 
-    Irp->IoStatus.Information = sizeof(*ret_stats);
+    if (NT_SUCCESS(status))
+        ret_stats->header.bytes_written = sizeof(*ret_stats);
+
     return STATUS_SUCCESS;
 }
 
@@ -835,6 +857,7 @@ HvHypercallDispatchFromGuest(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION Io)
     PMDL mdl = NULL;
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     UINT32 hypercall_id = VMX_HYPERCALL_GET_FUNCTION(Io);
+    PHYPERCALL_HEADER hdr = Irp->AssociatedIrp.SystemBuffer;
 
     DEBUG_LOG("Dispatching Hypercall: %lx", hypercall_id);
 
@@ -882,6 +905,16 @@ HvHypercallDispatchFromGuest(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION Io)
         break;
     default: status = STATUS_INVALID_PARAMETER;
     }
+
+    if (NT_SUCCESS(status))
+        Irp->IoStatus.Information = hdr->bytes_written;
+
+    DEBUG_LOG(
+        "Completing hypercall: %lx, Written: %lx, Read: %lx, Status: %lx",
+        hypercall_id,
+        hdr->bytes_written,
+        hdr->bytes_read,
+        status);
 
     return status;
 }

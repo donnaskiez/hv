@@ -1,6 +1,6 @@
 #include "vmcs.h"
 
-#include "ia32.h"
+#include "../ia32.h"
 #include "vmx.h"
 #include "arch.h"
 #include "log.h"
@@ -387,7 +387,7 @@ HvVmcsSetControlFields(_In_ PVCPU Vcpu)
     Vcpu->proc_ctls.UseMsrBitmaps = TRUE;
     Vcpu->proc_ctls.Cr3LoadExiting = TRUE;
     Vcpu->proc_ctls.Cr3StoreExiting = TRUE;
-    Vcpu->proc_ctls.MovDrExiting = TRUE;
+    Vcpu->proc_ctls.MovDrExiting = FALSE;
 
     /* buggy TODO fix! */
     Vcpu->proc_ctls.UnconditionalIoExiting = FALSE;

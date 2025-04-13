@@ -2,7 +2,7 @@
 #define VMX_H
 
 #include "driver.h"
-#include "ia32.h"
+#include "../ia32.h"
 
 typedef struct _VMX_INIT_CONTEXT {
     PVOID guest_stack;

@@ -34,9 +34,6 @@
     <ClCompile Include="vmx.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mm.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="hypercall.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -51,9 +48,6 @@
     <ClInclude Include="common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ia32.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="vmcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -66,10 +60,10 @@
     <ClInclude Include="log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mm.h">
+    <ClInclude Include="hypercall.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="hypercall.h">
+    <ClInclude Include="..\ia32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

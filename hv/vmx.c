@@ -1,7 +1,7 @@
 #include "vmx.h"
 
 #include "common.h"
-#include "ia32.h"
+#include "../ia32.h"
 #include "arch.h"
 #include "vmcs.h"
 #include "log.h"
@@ -43,7 +43,7 @@ VOID
 HvVmxSetAllVcpuState(_In_ UINT32 State)
 {
     for (UINT32 index = 0;
-         index < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         index < KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
          index++) {
         vmm_state[index].state = State;
     }
@@ -263,7 +263,7 @@ HvVmxAllocateVcpuArray()
 {
     vmm_state = ExAllocatePool2(
         POOL_FLAG_NON_PAGED,
-        sizeof(VCPU) * KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS),
+        sizeof(VCPU) * KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS),
         POOL_TAG_VMM_STATE);
     if (!vmm_state) {
         DEBUG_LOG("Failed to allocate vmm state");
@@ -500,7 +500,7 @@ HvVmxValidateLaunch()
     PVCPU vcpu = NULL;
 
     for (UINT32 core = 0;
-         core < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         core < KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
          core++) {
         vcpu = &vmm_state[core];
         if (vcpu->state != VMX_VCPU_STATE_RUNNING) {
@@ -660,7 +660,7 @@ NTSTATUS
 HvVmxValidateVmxInit(PVMX_INIT_CONTEXT Context)
 {
     for (UINT32 index = 0;
-         index < KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+         index < KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
          index++) {
         if (Context[index].status != STATUS_SUCCESS)
             return Context[index].status;
@@ -676,7 +676,7 @@ HvVmxInitialiseOperation()
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PVMX_INIT_CONTEXT context = NULL;
     EPT_POINTER* pept = NULL;
-    UINT32 core_count = KeQueryActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    UINT32 core_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 
     KeInitializeSpinLock(&g_StatsLock);
 
