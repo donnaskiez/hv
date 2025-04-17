@@ -17,6 +17,21 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
+    <Filter Include="Security">
+      <UniqueIdentifier>{security-guid}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Monitoring">
+      <UniqueIdentifier>{monitoring-guid}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Advanced Virtualization">
+      <UniqueIdentifier>{advanced-virt-guid}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Integration">
+      <UniqueIdentifier>{integration-guid}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Development Tools">
+      <UniqueIdentifier>{dev-tools-guid}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="driver.c">
@@ -36,6 +51,21 @@
     </ClCompile>
     <ClCompile Include="hypercall.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="security.c">
+      <Filter>Security</Filter>
+    </ClCompile>
+    <ClCompile Include="monitoring.c">
+      <Filter>Monitoring</Filter>
+    </ClCompile>
+    <ClCompile Include="advanced_virt.c">
+      <Filter>Advanced Virtualization</Filter>
+    </ClCompile>
+    <ClCompile Include="integration.c">
+      <Filter>Integration</Filter>
+    </ClCompile>
+    <ClCompile Include="dev_tools.c">
+      <Filter>Development Tools</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -65,6 +95,21 @@
     </ClInclude>
     <ClInclude Include="..\ia32.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="security.h">
+      <Filter>Security</Filter>
+    </ClInclude>
+    <ClInclude Include="monitoring.h">
+      <Filter>Monitoring</Filter>
+    </ClInclude>
+    <ClInclude Include="advanced_virt.h">
+      <Filter>Advanced Virtualization</Filter>
+    </ClInclude>
+    <ClInclude Include="integration.h">
+      <Filter>Integration</Filter>
+    </ClInclude>
+    <ClInclude Include="dev_tools.h">
+      <Filter>Development Tools</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

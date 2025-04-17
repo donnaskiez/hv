@@ -406,6 +406,11 @@
     <ClCompile Include="log.c" />
     <ClCompile Include="vmcs.c" />
     <ClCompile Include="vmx.c" />
+    <ClCompile Include="security.c" />
+    <ClCompile Include="monitoring.c" />
+    <ClCompile Include="advanced_virt.c" />
+    <ClCompile Include="integration.c" />
+    <ClCompile Include="dev_tools.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ia32.h" />
@@ -417,6 +422,11 @@
     <ClInclude Include="log.h" />
     <ClInclude Include="vmcs.h" />
     <ClInclude Include="vmx.h" />
+    <ClInclude Include="security.h" />
+    <ClInclude Include="monitoring.h" />
+    <ClInclude Include="advanced_virt.h" />
+    <ClInclude Include="integration.h" />
+    <ClInclude Include="dev_tools.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="arch.asm">
