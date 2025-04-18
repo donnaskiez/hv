@@ -1,6 +1,8 @@
 #ifndef VMX_H
 #define VMX_H
 
+#include "stats.h"
+
 #include "driver.h"
 #include "../ia32.h"
 
@@ -178,36 +180,61 @@ typedef struct _VCPU_STATS {
 #define HV_VCPU_SEQ_NUM_GET_SEQ(seq)  ((seq) & 0xFFFFFF)
 
 typedef struct _VCPU {
+    // Core VMX state
     VCPU_STATE state;
-    VMM_CACHE cache;
-    EXIT_STATE exit_state;
-    UINT64 sequence_number;
-    PGUEST_CONTEXT guest_context;
+    UINT32 sequence_number;
+    
+    // Memory regions
     UINT64 vmxon_region_pa;
     UINT64 vmxon_region_va;
     UINT64 vmcs_region_pa;
     UINT64 vmcs_region_va;
-    UINT64 eptp_va;
     UINT64 vmm_stack_va;
-    PMSR_BITMAP msr_bitmap_va;
-    PMSR_BITMAP msr_bitmap_pa;
-    PUINT8 virtual_apic_va;
-    PUINT8 virtual_apic_pa;
+    UINT64 msr_bitmap_pa;
+    UINT64 msr_bitmap_va;
+    UINT64 virtual_apic_pa;
+    UINT64 virtual_apic_va;
+    
+    // VMX controls
+    UINT64 preemption_time;
+    UINT32 pend_updates;
     UINT32 exception_bitmap;
-    UINT32 exception_bitmap_mask;
-    VCPU_ROOT_DBG_STATE debug_state;
     IA32_VMX_PROCBASED_CTLS_REGISTER proc_ctls;
     IA32_VMX_PROCBASED_CTLS2_REGISTER proc_ctls2;
     IA32_VMX_PINBASED_CTLS_REGISTER pin_ctls;
     IA32_VMX_EXIT_CTLS_REGISTER exit_ctls;
     IA32_VMX_ENTRY_CTLS_REGISTER entry_ctls;
-    UINT32 pend_updates;
-    VCPU_STATS stats;
-#ifdef DEBUG
-    UINT32 preemption_time;
-    VCPU_LOG_STATE log_state;
-#endif
-
+    
+    // Debug and diagnostic state
+    VCPU_ROOT_DBG_STATE debug_state;
+    struct {
+        BOOLEAN active;
+        UINT32 leaf;
+        UINT32 subleaf;
+    } cache;
+    
+    // Exit state tracking
+    struct {
+        UINT64 guest_rip;
+        UINT64 guest_rsp;
+        BOOLEAN exit_vmx;
+    } exit_state;
+    
+    // Enhanced monitoring and logging
+    VCPU_STATS stats;                // Legacy statistics
+    VMX_PERF_COUNTERS perf_counters; // Enhanced performance monitoring
+    VCPU_LOG_STATE log_state;        // Logging state
+    LOG_CONFIG log_config;           // Per-VCPU logging configuration
+    
+    // Debug and feature flags
+    struct {
+        UINT32 debug_mode : 1;        // Enable detailed debugging
+        UINT32 perf_monitoring : 1;    // Enable performance monitoring
+        UINT32 enhanced_logging : 1;   // Enable enhanced logging features
+        UINT32 reserved : 29;         // Reserved for future use
+    } flags;
+    
+    UINT8 pad[0x1000];
 } VCPU, *PVCPU;
 
 #define SET_FLAG_U32(n) (1U << (n))

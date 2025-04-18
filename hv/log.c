@@ -3,9 +3,28 @@
 #include "common.h"
 #include "arch.h"
 #include "vmcs.h"
+#include "log_config.h"
 
 #include <ntstrsafe.h>
 #include <stdarg.h>
+
+// Global logging configuration
+STATIC LOG_CONFIG g_LogConfig = {
+    .min_level = LOG_DEFAULT_MIN_LEVEL,
+    .enable_timestamps = LOG_DEFAULT_ENABLE_TIMESTAMPS,
+    .enable_categories = LOG_DEFAULT_ENABLE_CATEGORIES,
+    .enable_cpu_info = LOG_DEFAULT_ENABLE_CPU_INFO,
+    .buffer_flush_threshold = LOG_DEFAULT_FLUSH_THRESHOLD,
+    .max_message_length = LOG_DEFAULT_MAX_MESSAGE_LENGTH
+};
+
+// Performance monitoring structure
+typedef struct _PERFORMANCE_MONITOR {
+    UINT64 start_time;
+    UINT64 total_time;
+    UINT32 count;
+    PCSTR operation;
+} PERFORMANCE_MONITOR, *PPERFORMANCE_MONITOR;
 
 #pragma warning(push)
 #pragma warning(disable : 28182)
@@ -160,7 +179,7 @@ HvLogFlush(_In_ PVCPU_LOG_STATE Logger)
  * production ready project anyway and more for just fun and learning purposes.
  */
 VOID
-HvLogWrite(PCSTR Format, ...)
+HvLogWrite(_In_ LOG_LEVEL Level, _In_ LOG_CATEGORY Category, _In_ PCSTR Format, ...)
 {
     NTSTATUS status = STATUS_SUCCESS;
     PVCPU vcpu = HvVmxGetVcpu();
@@ -185,9 +204,42 @@ HvLogWrite(PCSTR Format, ...)
     cur_tail = logger->tail;
     usage = cur_head - cur_tail;
 
+    // Check if we should log based on level
+    if (!HvLogShouldLog(&g_LogConfig, Level)) {
+        return;
+    }
+
     if (usage >= VMX_MAX_LOG_ENTRIES_COUNT) {
         InterlockedIncrement(&logger->discard_count);
         return;
+    }
+
+    // Format the log message with metadata based on configuration
+    CHAR formatted_message[LOG_DEFAULT_MAX_MESSAGE_LENGTH];
+    CHAR timestamp[32];
+    CHAR category_str[32];
+    
+    // Get timestamp if enabled
+    if (g_LogConfig.enable_timestamps) {
+        LARGE_INTEGER system_time;
+        KeQuerySystemTime(&system_time);
+        TIME_FIELDS time_fields;
+        RtlTimeToTimeFields(&system_time, &time_fields);
+        RtlStringCbPrintfA(timestamp, sizeof(timestamp), "%02d:%02d:%02d.%03d",
+            time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
+    }
+
+    // Get category string if enabled
+    if (g_LogConfig.enable_categories) {
+        switch (Category) {
+            case LOG_CATEGORY_GENERAL: RtlStringCbCopyA(category_str, sizeof(category_str), "GENERAL"); break;
+            case LOG_CATEGORY_VMX: RtlStringCbCopyA(category_str, sizeof(category_str), "VMX"); break;
+            case LOG_CATEGORY_VMCS: RtlStringCbCopyA(category_str, sizeof(category_str), "VMCS"); break;
+            case LOG_CATEGORY_HYPERCALL: RtlStringCbCopyA(category_str, sizeof(category_str), "HYPERCALL"); break;
+            case LOG_CATEGORY_PERFORMANCE: RtlStringCbCopyA(category_str, sizeof(category_str), "PERF"); break;
+            case LOG_CATEGORY_SECURITY: RtlStringCbCopyA(category_str, sizeof(category_str), "SECURITY"); break;
+            default: RtlStringCbCopyA(category_str, sizeof(category_str), "UNKNOWN"); break;
+        }
     }
 
     old_head = InterlockedIncrement(&logger->head) - 1;
