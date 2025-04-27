@@ -10,6 +10,15 @@ static VMCS_SHADOW_CONFIG g_VmcsShadowConfig = {0};
 static MULTI_VM_CONFIG g_MultiVmConfig = {0};
 static KSPIN_LOCK g_VirtLock = {0};
 
+/**
+ * @brief Initializes advanced virtualization features.
+ *
+ * This function sets up the global state and default configurations for
+ * advanced virtualization features, including EPT, VMCS shadowing, and
+ * multi-VM support.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
 NTSTATUS
 AdvancedVirtInitialize(
     VOID
@@ -41,6 +50,16 @@ AdvancedVirtInitialize(
     return status;
 }
 
+/**
+ * @brief Configures APIC virtualization mode.
+ *
+ * This function sets the APIC virtualization mode to one of the supported
+ * modes, such as basic, advanced, or x2APIC.
+ *
+ * @param Mode - The desired APIC virtualization mode.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
 NTSTATUS
 AdvancedVirtConfigureApic(
     APIC_VIRT_MODE Mode
@@ -80,6 +99,15 @@ AdvancedVirtConfigureApic(
     return status;
 }
 
+/**
+ * @brief Configures EPT (Extended Page Tables).
+ *
+ * This function applies the given EPT configuration to the hypervisor.
+ *
+ * @param Config - Pointer to the EPT configuration structure.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
 NTSTATUS
 AdvancedVirtConfigureEpt(
     PEPT_CONFIG Config
@@ -325,6 +353,48 @@ AdvancedVirtConfigureHardwareAssist(
     return STATUS_SUCCESS;
 }
 
+NTSTATUS ConfigureVtd(PVIRTUAL_MACHINE vm) {
+    NTSTATUS status = STATUS_SUCCESS;
+
+    // Initialize VT-d hardware
+    status = InitializeVtdHardware(vm->VtdConfig);
+    if (!NT_SUCCESS(status)) {
+        LogError("Failed to initialize VT-d hardware: 0x%X", status);
+        return status;
+    }
+
+    // Configure DMA remapping
+    status = ConfigureDmaRemapping(vm->VtdConfig);
+    if (!NT_SUCCESS(status)) {
+        LogError("Failed to configure DMA remapping: 0x%X", status);
+        return status;
+    }
+
+    LogInfo("VT-d configured successfully for VM %u", vm->Id);
+    return status;
+}
+
+NTSTATUS ConfigureSriov(PVIRTUAL_MACHINE vm, UINT32 VirtualFunctions) {
+    NTSTATUS status = STATUS_SUCCESS;
+
+    // Initialize SR-IOV hardware
+    status = InitializeSriovHardware(vm->SriovConfig);
+    if (!NT_SUCCESS(status)) {
+        LogError("Failed to initialize SR-IOV hardware: 0x%X", status);
+        return status;
+    }
+
+    // Configure virtual functions
+    status = ConfigureVirtualFunctions(vm->SriovConfig, VirtualFunctions);
+    if (!NT_SUCCESS(status)) {
+        LogError("Failed to configure virtual functions: 0x%X", status);
+        return status;
+    }
+
+    LogInfo("SR-IOV configured successfully for VM %u", vm->Id);
+    return status;
+}
+
 NTSTATUS
 AdvancedVirtConfigureMemoryBalloon(
     UINT32 VmId,
@@ -419,4 +489,4 @@ AdvancedVirtAttestVirtualTpm(
     return STATUS_SUCCESS;
 }
 
-// Additional function implementations would follow... 
+// Additional function implementations would follow...

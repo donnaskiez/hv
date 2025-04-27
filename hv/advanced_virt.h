@@ -10,12 +10,17 @@ typedef enum _APIC_VIRT_MODE {
     ApicVirtX2Apic
 } APIC_VIRT_MODE;
 
-// EPT configuration
+/**
+ * @brief Structure for EPT configuration.
+ *
+ * This structure holds the configuration parameters for Extended Page Tables (EPT),
+ * including page walk levels, large page support, and caching options.
+ */
 typedef struct _EPT_CONFIG {
-    UINT32 PageWalkLevels;
-    BOOLEAN EnableLargePages;
-    BOOLEAN EnableAccessDirty;
-    UINT32 CacheType;
+    UINT32 PageWalkLevels; /**< Number of page walk levels (2-4). */
+    BOOLEAN EnableLargePages; /**< Enable or disable large page support. */
+    BOOLEAN EnableAccessDirty; /**< Enable or disable access/dirty bits. */
+    UINT32 CacheType; /**< Cache type (e.g., write-back). */
 } EPT_CONFIG, *PEPT_CONFIG;
 
 // VMCS shadow configuration
@@ -89,12 +94,30 @@ typedef struct _VIRTUAL_TPM_CONFIG {
     UINT32 KeySize;
 } VIRTUAL_TPM_CONFIG, *PVIRTUAL_TPM_CONFIG;
 
-// Function declarations
+/**
+ * @brief Initializes advanced virtualization features.
+ *
+ * This function sets up the global state and default configurations for
+ * advanced virtualization features, including EPT, VMCS shadowing, and
+ * multi-VM support.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
 NTSTATUS
 AdvancedVirtInitialize(
     VOID
 );
 
+/**
+ * @brief Configures APIC virtualization mode.
+ *
+ * This function sets the APIC virtualization mode to one of the supported
+ * modes, such as basic, advanced, or x2APIC.
+ *
+ * @param Mode - The desired APIC virtualization mode.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
 NTSTATUS
 AdvancedVirtConfigureApic(
     APIC_VIRT_MODE Mode
@@ -170,4 +193,4 @@ AdvancedVirtAttestVirtualTpm(
     UINT32 VmId,
     PVOID AttestationData,
     PUINT32 DataSize
-); 
+);

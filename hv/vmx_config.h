@@ -59,6 +59,18 @@ typedef struct _VMX_FEATURE_CONFIG {
 
 } VMX_FEATURE_CONFIG, *PVMX_FEATURE_CONFIG;
 
+/**
+ * @brief Structure for VMX configuration.
+ *
+ * This structure holds the configuration parameters for Virtual Machine Extensions (VMX),
+ * including preemption timer, unrestricted mode, and debug options.
+ */
+typedef struct _VMX_CONFIG {
+    BOOLEAN EnablePreemptionTimer; /**< Enable or disable the preemption timer. */
+    BOOLEAN EnableUnrestrictedMode; /**< Enable or disable unrestricted mode. */
+    BOOLEAN EnableDebugOptions; /**< Enable or disable debug options. */
+} VMX_CONFIG, *PVMX_CONFIG;
+
 // Default configuration values
 #define VMX_DEFAULT_HOST_STACK_SIZE    0x8000
 #define VMX_DEFAULT_GUEST_STACK_SIZE   0x8000
@@ -70,5 +82,16 @@ NTSTATUS HvVmxConfigInitialize(_Out_ PVMX_FEATURE_CONFIG Config);
 VOID HvVmxConfigApply(_In_ PVCPU Vcpu, _In_ PVMX_FEATURE_CONFIG Config);
 BOOLEAN HvVmxConfigValidate(_In_ PVMX_FEATURE_CONFIG Config);
 VOID HvVmxConfigGetDefaults(_Out_ PVMX_FEATURE_CONFIG Config);
+
+/**
+ * @brief Configures VMX settings.
+ *
+ * This function applies the given VMX configuration to the hypervisor.
+ *
+ * @param Config - Pointer to the VMX configuration structure.
+ *
+ * @return NTSTATUS - STATUS_SUCCESS on success, or an error code on failure.
+ */
+NTSTATUS VmxConfigureSettings(PVMX_CONFIG Config);
 
 #endif // VMX_CONFIG_H

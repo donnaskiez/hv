@@ -266,5 +266,45 @@ HvLogWrite(_In_ LOG_LEVEL Level, _In_ LOG_CATEGORY Category, _In_ PCSTR Format, 
         HvLogFlush(logger);
 }
 
+/**
+ * @brief Logs an informational message.
+ *
+ * This function logs a message with the INFO level, which is typically used
+ * for general information about the application's operation.
+ *
+ * @param Format - The format string for the log message.
+ * @param ... - Additional arguments for the format string.
+ */
+VOID LogInfo(
+    _In_ PCSTR Format,
+    ...
+)
+{
+    va_list args;
+    va_start(args, Format);
+    LogMessage(LOG_LEVEL_INFO, Format, args);
+    va_end(args);
+}
+
+/**
+ * @brief Logs an error message.
+ *
+ * This function logs a message with the ERROR level, which is typically used
+ * for reporting errors that require attention.
+ *
+ * @param Format - The format string for the log message.
+ * @param ... - Additional arguments for the format string.
+ */
+VOID LogError(
+    _In_ PCSTR Format,
+    ...
+)
+{
+    va_list args;
+    va_start(args, Format);
+    LogMessage(LOG_LEVEL_ERROR, Format, args);
+    va_end(args);
+}
+
 #endif
 #pragma warning(pop)
